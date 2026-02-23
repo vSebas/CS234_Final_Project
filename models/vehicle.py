@@ -517,7 +517,8 @@ class SingleTrackModel:
         # Time derivative
         dt = 1.0
 
-        # Global position derivatives (NED convention from models-main)
+        # Global position derivatives (ENU axes with heading from North, from models-main)
+        # See docs/DYNAMIC_MODEL.md Section 2.2 for derivation
         deast_mps = -ux_mps * ca.sin(psi_rad) - uy_mps * ca.cos(psi_rad)
         dnorth_mps = ux_mps * ca.cos(psi_rad) - uy_mps * ca.sin(psi_rad)
         dpsi_radps = r_radps
