@@ -1,12 +1,14 @@
 """
-Single-Track Vehicle Model - Unified Best-of-Both-Worlds
-
-Combines features from both models-main and multimodel-trajectory-optimization:
-- From models-main: lateral weight transfer (dfz_lat), clean structure, load-dependent tires
-- From multimodel: road geometry (grade, bank), time state, brake yaw moment
+Single-Track Vehicle Model
 
 Reference: Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory
 Optimization Over Multiple Models", IEEE Open Journal of Control Systems, 2025.
+
+Also combines features from both models-main and multimodel-trajectory-optimization:
+- From models-main: lateral weight transfer (dfz_lat), clean structure, load-dependent tires
+    - https://github.com/dynamicdesignlab/models
+- From multimodel: road geometry (grade, bank), time state, brake yaw moment
+    - https://github.com/dynamicdesignlab/multimodel-trajectory-optimization
 
 State vectors:
 - Dynamics:  [ux, uy, r, dfz_long, dfz_lat] (5 states)
@@ -40,7 +42,7 @@ BETA_SOFTPLUS = 2.0  # Smoothing parameter for braking-only force extraction
 
 
 # =============================================================================
-# Vehicle Parameters - Extended from models-main
+# Vehicle Parameters
 # =============================================================================
 
 @dataclass(frozen=True)
@@ -85,7 +87,7 @@ class VehicleParams:
     max_fx_dot_knps: float      # max force rate [kN/s]
     min_fx_dot_knps: float      # min force rate [kN/s]
 
-    # Load transfer properties (from models-main)
+    # Load transfer properties
     tau_long_weight_transfer_s: float   # longitudinal weight transfer time constant
     tau_lat_weight_transfer_s: float    # lateral weight transfer time constant
     roll_rate_radpmps2: float           # roll rate [rad/m/s^2]
@@ -162,12 +164,12 @@ class VehicleParams:
 
 
 # =============================================================================
-# Single-Track Model - Unified Implementation
+# Single-Track Model
 # =============================================================================
 
 class SingleTrackModel:
     """
-    Single track vehicle model - unified best-of-both-worlds.
+    Single track vehicle model
 
     Combines:
     - models-main: lateral weight transfer, clean structure
@@ -212,7 +214,7 @@ class SingleTrackModel:
         self.enable_weight_transfer = enable_weight_transfer
 
     # -------------------------------------------------------------------------
-    # Helper functions (from models-main)
+    # Helper functions
     # -------------------------------------------------------------------------
 
     def smooth_fx_distro_kn(self, fx_kn):
@@ -348,7 +350,7 @@ class SingleTrackModel:
         return mz_brake_kn_m
 
     # -------------------------------------------------------------------------
-    # Core dynamics - UNIFIED (models-main + multimodel road geometry)
+    # Core dynamics
     # -------------------------------------------------------------------------
 
     def temporal_dynamics(
@@ -365,8 +367,6 @@ class SingleTrackModel:
     ):
         """
         Calculate temporal velocity state derivatives (dx/dt).
-
-        UNIFIED: Combines models-main dynamics with multimodel road geometry.
 
         Args:
             ux_mps: longitudinal velocity [m/s]
@@ -412,10 +412,10 @@ class SingleTrackModel:
         fyr_n = fyr_kn * 1000.0
 
         # =====================================================================
-        # Drag and road geometry forces (UNIFIED)
+        # Drag and road geometry forces
         # =====================================================================
 
-        # Rolling resistance and aerodynamic drag (from models-main)
+        # Rolling resistance and aerodynamic drag
         frr_n = -p.cd0_n
         faero_n = -(p.cd1_nspm * ux_mps + p.cd2_ns2pm2 * ux_mps**2)
 
@@ -465,7 +465,7 @@ class SingleTrackModel:
         )
 
         # =====================================================================
-        # Weight transfer dynamics (from models-main, optionally enabled)
+        # Weight transfer dynamics (optionally enabled)
         # =====================================================================
 
         if self.enable_weight_transfer:
