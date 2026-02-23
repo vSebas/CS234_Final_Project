@@ -325,10 +325,10 @@ phi_rad = 0.0    # No bank
 
 ### 6.2 Weight Transfer Dynamics
 
-Set `enable_weight_transfer = False` to use static weight distribution:
-- Eliminates `ΔFz_long` and `ΔFz_lat` as states
-- Uses constant axle loads: `Fz,f = (b/L)·m·g`, `Fz,r = (a/L)·m·g`
-- Reduces state dimension from 8 to 6
+Set `enable_weight_transfer = False` to disable the **dynamics** of weight transfer states:
+- `d(ΔFz_long)/dt = 0` and `d(ΔFz_lat)/dt = 0`
+- Axle-load relation remains `Fz,f = (b/L)·m·g - ΔFz_long`, `Fz,r = (a/L)·m·g + ΔFz_long`
+- State dimension remains unchanged in current implementation (states are retained, dynamics are frozen)
 
 ```python
 vehicle = SingleTrackModel(params, f_tire, r_tire, enable_weight_transfer=False)
@@ -352,15 +352,14 @@ This applies when slip angles are small (`|α| << αsl`).
 
 ---
 
-## 7. Summary of Model Variants
+## 7. Practical Configurations
 
-| Variant | States | Features Disabled |
-|---------|--------|-------------------|
-| Full model | 8 | None |
-| No weight transfer | 6 | ΔFz_long, ΔFz_lat dynamics |
-| Flat track | 8 | Grade, bank forces |
-| Simple (linear tire) | 8 | Tire saturation |
-| Minimal | 6 | Weight transfer + flat track |
+| Configuration | States | What Changes |
+|---------------|--------|--------------|
+| Current default | 8 | Includes `ΔFz_lat` state and road geometry terms |
+| Flat-track extension | 8 | Set `θ = 0`, `φ = 0` |
+| Frozen transfer states | 8 | Set `enable_weight_transfer=False` |
+| Strict paper target | 7 (target architecture) | Remove dynamic `ΔFz_lat` state; keep only `ΔFz_long` as transfer state |
 
 ---
 
@@ -430,7 +429,38 @@ This section clarifies where the current implementation is exactly aligned with 
    - `Fx` saturation smoothing in `models/vehicle.py` currently uses fixed values in the call site.
    - The YAML includes axle-specific `eps` values and global smoothing metadata that should be explicitly wired to guarantee strict configuration-level reproducibility.
 
-### 9.3 If Strict Paper Compliance Is Required
+### 9.3 Compliance Snapshot
+
+| Aspect | Paper | Current Implementation | Status |
+|--------|-------|------------------------|--------|
+| Core `v̇x, v̇y, ṙ` structure | Yes | Yes | Match |
+| Path kinematics (`ṡ, ė, Δψ̇`) | Yes | Yes | Match |
+| Fiala tire model form | Yes | Yes | Match |
+| Load-dependent cornering stiffness | Yes | Yes | Match |
+| Longitudinal transfer (`ΔFz_long`) | Yes | Yes | Match |
+| Brake yaw moment term (`Mz,b`) | Yes | Yes | Match (with smoothing) |
+| Lateral transfer as propagated state | No | Yes | Extension |
+| Grade/bank forces | Not required in baseline | Yes | Extension |
+| 7-state structure used in planner/model | Yes | No (8-state) | Difference |
+
+### 9.4 Code-to-Equation Mapping
+
+| Paper component | Code location |
+|----------------|---------------|
+| Core dynamics and yaw moment term | `models/vehicle.py` (`temporal_dynamics`) |
+| Path kinematics (`ṡ, ė, Δψ̇`) | `models/vehicle.py` (`temporal_path_dynamics`) |
+| Longitudinal transfer dynamics | `models/vehicle.py` (`temporal_dynamics`) |
+| Fiala tire force law | `models/tire.py` (`calc_fy_kn`) |
+| Trapezoidal collocation discretization | `planning/optimizer.py` (dynamic constraints) |
+| Brake yaw moment helper (Appendix-B-style term) | `models/vehicle.py` (`calc_brake_yaw_moment_kn_m`) |
+
+### 9.5 Parameter Alignment Notes
+
+- Vehicle inertial/geometry values in `models/config/vehicle_params_gti.yaml` are configured to the VW Golf GTI setup used by the paper and reference code.
+- Tire parameters are scenario-dependent in the paper (especially friction bounds).  
+  The repository default YAML is set for dry conditions; for strict friction-robust paper replication, configure the low/high friction pair used in that experiment setup.
+
+### 9.6 If Strict Paper Compliance Is Required
 
 Use the following checklist:
 

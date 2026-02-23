@@ -151,37 +151,66 @@ B = jacobian(dx_ds, u)  # ∂f/∂u
 
 #### Step 2b: QP Subproblem
 
-The convex subproblem at iteration i is:
+The **convex** subproblem at iteration i is:
 
 ```
-minimize    J_lin(x, u) + w·‖v‖²    (linearized cost + virtual control penalty)
+minimize    t[N] + w·‖v‖²          (lap time + virtual control penalty)
 
 subject to  xₖ₊₁ = xₖ + (Δs/2)·[(Aₖxₖ + Bₖuₖ + cₖ) + (Aₖ₊₁xₖ₊₁ + Bₖ₊₁uₖ₊₁ + cₖ₊₁)] + vₖ
 
-            ‖x - x̄‖∞ ≤ Δ          (state trust region)
-            ‖u - ū‖∞ ≤ Δ          (control trust region)
+            |xᵢ - x̄ᵢ| ≤ Δ·σᵢ      (scaled state trust region)
+            |uⱼ - ūⱼ| ≤ Δ·ρⱼ      (scaled control trust region)
 
             x_min ≤ x ≤ x_max      (state bounds)
             u_min ≤ u ≤ u_max      (control bounds)
 ```
 
+**Key insight:** The objective `t[N] + w·‖v‖²` is **linear + quadratic = convex**. This is critical for proper SCP.
+
 Where:
+- `t[N]` is the final time (lap time), handled through linearized dynamics
 - `v` is **virtual control** (slack variable) that allows constraint relaxation
-- `w` is a large penalty weight on virtual control
-- `Δ` is the trust region radius
+- `w` is a large penalty weight on virtual control (default: 1e4)
+- `Δ` is the trust region multiplier
+- `σᵢ`, `ρⱼ` are per-dimension scaling factors for mixed-unit normalization
 
-#### Step 2d: Improvement Ratio
+#### Step 2d: Improvement Ratio (Merit Function)
 
-The improvement ratio ρ measures how well the linear model predicts actual improvement:
+The improvement ratio ρ measures how well the convex model predicts actual improvement.
 
+**Critical insight:** V (virtual control) is an *artifact* of the convex relaxation. It does not exist in the original nonlinear problem. Therefore, we use **two separate merit functions**:
+
+**1) Model merit (for predicted decrease):**
 ```
-ρ = (J_actual(xᵏ) - J_actual(x̃)) / (J_linear(xᵏ) - J_linear(x̃))
-  = actual_improvement / predicted_improvement
+Φ_model(x, u, v) = t[N] + w·‖v‖²
+```
+This is the QP objective. At the reference point, V=0, so `Φ_model(ref) = t_ref[N]`.
+
+**2) Nonlinear merit (for actual decrease) - NO V:**
+```
+Φ_nl(x, u) = t[N] + λ·‖defects_nl‖²
+```
+This measures the true nonlinear problem: lap time + dynamics violation.
+
+Where:
+- `t[N]` is the lap time (primary objective)
+- `‖defects_nl‖²` measures nonlinear dynamics violation (trapezoidal)
+- `λ` is the defect penalty weight (default: 1e3)
+- `w` is the virtual control weight (default: 1e4)
+
+Then:
+```
+predicted_decrease = Φ_model(ref, V=0) - Φ_model(new, V_new)
+                   = t_ref[N] - cost_qp
+
+actual_decrease = Φ_nl(ref) - Φ_nl(new)
+
+ρ = actual_decrease / predicted_decrease
 ```
 
-- `ρ ≈ 1`: Linear model is accurate
+- `ρ ≈ 1`: Convex model accurately predicts nonlinear behavior
 - `ρ < ρ_min`: Step rejected, shrink trust region
-- `ρ > ρ_good`: Expand trust region
+- `ρ ≥ ρ_good`: Accept step, expand trust region
 
 ---
 
@@ -211,16 +240,27 @@ Trust regions limit how far each step can go, ensuring the linearization remains
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 5.3 Trust Region Constraint Formulation
+### 5.3 Scaled Trust Region Constraint Formulation
 
-For each state and control at each node:
+**Problem:** A single scalar trust region Δ doesn't work well with mixed-unit state vectors (m/s, rad/s, kN, m, rad, s).
+
+**Solution:** Per-dimension scaling based on typical variable magnitudes:
 
 ```
-x̄ᵢₖ - Δ ≤ xᵢₖ ≤ x̄ᵢₖ + Δ    for all i ∈ {1,...,nx}, k ∈ {0,...,N}
-ūⱼₖ - Δ ≤ uⱼₖ ≤ ūⱼₖ + Δ    for all j ∈ {1,...,nu}, k ∈ {0,...,N}
+x̄ᵢₖ - Δ·σᵢ ≤ xᵢₖ ≤ x̄ᵢₖ + Δ·σᵢ    for all i ∈ {1,...,nx}, k ∈ {0,...,N}
+ūⱼₖ - Δ·ρⱼ ≤ uⱼₖ ≤ ūⱼₖ + Δ·ρⱼ    for all j ∈ {1,...,nu}, k ∈ {0,...,N}
 ```
 
-This creates a "box" around the reference trajectory within which the solution must lie.
+**Scaling factors:**
+```
+State scales σ:   [10, 2, 0.5, 1, 1, 1, 2, 0.3]  # ux, uy, r, dfz_long, dfz_lat, t, e, dpsi
+                   m/s m/s rad/s kN  kN  s  m  rad
+
+Control scales ρ: [0.3, 5.0]                      # delta, fx
+                   rad  kN
+```
+
+This ensures that a trust region multiplier of Δ=1 allows physically meaningful variations in all dimensions.
 
 ---
 
@@ -247,24 +287,29 @@ class SCPSolver:
 ```python
 @dataclass
 class SCPParams:
-    # Trust region
-    tr_radius_init: float = 2.0      # Initial trust region
+    # Trust region (now per-dimension scaled)
+    tr_radius_init: float = 1.0      # Initial trust region multiplier
     tr_radius_min: float = 0.01      # Minimum (termination condition)
     tr_radius_max: float = 10.0      # Maximum
     tr_shrink_factor: float = 0.5    # Shrink on rejection
     tr_expand_factor: float = 1.5    # Expand on good progress
 
-    # Convergence
+    # Convergence (now requires all three conditions)
     max_iterations: int = 50
     convergence_tol: float = 1e-4    # Cost change threshold
     constraint_tol: float = 1e-3     # Defect threshold
+    virtual_control_tol: float = 1e-4  # ||V|| threshold
 
     # Step acceptance
     rho_min: float = 0.1             # Minimum ρ to accept
     rho_good: float = 0.7            # ρ threshold for expansion
 
-    # Penalties
-    virtual_control_weight: float = 1e4
+    # Penalties (for merit function)
+    virtual_control_weight: float = 1e4   # w in Φ
+    defect_penalty_weight: float = 1e3    # λ in Φ
+
+    # QP solver ('osqp', 'qrqp', or 'ipopt')
+    qp_solver: str = 'osqp'               # Fast convex QP solver
 ```
 
 ### 6.3 Dynamics Linearization
@@ -296,7 +341,7 @@ def _build_linearization_functions(self):
 
 ### 6.4 QP Subproblem Construction
 
-Each SCP iteration solves:
+Each SCP iteration solves a **convex** subproblem:
 
 ```python
 def _solve_qp_subproblem(self, X_ref, U_ref, ...):
@@ -307,32 +352,42 @@ def _solve_qp_subproblem(self, X_ref, U_ref, ...):
     U = opti.variable(nu, N+1)      # Controls
     V = opti.variable(nx, N)        # Virtual control (slack)
 
-    # Objective: linearized time + virtual control penalty
-    cost = 0
-    for k in range(N):
-        s_dot_k = (ux[k]*cos(dpsi[k]) - uy[k]*sin(dpsi[k])) / (1 - k*e[k])
-        cost += ds / s_dot_k
-    cost += w_virtual * sumsqr(V)
+    # CONVEX Objective: t[N] + w * ||V||^2
+    # Linear in t[N] + quadratic in V = genuinely convex!
+    t = X[IDX_T, :]
+    cost = t[N] + virtual_control_weight * ca.sumsqr(V)
 
-    # Linearized dynamics constraints
+    opti.minimize(cost)
+
+    # Linearized dynamics constraints (affine = convex)
     for k in range(N):
         f_k = A[k] @ X[:,k] + B[k] @ U[:,k] + c[k]
         f_kp1 = A[k+1] @ X[:,k+1] + B[k+1] @ U[:,k+1] + c[k+1]
         opti.subject_to(X[:,k+1] == X[:,k] + ds/2*(f_k + f_kp1) + V[:,k])
 
-    # Trust region constraints
+    # SCALED trust region constraints (per-dimension)
     for k in range(N+1):
-        opti.subject_to(X[:,k] >= X_ref[:,k] - tr_radius)
-        opti.subject_to(X[:,k] <= X_ref[:,k] + tr_radius)
-        opti.subject_to(U[:,k] >= U_ref[:,k] - tr_radius)
-        opti.subject_to(U[:,k] <= U_ref[:,k] + tr_radius)
+        for i in range(nx):
+            tr_i = tr_multiplier * STATE_SCALES[i]
+            opti.subject_to(X[i,k] >= X_ref[i,k] - tr_i)
+            opti.subject_to(X[i,k] <= X_ref[i,k] + tr_i)
+        for j in range(nu):
+            tr_j = tr_multiplier * CONTROL_SCALES[j]
+            opti.subject_to(U[j,k] >= U_ref[j,k] - tr_j)
+            opti.subject_to(U[j,k] <= U_ref[j,k] + tr_j)
 
     # State/control bounds, boundary conditions...
 
-    opti.solver('ipopt', {'ipopt.print_level': 0})
+    # Use OSQP for fast convex QP solving
+    opti.solver('sqpmethod', {
+        'qpsol': 'osqp',
+        'qpsol_options': {'verbose': False},
+        'max_iter': 1,  # Single iteration since problem is QP
+    })
     sol = opti.solve()
 
-    return sol.value(X), sol.value(U), sol.value(cost)
+    V_norm_sq = np.sum(sol.value(V)**2)
+    return sol.value(X), sol.value(U), sol.value(cost), V_norm_sq
 ```
 
 ---
@@ -346,39 +401,46 @@ def solve(self, N, ds_m, X_init=None, U_init=None, ...):
     # Initialize
     X_ref = X_init if X_init is not None else default_trajectory()
     U_ref = U_init if U_init is not None else default_controls()
-    tr_radius = self.params.tr_radius_init
+    tr_multiplier = self.params.tr_radius_init
 
-    # Compute initial cost and constraint violation
-    cost_prev, defects_prev = self._compute_nonlinear_cost_and_dynamics(X_ref, U_ref, ...)
+    # Compute initial NONLINEAR merit (no V - V doesn't exist in original problem)
+    merit_prev, lap_time_prev, defect_norm_prev = self._compute_nonlinear_merit(X_ref, U_ref, ...)
 
     for iteration in range(self.params.max_iterations):
         # Step 1: Linearize around reference
         A_list, B_list, c_list = self._linearize_around_trajectory(X_ref, U_ref, ...)
 
-        # Step 2: Solve QP subproblem
-        X_new, U_new, cost_qp, success = self._solve_qp_subproblem(
-            X_ref, U_ref, A_list, B_list, c_list, tr_radius, ...)
+        # Step 2: Solve CONVEX QP subproblem
+        X_new, U_new, cost_qp, V_norm_sq, success = self._solve_qp_subproblem(
+            X_ref, U_ref, A_list, B_list, c_list, tr_multiplier, ...)
 
-        # Step 3: Evaluate actual cost at new point
-        cost_new, defects_new = self._compute_nonlinear_cost_and_dynamics(X_new, U_new, ...)
+        # Step 3: Compute ρ using TWO merit functions
+        # Model merit (predicted): Φ_model = t[N] + w*||V||²
+        model_merit_ref = X_ref[IDX_T, -1]  # At reference: V=0
+        model_merit_new = cost_qp           # QP objective value
+        predicted_decrease = model_merit_ref - model_merit_new
 
-        # Step 4: Compute improvement ratio
-        predicted_decrease = cost_prev - cost_qp
-        actual_decrease = cost_prev - cost_new
+        # Nonlinear merit (actual): Φ_nl = t[N] + λ*||defects_nl||² (NO V!)
+        merit_new, lap_time_new, defect_norm_new = self._compute_nonlinear_merit(
+            X_new, U_new, ...)  # No V_norm_sq!
+        actual_decrease = merit_prev - merit_new
+
         rho = actual_decrease / predicted_decrease
 
-        # Step 5: Accept or reject
-        if rho >= self.params.rho_min:
+        # Step 4: Accept or reject based on nonlinear merit
+        if rho >= self.params.rho_min and merit_new < merit_prev * 1.01:
             X_ref, U_ref = X_new, U_new
-            cost_prev = cost_new
+            merit_prev, lap_time_prev, defect_norm_prev = merit_new, lap_time_new, defect_norm_new
 
             if rho >= self.params.rho_good:
-                tr_radius *= self.params.tr_expand_factor
+                tr_multiplier *= self.params.tr_expand_factor
         else:
-            tr_radius *= self.params.tr_shrink_factor
+            tr_multiplier *= self.params.tr_shrink_factor
 
-        # Step 6: Check convergence
-        if cost_change < tol and max_defect < constraint_tol:
+        # Step 5: Check convergence (all three conditions)
+        if (cost_change < convergence_tol and
+            defect_norm < constraint_tol and
+            V_norm < virtual_control_tol):
             break
 
     return SCPResult(X=X_ref, U=U_ref, iterations=iteration, ...)
@@ -412,36 +474,41 @@ def _linearize_around_trajectory(self, X_ref, U_ref, s_grid, k_psi, theta, phi):
     return A_list, B_list, c_list
 ```
 
-### 7.3 Nonlinear Evaluation
+### 7.3 Nonlinear Merit Function Evaluation
 
 ```python
-def _compute_nonlinear_cost_and_dynamics(self, X, U, s_grid, k_psi, theta, phi, ds):
+def _compute_nonlinear_merit(self, X, U, s_grid, k_psi, theta, phi, ds):
     """
-    Evaluate the TRUE nonlinear cost and dynamics defects.
+    Compute NONLINEAR merit function: Φ_nl = t[N] + λ·‖defects_nl‖²
 
-    This is used to:
-    1. Compute improvement ratio ρ
-    2. Check constraint satisfaction
+    This is evaluated on TRUE nonlinear dynamics and contains NO virtual
+    control V. V is an artifact of the convex relaxation and does not
+    exist in the original problem.
+
+    Used for computing ACTUAL decrease in trust-region ρ.
     """
-    cost = 0.0
+    # Lap time (primary objective)
+    lap_time = X[IDX_T, -1]
+
+    # Compute nonlinear dynamics defects
     defects = np.zeros((nx, N))
-
     for k in range(N):
-        # True s_dot (nonlinear)
-        s_dot_k = (X[0,k]*cos(X[7,k]) - X[1,k]*sin(X[7,k])) / (1 - k_psi[k]*X[6,k])
-
-        # Cost contribution
-        cost += ds / s_dot_k
-
-        # Dynamics defect (should be zero if dynamics satisfied)
         f_k = self.f_dynamics(X[:,k], U[:,k], k_psi[k], theta[k], phi[k])
         f_kp1 = self.f_dynamics(X[:,k+1], U[:,k+1], k_psi[k+1], theta[k+1], phi[k+1])
 
         x_kp1_predicted = X[:,k] + ds/2 * (f_k + f_kp1)
         defects[:, k] = X[:,k+1] - x_kp1_predicted
 
-    return cost, defects
+    defect_norm_sq = np.sum(defects**2)
+    defect_norm = np.sqrt(defect_norm_sq)
+
+    # Nonlinear merit function (NO V term!)
+    merit = lap_time + defect_penalty_weight * defect_norm_sq
+
+    return merit, lap_time, defect_norm
 ```
+
+**Note:** The model merit `Φ_model = t[N] + w·‖V‖²` is just the QP objective value returned by `_solve_qp_subproblem()`. At the reference point, V=0, so `Φ_model(ref) = t_ref[N]`.
 
 ---
 
@@ -449,31 +516,39 @@ def _compute_nonlinear_cost_and_dynamics(self, X, U, s_grid, k_psi, theta, phi, 
 
 ### 8.1 Convergence Criteria
 
-The solver terminates when ANY of these conditions is met:
+The solver terminates when **ALL THREE** of these success conditions are met:
 
-1. **Cost convergence**: `|J^{k+1} - J^k| < convergence_tol`
-2. **Constraint satisfaction**: `max|defects| < constraint_tol`
-3. **Trust region collapse**: `Δ ≤ Δ_min`
-4. **Maximum iterations**: `k ≥ max_iterations`
+1. **Cost convergence**: `|t[N]^{k+1} - t[N]^k| < convergence_tol`
+2. **Constraint satisfaction**: `‖defects‖ < constraint_tol`
+3. **Virtual control vanishes**: `‖V‖ < virtual_control_tol`
+
+Or when ANY of these failure conditions occurs:
+
+4. **Trust region collapse**: `Δ ≤ Δ_min`
+5. **Maximum iterations**: `k ≥ max_iterations`
+
+**Why require all three?** Virtual control going to zero ensures the linearized dynamics match the nonlinear dynamics—a key indicator of true SCP convergence.
 
 ### 8.2 Typical Convergence Behavior
 
 ```
 Cold Start (poor initialization):
-─────────────────────────────────
-Iter  Cost     Defect    TR      Status
-0     26.00    0.087     3.0     rejected (ρ < 0)
-1     26.00    0.087     1.5     rejected
-2     26.00    0.087     0.75    rejected
+─────────────────────────────────────────────────────────────────────
+Iter  t[N]     defect    ‖V‖       TR      ρ       Status
+0     26.00    0.087     1.2e-1    1.0     -0.3    rejected
+1     26.00    0.087     1.2e-1    0.5     0.05    rejected
+2     26.00    0.087     1.2e-1    0.25    0.08    rejected
 ...
-8     26.00    0.087     0.01    TERMINATED (TR collapsed)
+8     26.00    0.087     1.2e-1    0.01    ---     TERMINATED (TR collapsed)
 
 Warm Start (good initialization):
-─────────────────────────────────
-Iter  Cost     Defect    TR      Status
-0     13.92    7.9e-8    3.0     rejected (already optimal)
-1     13.92    7.9e-8    1.5     CONVERGED
+─────────────────────────────────────────────────────────────────────
+Iter  t[N]     defect    ‖V‖       TR      ρ       Status
+0     13.92    7.9e-8    2.1e-6    1.0     0.95    accepted
+1     13.92    3.2e-9    8.4e-7    1.5     0.99    CONVERGED
 ```
+
+**Key diagnostic:** Virtual control ‖V‖ should decrease over iterations. If it stays large, the linearization is poor.
 
 ### 8.3 Why Cold Start Fails
 
@@ -537,9 +612,13 @@ With a good initial guess (from Direct Collocation):
 | Metric | Description | Good Value |
 |--------|-------------|------------|
 | SCP Iterations | Number of iterations to converge | Low (1-5) |
+| Initial ‖V‖ | Virtual control at first iteration | Low (<1e-3) |
+| Initial defect | Dynamics violation of warm-start | Low (<1e-3) |
 | Convergence Rate | How quickly cost decreases | Fast |
 | Success Rate | % of problems that converge | High (>95%) |
 | Final Cost | Optimality of solution | Similar to cold-start optimal |
+
+**Key insight:** A good warm-start has low initial ‖V‖ and defect, meaning the linearized dynamics are accurate from the start.
 
 ### 9.3 Decision Transformer as Warm-Start Generator
 
@@ -625,6 +704,40 @@ The implementation generates several visualizations:
 3. **`scp_warm_convergence.png`**: Shows rapid convergence
 4. **`warm_start_analysis.png`**: Side-by-side comparison
 5. **`method_comparison.png`**: All three methods compared
+
+---
+
+## 11. Implementation Correctness
+
+The SCP solver implements the three critical requirements for proper successive convexification:
+
+### 11.1 Convex Subproblem
+```python
+# Objective: t[N] + w * ||V||^2
+# Linear in t[N] + quadratic in V = genuinely convex
+cost = t[N] + virtual_control_weight * ca.sumsqr(V)
+```
+
+### 11.2 Consistent Merit Function
+```python
+# Same Φ for both predicted and actual decrease
+Φ = t[N] + λ * ||defects||^2 + w * ||V||^2
+
+predicted_decrease = Φ_ref - Φ_predicted  # from QP
+actual_decrease = Φ_prev - Φ_new          # from nonlinear eval
+rho = actual_decrease / predicted_decrease
+```
+
+### 11.3 Scaled Trust Region
+```python
+# Per-dimension scaling for mixed-unit states
+STATE_SCALES = [10, 2, 0.5, 1, 1, 1, 2, 0.3]  # m/s, m/s, rad/s, kN, kN, s, m, rad
+CONTROL_SCALES = [0.3, 5.0]                    # rad, kN
+
+# Trust region: |x_i - x_ref_i| <= Δ * scale_i
+```
+
+See `docs/scp_correctness_checklist.md` for the full verification checklist.
 
 ---
 

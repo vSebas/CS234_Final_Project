@@ -1,0 +1,187 @@
+======================================================================
+SCP SOLVER DEMO WITH VISUALIZATION
+======================================================================
+
+1. Loading track...
+   Track length: 260.0 m
+
+2. Creating vehicle model...
+   Vehicle: SingleTrackModel(VW_Golf_GTI, weight_transfer=enabled)
+
+3. Optimization setup:
+   N = 100 points
+   ds = 2.60 m
+   Total distance = 260.0 m
+
+======================================================================
+STEP 1: Direct Collocation Optimizer (IPOPT)
+======================================================================
+Solving...
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+This is Ipopt version 3.14.11, running with linear solver MUMPS 5.4.1.
+
+Number of nonzeros in equality constraint Jacobian...:    10627
+Number of nonzeros in inequality constraint Jacobian.:      909
+Number of nonzeros in Lagrangian Hessian.............:     4723
+
+Total number of variables............................:     1010
+                     variables with only lower bounds:        0
+                variables with lower and upper bounds:        0
+                     variables with only upper bounds:        0
+Total number of equality constraints.................:      810
+Total number of inequality constraints...............:      909
+        inequality constraints with only lower bounds:      505
+   inequality constraints with lower and upper bounds:        0
+        inequality constraints with only upper bounds:      404
+
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+   0  2.6000000e+01 1.30e-01 6.49e-01  -1.0 0.00e+00    -  0.00e+00 0.00e+00   0
+   1  2.3620375e+01 4.28e-01 3.31e+00  -1.0 3.08e+00    -  8.08e-01 1.00e+00f  1
+   2  1.9463800e+01 9.03e-01 8.33e-01  -1.0 4.58e+00    -  7.98e-01 1.00e+00f  1
+   3  1.4806166e+01 2.74e+00 2.79e-01  -1.7 5.20e+00    -  8.35e-01 1.00e+00h  1
+   4  1.4726104e+01 2.33e+00 1.35e-01  -1.7 1.78e+00    -  1.00e+00 1.00e+00h  1
+   5  1.5457460e+01 2.24e+00 1.04e+00  -1.7 2.06e+00    -  1.00e+00 1.00e+00h  1
+   6  1.5511318e+01 7.71e-01 2.40e-01  -1.7 5.68e-01    -  1.00e+00 1.00e+00h  1
+   7  1.5569505e+01 8.20e-02 4.22e-02  -1.7 2.31e-01    -  1.00e+00 1.00e+00h  1
+   8  1.5158275e+01 7.27e-02 4.47e-02  -2.5 1.32e+00    -  9.55e-01 1.00e+00h  1
+   9  1.4947753e+01 4.33e-02 2.93e-02  -2.5 7.34e-01    -  1.00e+00 1.00e+00h  1
+iter    objective    inf_pr   inf_du lg(mu)  ||d||  lg(rg) alpha_du alpha_pr  ls
+  10  1.4978380e+01 7.38e-04 1.53e-03  -2.5 1.34e-01    -  1.00e+00 1.00e+00h  1
+  11  1.4907991e+01 6.53e-03 6.15e-03  -3.8 4.09e-01    -  1.00e+00 7.05e-01h  1
+  12  1.4902361e+01 2.05e-03 2.07e-02  -3.8 1.09e-01    -  1.00e+00 7.37e-01h  1
+  13  1.4902502e+01 1.85e-04 5.94e-05  -3.8 3.18e-02    -  1.00e+00 1.00e+00h  1
+  14  1.4901361e+01 7.13e-05 3.12e-03  -5.7 2.01e-02    -  1.00e+00 8.31e-01h  1
+  15  1.4901315e+01 3.30e-05 7.09e-06  -5.7 1.11e-02    -  1.00e+00 1.00e+00h  1
+  16  1.4901308e+01 5.61e-07 9.33e-08  -5.7 1.54e-03    -  1.00e+00 1.00e+00h  1
+  17  1.4901298e+01 1.02e-07 2.04e-08  -7.0 6.06e-04    -  1.00e+00 1.00e+00h  1
+
+Number of Iterations....: 17
+
+                                   (scaled)                 (unscaled)
+Objective...............:   1.4901297645101886e+01    1.4901297645101886e+01
+Dual infeasibility......:   2.0446293359788204e-08    2.0446293359788204e-08
+Constraint violation....:   9.9692275533604865e-08    1.0219478951967176e-07
+Variable bound violation:   0.0000000000000000e+00    0.0000000000000000e+00
+Complementarity.........:   1.0398653146543317e-07    1.0398653146543317e-07
+Overall NLP error.......:   1.0398653146543317e-07    1.0398653146543317e-07
+
+
+Number of objective function evaluations             = 18
+Number of objective gradient evaluations             = 18
+Number of equality constraint evaluations            = 18
+Number of inequality constraint evaluations          = 18
+Number of equality constraint Jacobian evaluations   = 18
+Number of inequality constraint Jacobian evaluations = 18
+Number of Lagrangian Hessian evaluations             = 17
+Total seconds in IPOPT                               = 2.181
+
+EXIT: Optimal Solution Found.
+      solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
+       nlp_f  |   3.22ms (178.94us)   3.24ms (180.25us)        18
+       nlp_g  |  63.22ms (  3.51ms)  63.50ms (  3.53ms)        18
+  nlp_grad_f  |   6.78ms (357.00us)   6.83ms (359.70us)        19
+  nlp_hess_l  |   1.51 s ( 88.75ms)   1.52 s ( 89.16ms)        17
+   nlp_jac_g  | 426.05ms ( 22.42ms) 428.07ms ( 22.53ms)        19
+       total  |   2.17 s (  2.17 s)   2.18 s (  2.18 s)         1
+
+Direct Collocation Result:
+  Success: True
+  Lap time: 14.9013 s
+  Iterations: 17
+  Solve time: 9.96 s
+
+Generating Direct Collocation visualizations...
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/dc_trajectory.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/dc_states.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/dc_controls.png
+
+======================================================================
+STEP 2: SCP Solver (Cold Start) - Using IPOPT
+======================================================================
+Solving with cold start (no warm-start, IPOPT solver)...
+SCP Solver: N=100, ds=2.6m, track length=260.0m
+Initial: lap_time=26.0000s, defect=1.530116, merit=23438.5630
+----------------------------------------------------------------------
+  Iter 0: t=26.0000s, defect=1.530116, ||V||=1.75e-09, tr=1.500, rho=-193137.660 (rejected)
+  Iter 1: t=26.0000s, defect=1.530116, ||V||=1.81e-01, tr=0.750, rho=1148.990 (rejected)
+  Iter 2: t=26.0000s, defect=1.530116, ||V||=4.37e-01, tr=0.375, rho=10.519 (rejected)
+  Iter 3: t=26.0000s, defect=1.530116, ||V||=5.72e-01, tr=0.188, rho=-5.093 (rejected)
+  Iter 4: t=26.0000s, defect=1.530116, ||V||=6.47e-01, tr=0.094, rho=-4.528 (rejected)
+  Iter 5: t=26.0000s, defect=1.530116, ||V||=6.86e-01, tr=0.047, rho=-3.967 (rejected)
+  Iter 6: t=26.0000s, defect=1.530116, ||V||=7.06e-01, tr=0.023, rho=-3.693 (rejected)
+  Iter 7: t=26.0000s, defect=1.530116, ||V||=7.36e-01, tr=0.012, rho=-3.310 (rejected)
+  Iter 8: t=26.0000s, defect=1.530116, ||V||=1.01e+00, tr=0.010, rho=-1.295 (rejected)
+----------------------------------------------------------------------
+Termination: Trust region collapsed to minimum
+Final: lap_time=26.0000s, defect=1.530116, iterations=9, time=18.19s
+
+SCP Cold Start Result:
+  Success: False
+  Converged: False
+  Feasible: False
+  Lap time: 26.0000 s
+  Iterations: 9
+  Solve time: 18.19 s
+  Termination: Trust region collapsed to minimum
+
+Generating SCP cold start visualizations...
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_cold_trajectory.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_cold_states.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_cold_controls.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_cold_convergence.png
+
+======================================================================
+STEP 3: SCP Solver (Warm Start from Direct Collocation) - Using OSQP
+======================================================================
+Solving with warm start from DC result (OSQP solver)...
+SCP Solver: N=100, ds=2.6m, track length=260.0m
+Initial: lap_time=14.7094s, defect=0.000000, merit=14.7094
+----------------------------------------------------------------------
+Early exit: initial trajectory already feasible (defect=2.95e-07)
+
+SCP Warm Start Result:
+  Success: True
+  Converged: True
+  Feasible: True
+  Early exit: True
+  Lap time: 14.7094 s
+  Iterations: 0
+  Solve time: 0.02 s
+  Termination: Early exit: initial trajectory already feasible
+
+Generating SCP warm start visualizations...
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_warm_trajectory.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_warm_states.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_warm_controls.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/scp_warm_convergence.png
+
+======================================================================
+STEP 4: Comparison and Analysis
+======================================================================
+
+Generating comparison plots...
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/method_comparison.png
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/warm_start_analysis.png
+
+Generating trajectory animation...
+  Saved: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/trajectory_animation.gif
+
+======================================================================
+SUMMARY
+======================================================================
+
+Method                         Solver   Iters  Time[s]  Cost[s]   Conv   Feas   Early
+------------------------------------------------------------------------------------------
+Direct Collocation             IPOPT    17     9.96     14.9013   N/A    N/A    N/A
+SCP (Cold Start)               IPOPT    9      18.19    26.0000   False  False  No
+SCP (Warm Start)               OSQP     0      0.02     14.7094   True   True   Yes
+
+All outputs saved to: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization
+
+Demo complete!

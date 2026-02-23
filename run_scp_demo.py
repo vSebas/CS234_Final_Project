@@ -3,10 +3,14 @@
 SCP Solver Demo and Visualization
 
 This script demonstrates:
-1. Running the direct collocation optimizer (baseline)
-2. Running the SCP solver with cold start
-3. Running the SCP solver with warm start (from direct collocation)
+1. Running the direct collocation optimizer (baseline, IPOPT)
+2. Running the SCP solver with cold start (IPOPT - robust for ill-conditioned)
+3. Running the SCP solver with warm start (OSQP - fast convex QP solver)
 4. Comparing results and generating visualizations
+
+QP Solver Strategy:
+- Cold start uses IPOPT: More robust for ill-conditioned problems
+- Warm start uses OSQP: Faster for well-conditioned convex QPs
 
 All outputs are saved to the results/ directory.
 """
@@ -117,23 +121,25 @@ def run_demo():
         print(f"  Saved: {path}")
 
     # =========================================================================
-    # Step 2: Run SCP with Cold Start
+    # Step 2: Run SCP with Cold Start (IPOPT - robust for ill-conditioned)
     # =========================================================================
     print("\n" + "=" * 70)
-    print("STEP 2: SCP Solver (Cold Start)")
+    print("STEP 2: SCP Solver (Cold Start) - Using IPOPT")
     print("=" * 70)
 
-    scp_params = SCPParams(
+    # Use IPOPT for cold-start (more robust for ill-conditioned problems)
+    scp_params_cold = SCPParams(
         max_iterations=30,
         tr_radius_init=3.0,
         convergence_tol=1e-3,
+        qp_solver='ipopt',  # Robust for cold-start
         verbose=True
     )
 
-    scp_solver = SCPSolver(vehicle, world, params=scp_params)
+    scp_solver_cold = SCPSolver(vehicle, world, params=scp_params_cold)
 
-    print("Solving with cold start (no warm-start)...")
-    scp_cold_result = scp_solver.solve(
+    print("Solving with cold start (no warm-start, IPOPT solver)...")
+    scp_cold_result = scp_solver_cold.solve(
         N=N,
         ds_m=ds_m,
         X_init=None,  # No warm-start
@@ -145,6 +151,7 @@ def run_demo():
     print(f"\nSCP Cold Start Result:")
     print(f"  Success: {scp_cold_result.success}")
     print(f"  Converged: {scp_cold_result.converged}")
+    print(f"  Feasible: {scp_cold_result.feasible}")
     print(f"  Lap time: {scp_cold_result.cost:.4f} s")
     print(f"  Iterations: {scp_cold_result.iterations}")
     print(f"  Solve time: {scp_cold_result.solve_time:.2f} s")
@@ -157,14 +164,25 @@ def run_demo():
         print(f"  Saved: {path}")
 
     # =========================================================================
-    # Step 3: Run SCP with Warm Start (from DC)
+    # Step 3: Run SCP with Warm Start (from DC) - Using OSQP
     # =========================================================================
     print("\n" + "=" * 70)
-    print("STEP 3: SCP Solver (Warm Start from Direct Collocation)")
+    print("STEP 3: SCP Solver (Warm Start from Direct Collocation) - Using OSQP")
     print("=" * 70)
 
-    print("Solving with warm start from DC result...")
-    scp_warm_result = scp_solver.solve(
+    # Use OSQP for warm-start (faster convex QP solver, works well with good init)
+    scp_params_warm = SCPParams(
+        max_iterations=30,
+        tr_radius_init=3.0,
+        convergence_tol=1e-3,
+        qp_solver='osqp',  # Fast convex QP solver for warm-start
+        verbose=True
+    )
+
+    scp_solver_warm = SCPSolver(vehicle, world, params=scp_params_warm)
+
+    print("Solving with warm start from DC result (OSQP solver)...")
+    scp_warm_result = scp_solver_warm.solve(
         N=N,
         ds_m=ds_m,
         X_init=dc_result.X,  # Warm-start from DC
@@ -173,9 +191,12 @@ def run_demo():
         convergent_lap=True
     )
 
+    early_exit_used = scp_warm_result.iterations == 0 and scp_warm_result.feasible
     print(f"\nSCP Warm Start Result:")
     print(f"  Success: {scp_warm_result.success}")
     print(f"  Converged: {scp_warm_result.converged}")
+    print(f"  Feasible: {scp_warm_result.feasible}")
+    print(f"  Early exit: {early_exit_used}")
     print(f"  Lap time: {scp_warm_result.cost:.4f} s")
     print(f"  Iterations: {scp_warm_result.iterations}")
     print(f"  Solve time: {scp_warm_result.solve_time:.2f} s")
@@ -236,11 +257,12 @@ def run_demo():
     print("SUMMARY")
     print("=" * 70)
 
-    print(f"\n{'Method':<25} {'Iterations':<12} {'Time [s]':<12} {'Cost [s]':<12} {'Success'}")
-    print("-" * 70)
-    print(f"{'Direct Collocation':<25} {dc_result.iterations:<12} {dc_result.solve_time:<12.2f} {dc_result.cost:<12.4f} {dc_result.success}")
-    print(f"{'SCP (Cold Start)':<25} {scp_cold_result.iterations:<12} {scp_cold_result.solve_time:<12.2f} {scp_cold_result.cost:<12.4f} {scp_cold_result.success}")
-    print(f"{'SCP (Warm Start)':<25} {scp_warm_result.iterations:<12} {scp_warm_result.solve_time:<12.2f} {scp_warm_result.cost:<12.4f} {scp_warm_result.success}")
+    print(f"\n{'Method':<30} {'Solver':<8} {'Iters':<6} {'Time[s]':<8} {'Cost[s]':<9} {'Conv':<6} {'Feas':<6} {'Early'}")
+    print("-" * 90)
+    print(f"{'Direct Collocation':<30} {'IPOPT':<8} {dc_result.iterations:<6} {dc_result.solve_time:<8.2f} {dc_result.cost:<9.4f} {'N/A':<6} {'N/A':<6} {'N/A'}")
+    print(f"{'SCP (Cold Start)':<30} {'IPOPT':<8} {scp_cold_result.iterations:<6} {scp_cold_result.solve_time:<8.2f} {scp_cold_result.cost:<9.4f} {str(scp_cold_result.converged):<6} {str(scp_cold_result.feasible):<6} {'No'}")
+    warm_early = "Yes" if (scp_warm_result.iterations == 0 and scp_warm_result.feasible) else "No"
+    print(f"{'SCP (Warm Start)':<30} {'OSQP':<8} {scp_warm_result.iterations:<6} {scp_warm_result.solve_time:<8.2f} {scp_warm_result.cost:<9.4f} {str(scp_warm_result.converged):<6} {str(scp_warm_result.feasible):<6} {warm_early}")
 
     # Calculate speedup
     if scp_cold_result.iterations > 0 and scp_warm_result.iterations > 0:
