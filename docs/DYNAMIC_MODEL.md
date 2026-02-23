@@ -397,6 +397,53 @@ This applies when slip angles are small (`|α| << αsl`).
 
 ---
 
+## 9. Paper Compliance and Current Differences
+
+This section clarifies where the current implementation is exactly aligned with Aggarwal & Gerdes (2025), and where it intentionally extends or differs.
+
+### 9.1 What Matches the Paper
+
+- Core body dynamics equations (`v̇x`, `v̇y`, `ṙ`) and path kinematics (`ṡ`, `ė`, `Δψ̇`)
+- Front/rear slip angle definitions
+- Fiala tire structure with friction-circle derating, saturation smoothing parameter `ξ`, and load-dependent cornering stiffness
+- First-order longitudinal weight transfer dynamics and normal-load split:
+  - `Fz,f = (b/L)mg - ΔFz_long`
+  - `Fz,r = (a/L)mg + ΔFz_long`
+- Inclusion of brake yaw moment `Mz,b` in yaw dynamics
+
+### 9.2 Current Differences vs. Paper Model
+
+1. State definition differs from the paper's 7-state formulation.
+   - Paper state (spatial form): `[vx, vy, r, t, e, Δψ, ΔFz_long]`
+   - Current implementation: `[vx, vy, r, ΔFz_long, ΔFz_lat, t, e, Δψ]`
+   - Difference: added lateral weight-transfer state `ΔFz_lat`.
+
+2. Lateral weight transfer is dynamic in current code.
+   - Current code models `ΔFz_lat` with first-order dynamics.
+   - Paper primarily uses lateral transfer in the brake-yaw-moment derivation (Appendix B), not as a propagated state in the core single-track state vector.
+
+3. Road geometry terms are included by default in equations (`θ`, `φ`).
+   - Current model includes grade and bank effects (`Fgrade`, `Fl`).
+   - Paper Section III model description is commonly used in flat-track form for optimization examples; road-topography terms are a broader extension from the reference codebase.
+
+4. Some numerical smoothing parameters are currently hardcoded in code paths.
+   - `Fx` saturation smoothing in `models/vehicle.py` currently uses fixed values in the call site.
+   - The YAML includes axle-specific `eps` values and global smoothing metadata that should be explicitly wired to guarantee strict configuration-level reproducibility.
+
+### 9.3 If Strict Paper Compliance Is Required
+
+Use the following checklist:
+
+- Use the 7-state paper form (exclude `ΔFz_lat` as a propagated state).
+- Keep `ΔFz_long` first-order dynamics exactly as in Eq. (2).
+- Compute `Mz,b` from acceleration/braking relations (Appendix B) without introducing extra state dependence unless explicitly intended.
+- Run flat-track dynamics (`θ = 0`, `φ = 0`) unless a topography extension is being studied.
+- Ensure all smoothing constants (`eps_f`, `eps_r`, softplus/saturation params) are loaded from config, documented, and fixed for experiments.
+
+When publishing results as "paper-compliant," clearly state whether any of the above extensions are enabled.
+
+---
+
 ## References
 
 1. Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory Optimization Over Multiple Models", IEEE OJCS, 2025.
