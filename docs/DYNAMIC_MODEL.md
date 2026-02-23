@@ -248,7 +248,25 @@ Fy =    ⎨
 Where:
 - `Cα = C'α·Fz`: Load-dependent cornering stiffness
 - `Fy_max = √((μ·Fz)² - Fx²)`: Maximum lateral force (friction circle)
-- `αsl = tan⁻¹(3·Fy_max/Cα)`: Saturation slip angle
+- `αsl = tan⁻¹(3·Fy_max·ξ/Cα)`: Saturation slip angle (ξ = 0.95)
+
+#### Surface-Dependent Tire Parameters
+
+The friction coefficient `μ` and cornering stiffness sensitivity `C'α` vary significantly with surface conditions. The table below provides experimentally-validated values for the VW Golf GTI:
+
+| Surface    | μ_front | μ_rear | C'α,f [1/rad] | C'α,r [1/rad] | Source |
+|------------|---------|--------|---------------|---------------|--------|
+| **Dry**    | 0.87    | 1.03   | 19.5          | 22.5          | Subosits 2021, Table VIII |
+| **Wet**    | 0.72    | 0.90   | 26.5          | 30.0          | Subosits 2021, Table VII |
+| **Ice**    | 0.25    | 0.26   | 8.0           | 13.0          | Aggarwal 2025, Table 4 |
+
+**Notes:**
+- Rear tires typically have slightly higher μ due to weight distribution effects
+- Cornering stiffness is **higher** on wet surfaces due to tire heating characteristics
+- Ice has lowest stiffness due to reduced tire-road mechanical interaction
+- The default configuration uses **dry asphalt** parameters
+
+To change surface conditions, modify `mu_none` and `c1_alpha_1prad` in `models/config/vehicle_params_gti.yaml`.
 
 ### 5.2 Drag Forces
 

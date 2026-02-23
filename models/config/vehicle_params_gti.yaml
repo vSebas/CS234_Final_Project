@@ -1,9 +1,13 @@
 # VW Golf GTI Parameters
-# From: Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory Optimization
-#       Over Multiple Models", IEEE Open Journal of Control Systems, 2025
-# Reference: models/reference_models/multimodel-trajectory-optimization-main/src/vehicle_params_gti.yaml
+# ============================================================================
+# References:
+#   [1] Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory
+#       Optimization Over Multiple Models", IEEE OJCS, 2025 (Table 3, 4)
+#   [2] Subosits & Gerdes, "Impacts of Model Fidelity on Trajectory Optimization
+#       for Autonomous Vehicles in Extreme Maneuvers", IEEE T-IV, 2021 (Table VI-VIII)
 #
-# IMPORTANT: This file matches the paper's parameters EXACTLY.
+# Both papers use the same VW Golf GTI test vehicle (2018/2019 model).
+# ============================================================================
 
 vehicle:
   name: "VW_Golf_GTI"
@@ -30,15 +34,15 @@ vehicle:
   h_rc_f_m: 0.07                  # Front roll center height [m]
   h_rc_r_m: 0.11                  # Rear roll center height [m]
   # Derived: h_rc_avg = (0.07*1.44 + 0.11*1.19)/2.63 = 0.088 m
-  # Derived: h_roll_arm = h_com - h_rc_avg = 0.55 - 0.088 = 0.462 m ≈ 0.46 m
+  # Derived: h_roll_arm = h_com - h_rc_avg = 0.55 - 0.088 = 0.462 m ≈ 0.46 m (paper: h_l)
 
   # ============================================================================
-  # Roll Dynamics (from paper Table 3)
+  # Roll Dynamics (from paper [1] Table 3)
   # ============================================================================
   K_phi_f_knmprad: 81.0           # Front roll stiffness [kN*m/rad]
   K_phi_r_knmprad: 38.0           # Rear roll stiffness [kN*m/rad]
-  # Paper states: R_φ = 4.4 deg/g = 0.00783 rad/(m/s²)
-  roll_rate_radpmps2: 0.00783     # Roll rate [rad/(m/s²)] = 4.4 deg/g
+  # Paper states: R_phi = 4.4 deg/g = 0.00783 rad/(m/s^2)
+  roll_rate_radpmps2: 0.00783     # Roll rate [rad/(m/s^2)] = 4.4 deg/g
 
   # ============================================================================
   # Aerodynamics and Rolling Resistance
@@ -81,34 +85,78 @@ vehicle:
 # ============================================================================
 # Tire Parameters (Fiala Brush Model)
 # ============================================================================
-# Note: Paper uses multi-model approach with μ ∈ [μ_lb, μ_ub] for robustness
-# Front and rear can have different friction coefficients
+# Cornering stiffness model: C_alpha = c0 + c1 * Fz
+# Friction circle: Fy_max = sqrt((mu*Fz)^2 - Fx^2)
+#
+# ============================================================================
+# SURFACE CONDITION PARAMETERS
+# ============================================================================
+# The tire parameters below are configured for DRY ASPHALT.
+# To change surface conditions, modify mu_none and c1_alpha as follows:
+#
+# +------------+--------+--------+----------------+----------------+
+# | Surface    | mu_f   | mu_r   | c1_alpha_f     | c1_alpha_r     |
+# |            |        |        | [1/rad]        | [1/rad]        |
+# +------------+--------+--------+----------------+----------------+
+# | DRY        | 0.87   | 1.03   | 19.5           | 22.5           |  <-- CURRENT
+# | WET        | 0.72   | 0.90   | 26.5           | 30.0           |
+# | ICE/SNOW   | 0.25   | 0.26   |  8.0           | 13.0           |
+# +------------+--------+--------+----------------+----------------+
+#
+# Sources:
+#   - DRY:  Subosits & Gerdes 2021, Table VIII (mu=0.90 avg, Thunderhill dry)
+#   - WET:  Subosits & Gerdes 2021, Table VII (mu=0.72-0.90, Thunderhill wet)
+#   - ICE:  Aggarwal & Gerdes 2025, Table 4 (mu=0.25-0.35, frozen lake)
+#           Subosits & Gerdes 2021, Table VI (mu=0.26, frozen lake)
+#
+# Note: Cornering stiffness tends to be HIGHER on wet surfaces due to
+# different tire heating characteristics. Ice has lowest stiffness due
+# to reduced tire-road interaction.
+# ============================================================================
 
 tire_front:
   # Cornering stiffness: C_alpha = c0 + c1 * Fz
-  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad] (paper: ca_0_f = 0)
-  c1_alpha_1prad: 8.0             # Load-dependent stiffness [1/rad] (paper: ca_1_f = 8 kN/rad/kN)
+  # At nominal front load ~9 kN: C_alpha = 19.5 * 9000 = 175.5 kN/rad
+  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad]
+  c1_alpha_1prad: 19.5            # Load-dependent stiffness [1/rad]
+                                  # DRY: 19.5 | WET: 26.5 | ICE: 8.0
 
-  # Friction coefficient bounds (paper Table 4)
-  mu_none: 0.35                   # Nominal friction coefficient [-] (using upper bound)
-  mu_lb: 0.25                     # Lower bound friction coefficient [-]
-  mu_ub: 0.35                     # Upper bound friction coefficient [-]
+  # Friction coefficient (DRY ASPHALT - Subosits Table VIII)
+  mu_none: 0.87                   # Nominal friction coefficient [-]
+                                  # DRY: 0.87 | WET: 0.72 | ICE: 0.25
+  mu_lb: 0.80                     # Lower bound friction coefficient [-]
+                                  # DRY: 0.80 | WET: 0.65 | ICE: 0.20
+  mu_ub: 0.95                     # Upper bound friction coefficient [-]
+                                  # DRY: 0.95 | WET: 0.80 | ICE: 0.30
 
   # Numerical smoothing for Fx saturation
   eps: 0.0025                     # Smoothing parameter (paper: eps_f = 0.0025)
 
 tire_rear:
   # Cornering stiffness: C_alpha = c0 + c1 * Fz
-  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad] (paper: ca_0_r = 0)
-  c1_alpha_1prad: 13.0            # Load-dependent stiffness [1/rad] (paper: ca_1_r = 13 kN/rad/kN)
+  # At nominal rear load ~10 kN: C_alpha = 22.5 * 10000 = 225 kN/rad
+  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad]
+  c1_alpha_1prad: 22.5            # Load-dependent stiffness [1/rad]
+                                  # DRY: 22.5 | WET: 30.0 | ICE: 13.0
 
-  # Friction coefficient bounds (paper Table 4)
-  mu_none: 0.35                   # Nominal friction coefficient [-] (using upper bound)
-  mu_lb: 0.25                     # Lower bound friction coefficient [-]
-  mu_ub: 0.35                     # Upper bound friction coefficient [-]
+  # Friction coefficient (DRY ASPHALT - Subosits Table VIII)
+  # Note: Rear typically has slightly higher mu due to weight distribution
+  mu_none: 1.03                   # Nominal friction coefficient [-]
+                                  # DRY: 1.03 | WET: 0.90 | ICE: 0.26
+  mu_lb: 0.95                     # Lower bound friction coefficient [-]
+                                  # DRY: 0.95 | WET: 0.82 | ICE: 0.22
+  mu_ub: 1.10                     # Upper bound friction coefficient [-]
+                                  # DRY: 1.10 | WET: 0.98 | ICE: 0.30
 
   # Numerical smoothing for Fx saturation
   eps: 0.00208                    # Smoothing parameter (paper: eps_r = 0.00208)
+
+# ============================================================================
+# Tire Saturation Parameters (Aggarwal paper Table 1)
+# These are the same for front and rear, loaded from code defaults if not specified
+# ============================================================================
+fy_xi: 0.95                     # Tire saturation slope parameter (xi) [-]
+max_allowed_fx_frac: 0.99       # Fy_max scaling (rho) to avoid singularity [-]
 
 # ============================================================================
 # Numerical Parameters

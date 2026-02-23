@@ -51,15 +51,15 @@ class FialaBrushTire:
         c0_alpha_nprad: Base cornering stiffness [N/rad]
         c1_alpha_1prad: Load-dependent cornering stiffness [1/rad] (slope)
         mu_none: Friction coefficient [-]
-        fy_xi: Saturation parameter (default 0.90)
+        fy_xi: Saturation parameter (default 0.95)
         max_allowed_fx_frac: Max Fx as fraction of friction circle (default 0.99)
     """
 
     c0_alpha_nprad: float   # Base cornering stiffness [N/rad]
     c1_alpha_1prad: float   # Load sensitivity [1/rad per kN]
     mu_none: float          # Friction coefficient
-    fy_xi: float = 0.90     # Saturation parameter
-    max_allowed_fx_frac: float = 0.99
+    fy_xi: float = 0.95     # Saturation parameter (paper: xi = 0.95)
+    max_allowed_fx_frac: float = 0.99  # Fy_max scaling (paper: rho = 0.99)
 
     def calc_max_fy_kn(self, fz_kn, fx_kn):
         """
