@@ -275,6 +275,7 @@ print(f"SCP iterations: {scp_result.iterations}")
 - [x] Implement direct collocation optimizer
 - [x] Implement SCP solver with trust regions
 - [x] Create visualization tools
+- [ ] What are we optimizing on? Max speed? Obstacle avoidance?
 - [ ] Dataset generation pipeline
 - [ ] Decision Transformer training script
 - [ ] Warm-start integration with SCP
