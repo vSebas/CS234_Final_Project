@@ -27,6 +27,9 @@ This project investigates whether an offline sequence model (Decision Transforme
 ### Single-Track (Bicycle) Model
 
 Based on [Aggarwal & Gerdes, IEEE OJCS 2025](https://doi.org/10.1109/OJCSYS.2025.3635449): *"Friction-Robust Autonomous Racing Using Trajectory Optimization Over Multiple Models"*
+Also from:
+- https://github.com/dynamicdesignlab/models
+- https://github.com/dynamicdesignlab/multimodel-trajectory-optimization
 
 The model captures:
 - **3 DOF dynamics:** longitudinal velocity (u_x), lateral velocity (u_y), yaw rate (r)
@@ -151,7 +154,8 @@ CS234_Final_Project/
 │   └── trajectory_animation.gif
 │
 ├── run_scp_demo.py           # Main demo script
-├── test_unified_model.py     # Model verification script
+├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
+├── test_dynamic_model.py     # Model verification script
 ├── create_oval_track.py      # Track generation script
 └── README.md                 # This file
 ```
@@ -183,6 +187,44 @@ This will:
 2. Solve with SCP (cold start)
 3. Solve with SCP (warm start from DC result)
 4. Generate comparison visualizations in `results/`
+
+### Vehicle Simulation
+
+Simulate the vehicle dynamics with custom throttle and steering inputs (no track required):
+
+```bash
+python simulate_vehicle.py --scenario constant_turn --duration 5
+```
+
+**Predefined Scenarios:**
+| Scenario | Description |
+|----------|-------------|
+| `constant_turn` | Steady-state cornering (10° steering) |
+| `lane_change` | Sinusoidal steering (lane change maneuver) |
+| `step_steer` | Sudden steering input at t=2s |
+| `acceleration` | Throttle ramp from rest |
+| `braking` | Hard braking from high speed |
+| `slalom` | Weaving/slalom maneuver |
+
+**Custom Inputs:**
+```bash
+# Constant steering and throttle
+python simulate_vehicle.py --steering 5.0 --throttle 2.0 --duration 10
+
+# Adjust initial speed
+python simulate_vehicle.py --scenario lane_change --initial-speed 20 --duration 8
+```
+
+**Options:**
+- `--duration`: Simulation time in seconds (default: 10)
+- `--initial-speed`: Starting velocity in m/s (default: 0)
+- `--output-dir`: Output directory (default: `results/dynamic_simulations`)
+- `--no-animation`: Skip GIF generation, only save static plot
+- `--fps`: Animation frame rate (default: 30)
+
+Outputs are saved to `results/dynamic_simulations/`:
+- `sim_<scenario>_trajectory.png` - Static trajectory plot
+- `sim_<scenario>_animation.gif` - Animated vehicle motion
 
 ### Basic Usage
 
