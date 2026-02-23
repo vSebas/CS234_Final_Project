@@ -3,10 +3,10 @@ Single-Track Vehicle Model - Unified Best-of-Both-Worlds
 
 Combines features from both models-main and multimodel-trajectory-optimization:
 - From models-main: lateral weight transfer (dfz_lat), clean structure, load-dependent tires
-- From multimodel: road geometry (grade, bank), time state
+- From multimodel: road geometry (grade, bank), time state, brake yaw moment
 
-Reference: Subosits & Gerdes, "Impacts of Model Fidelity on Trajectory Optimization
-for Autonomous Vehicles in Extreme Maneuvers", IEEE T-IV 2021.
+Reference: Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory
+Optimization Over Multiple Models", IEEE Open Journal of Control Systems, 2025.
 
 State vectors:
 - Dynamics:  [ux, uy, r, dfz_long, dfz_lat] (5 states)
@@ -36,6 +36,7 @@ if TYPE_CHECKING:
 
 
 G_MPS2 = 9.81  # Gravitational acceleration
+BETA_SOFTPLUS = 2.0  # Smoothing parameter for braking-only force extraction
 
 
 # =============================================================================
@@ -90,6 +91,10 @@ class VehicleParams:
     roll_rate_radpmps2: float           # roll rate [rad/m/s^2]
     gamma_none: float                   # lateral load transfer distribution front/rear
 
+    # Roll stiffness (optional, from paper)
+    K_phi_f_knmprad: float = 81.0       # front roll stiffness [kN*m/rad]
+    K_phi_r_knmprad: float = 38.0       # rear roll stiffness [kN*m/rad]
+
     # Miscellaneous (optional, with defaults)
     tire_radius_m: float = 0.33
     J_kgm2: float = 1.0                 # axle inertia
@@ -136,11 +141,24 @@ class VehicleParams:
 
     @staticmethod
     def load_from_yaml(yaml_file: Union[str, Path]) -> VehicleParams:
-        """Load vehicle parameters from yaml."""
+        """
+        Load vehicle parameters from YAML file.
+
+        Args:
+            yaml_file: Path to YAML config file
+
+        Returns:
+            VehicleParams instance
+        """
         with open(yaml_file, "r") as stream:
             data = safe_load(stream)
         veh_dict = data["vehicle"]
-        return VehicleParams(**veh_dict)
+
+        # Filter to only include fields that VehicleParams accepts
+        valid_fields = {f.name for f in VehicleParams.__dataclass_fields__.values()}
+        filtered_dict = {k: v for k, v in veh_dict.items() if k in valid_fields}
+
+        return VehicleParams(**filtered_dict)
 
 
 # =============================================================================
@@ -261,6 +279,74 @@ class SingleTrackModel:
         )
         return fx_sat
 
+    def _smooth_braking_only(self, fx_kn):
+        """
+        Extract braking-only component of longitudinal force using smooth softplus.
+
+        Returns min(fx, 0) smoothly: -1/beta * log(1 + exp(-beta * fx))
+
+        This is used for the brake yaw moment calculation, which only applies
+        during braking (negative Fx).
+        """
+        return -1.0 / BETA_SOFTPLUS * ca.log(1.0 + ca.exp(-BETA_SOFTPLUS * fx_kn))
+
+    def calc_brake_yaw_moment_kn_m(
+        self,
+        fxf_kn: float,
+        fxr_kn: float,
+        fzf_kn: float,
+        fzr_kn: float,
+        ay_mps2: float
+    ):
+        """
+        Calculate brake yaw moment due to differential braking.
+
+        From Aggarwal & Gerdes 2025, Appendix B:
+        During braking while cornering, lateral weight transfer causes different
+        normal loads on left/right wheels. Braking force is partitioned according
+        to wheel loads, creating a net yaw moment.
+
+        Args:
+            fxf_kn: Front axle longitudinal force [kN]
+            fxr_kn: Rear axle longitudinal force [kN]
+            fzf_kn: Front axle normal load [kN]
+            fzr_kn: Rear axle normal load [kN]
+            ay_mps2: Lateral acceleration [m/s^2]
+
+        Returns:
+            mz_brake_kn_m: Brake yaw moment [kN-m]
+        """
+        p = self.params
+
+        # Extract braking-only forces (smooth approximation of min(fx, 0))
+        fxf_brake_kn = self._smooth_braking_only(fxf_kn)
+        fxr_brake_kn = self._smooth_braking_only(fxr_kn)
+
+        # Lateral weight transfer sensitivity [kN per m/s^2]
+        # dfz_lat = (m * h_com / track + m * g * h_l * R_phi / track) * ay
+        h_l = p.h_roll_arm_m
+        t_avg = p.track_avg_m
+        dfz_lat_sens = (p.m_kg * p.h_com_m / t_avg +
+                        p.m_kg * G_MPS2 * h_l * p.roll_rate_radpmps2 / t_avg) / 1000.0
+
+        # Steady-state lateral weight transfer [kN]
+        dfz_lat_kn = dfz_lat_sens * ay_mps2
+
+        # Brake yaw moment from front and rear axles
+        # M_z = Fx_brake * gamma * track * dfz_lat / Fz
+        gamma = p.gamma_none
+
+        # Protect against division by zero with small normal loads
+        fzf_safe = ca.fmax(fzf_kn, 0.1)
+        fzr_safe = ca.fmax(fzr_kn, 0.1)
+
+        mz_f_kn_m = fxf_brake_kn * gamma * t_avg * dfz_lat_kn / fzf_safe
+        mz_r_kn_m = fxr_brake_kn * (1.0 - gamma) * t_avg * dfz_lat_kn / fzr_safe
+
+        mz_brake_kn_m = mz_f_kn_m + mz_r_kn_m
+
+        return mz_brake_kn_m
+
     # -------------------------------------------------------------------------
     # Core dynamics - UNIFIED (models-main + multimodel road geometry)
     # -------------------------------------------------------------------------
@@ -348,21 +434,34 @@ class SingleTrackModel:
         # Accelerations
         # =====================================================================
 
-        # Longitudinal acceleration
-        dux_mps2 = (1 / p.m_kg) * (
+        # Body-frame accelerations (for brake yaw moment calculation)
+        ax_mps2 = (1 / p.m_kg) * (
             fxf_n * ca.cos(delta_rad) - fyf_n * ca.sin(delta_rad) + fxr_n + fd_n
-        ) + r_radps * uy_mps
-
-        # Lateral acceleration (includes bank force)
-        duy_mps2 = (1 / p.m_kg) * (
+        )
+        ay_mps2 = (1 / p.m_kg) * (
             fyf_n * ca.cos(delta_rad) + fxf_n * ca.sin(delta_rad) + fyr_n + f_bank_n
-        ) - r_radps * ux_mps
+        )
 
-        # Yaw acceleration
+        # Velocity derivatives (include kinematic coupling terms)
+        dux_mps2 = ax_mps2 + r_radps * uy_mps
+        duy_mps2 = ay_mps2 - r_radps * ux_mps
+
+        # =====================================================================
+        # Brake yaw moment (FROM MULTIMODEL - Aggarwal & Gerdes 2025)
+        # =====================================================================
+        # During braking while cornering, differential braking creates a yaw moment
+        # due to lateral weight transfer affecting left/right wheel loads
+        mz_brake_kn_m = self.calc_brake_yaw_moment_kn_m(
+            fxf_kn, fxr_kn, fzf_kn, fzr_kn, ay_mps2
+        )
+        mz_brake_n_m = mz_brake_kn_m * 1000.0  # Convert to N-m
+
+        # Yaw acceleration (includes brake yaw moment)
         dr_radps2 = (1 / p.iz_kgm2) * (
             p.a_m * fyf_n * ca.cos(delta_rad)
             + p.a_m * fxf_n * ca.sin(delta_rad)
             - p.b_m * fyr_n
+            + mz_brake_n_m  # Brake yaw moment
         )
 
         # =====================================================================

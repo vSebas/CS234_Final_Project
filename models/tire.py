@@ -148,7 +148,7 @@ class FialaBrushTire:
 
         Args:
             yaml_file: Path to YAML file
-            select_tire: "front" or "rear" (looks for "front_tire" or "rear_tire" key)
+            select_tire: "front" or "rear"
 
         Returns:
             FialaBrushTire instance
@@ -156,5 +156,15 @@ class FialaBrushTire:
         with open(yaml_file, "r") as stream:
             data = safe_load(stream)
 
-        tire_dict = data[select_tire + "_tire"]
-        return FialaBrushTire(**tire_dict)
+        # Support both "tire_front"/"tire_rear" and "front_tire"/"rear_tire" formats
+        key = f"tire_{select_tire}"
+        if key not in data:
+            key = f"{select_tire}_tire"
+
+        tire_dict = data[key]
+
+        # Filter to only include fields that FialaBrushTire accepts
+        valid_fields = {'c0_alpha_nprad', 'c1_alpha_1prad', 'mu_none', 'fy_xi', 'max_allowed_fx_frac'}
+        filtered_dict = {k: v for k, v in tire_dict.items() if k in valid_fields}
+
+        return FialaBrushTire(**filtered_dict)

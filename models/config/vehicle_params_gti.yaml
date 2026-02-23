@@ -1,0 +1,117 @@
+# VW Golf GTI Parameters
+# From: Aggarwal & Gerdes, "Friction-Robust Autonomous Racing Using Trajectory Optimization
+#       Over Multiple Models", IEEE Open Journal of Control Systems, 2025
+# Reference: models/reference_models/multimodel-trajectory-optimization-main/src/vehicle_params_gti.yaml
+#
+# IMPORTANT: This file matches the paper's parameters EXACTLY.
+
+vehicle:
+  name: "VW_Golf_GTI"
+
+  # ============================================================================
+  # Mass and Inertia
+  # ============================================================================
+  m_kg: 1868.0                    # Vehicle mass [kg] (paper: 1.868 Mg)
+  iz_kgm2: 3049.0                 # Yaw moment of inertia [kg*m^2] (paper: 3.049 Mg*m^2)
+
+  # ============================================================================
+  # Geometry
+  # ============================================================================
+  a_m: 1.19                       # Distance from CG to front axle [m]
+  b_m: 1.44                       # Distance from CG to rear axle [m]
+  # Wheelbase L = a + b = 2.63 m
+  track_f_m: 1.50                 # Front track width [m]
+  track_r_m: 1.50                 # Rear track width [m]
+
+  # ============================================================================
+  # Heights
+  # ============================================================================
+  h_com_m: 0.55                   # Height of center of mass [m]
+  h_rc_f_m: 0.07                  # Front roll center height [m]
+  h_rc_r_m: 0.11                  # Rear roll center height [m]
+  # Derived: h_rc_avg = (0.07*1.44 + 0.11*1.19)/2.63 = 0.088 m
+  # Derived: h_roll_arm = h_com - h_rc_avg = 0.55 - 0.088 = 0.462 m ≈ 0.46 m
+
+  # ============================================================================
+  # Roll Dynamics (from paper Table 3)
+  # ============================================================================
+  K_phi_f_knmprad: 81.0           # Front roll stiffness [kN*m/rad]
+  K_phi_r_knmprad: 38.0           # Rear roll stiffness [kN*m/rad]
+  # Paper states: R_φ = 4.4 deg/g = 0.00783 rad/(m/s²)
+  roll_rate_radpmps2: 0.00783     # Roll rate [rad/(m/s²)] = 4.4 deg/g
+
+  # ============================================================================
+  # Aerodynamics and Rolling Resistance
+  # ============================================================================
+  # Drag model: F_drag = cd0 + cd1*v + cd2*v^2
+  cd0_n: 218.0                    # Rolling resistance (constant) [N]
+  cd1_nspm: 0.0                   # Linear drag coefficient [N*s/m]
+  cd2_ns2pm2: 0.4243              # Quadratic drag coefficient [N*s^2/m^2]
+
+  # ============================================================================
+  # Powertrain Configuration
+  # ============================================================================
+  drive_f_frac: 1.00              # Front wheel drive fraction (FWD)
+  drive_r_frac: 0.00              # Rear wheel drive fraction
+  brake_f_frac: 0.60              # Front brake bias
+  brake_r_frac: 0.40              # Rear brake bias
+  p_eng_max_w: 172000.0           # Maximum engine power [W] (paper: 172 kW)
+
+  # ============================================================================
+  # Actuator Limits
+  # ============================================================================
+  max_delta_deg: 27.0             # Maximum steering angle [deg]
+  max_delta_dot_degps: 20.0       # Maximum steering rate [deg/s]
+  # Note: Paper uses friction circle for Fx limits, not explicit bounds
+  # These are soft bounds for the optimizer (can be adjusted)
+  max_fx_kn: 10.0                 # Maximum longitudinal force [kN] (soft bound)
+  min_fx_kn: -15.0                # Minimum longitudinal force [kN] (soft bound)
+  max_fx_dot_knps: 10.0           # Maximum Fx rate [kN/s] (paper: 10000 N/s)
+  min_fx_dot_knps: -10.0          # Minimum Fx rate [kN/s]
+
+  # ============================================================================
+  # Weight Transfer Dynamics
+  # ============================================================================
+  tau_long_weight_transfer_s: 0.10    # Longitudinal weight transfer time constant [s]
+  tau_lat_weight_transfer_s: 0.10     # Lateral weight transfer time constant [s]
+
+  # Brake yaw moment parameter
+  gamma_none: 0.64                # Front/rear load transfer distribution [-]
+
+# ============================================================================
+# Tire Parameters (Fiala Brush Model)
+# ============================================================================
+# Note: Paper uses multi-model approach with μ ∈ [μ_lb, μ_ub] for robustness
+# Front and rear can have different friction coefficients
+
+tire_front:
+  # Cornering stiffness: C_alpha = c0 + c1 * Fz
+  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad] (paper: ca_0_f = 0)
+  c1_alpha_1prad: 8.0             # Load-dependent stiffness [1/rad] (paper: ca_1_f = 8 kN/rad/kN)
+
+  # Friction coefficient bounds (paper Table 4)
+  mu_none: 0.35                   # Nominal friction coefficient [-] (using upper bound)
+  mu_lb: 0.25                     # Lower bound friction coefficient [-]
+  mu_ub: 0.35                     # Upper bound friction coefficient [-]
+
+  # Numerical smoothing for Fx saturation
+  eps: 0.0025                     # Smoothing parameter (paper: eps_f = 0.0025)
+
+tire_rear:
+  # Cornering stiffness: C_alpha = c0 + c1 * Fz
+  c0_alpha_nprad: 0.0             # Base cornering stiffness [N/rad] (paper: ca_0_r = 0)
+  c1_alpha_1prad: 13.0            # Load-dependent stiffness [1/rad] (paper: ca_1_r = 13 kN/rad/kN)
+
+  # Friction coefficient bounds (paper Table 4)
+  mu_none: 0.35                   # Nominal friction coefficient [-] (using upper bound)
+  mu_lb: 0.25                     # Lower bound friction coefficient [-]
+  mu_ub: 0.35                     # Upper bound friction coefficient [-]
+
+  # Numerical smoothing for Fx saturation
+  eps: 0.00208                    # Smoothing parameter (paper: eps_r = 0.00208)
+
+# ============================================================================
+# Numerical Parameters
+# ============================================================================
+numerical:
+  softplus_beta: 2.0              # Softplus smoothing for braking extraction
