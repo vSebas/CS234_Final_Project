@@ -15,7 +15,7 @@ import scipy.io as sio
 def create_oval_track(
     total_length=260.0,
     track_width=10.0,
-    turn_radius=30.0,
+    turn_radius=18.0,
     num_points=520,
     output_filename="Medium_Oval_Map_260m.mat"
 ):

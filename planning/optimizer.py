@@ -112,14 +112,12 @@ class TrajectoryOptimizer:
         return float(self.world.track_width_m_LUT(s_mod)) / 2.0
 
     def _frenet_to_en(self, s_m: float, e_m: float) -> Tuple[float, float]:
-        """Convert one (s, e) pair to EN coordinates using local centerline heading."""
-        s_mod = s_m % self.world.length_m
-        e_cl = float(self.world.posE_m_interp_fcn(s_mod))
-        n_cl = float(self.world.posN_m_interp_fcn(s_mod))
-        psi = float(self.world.psi_rad_interp_fcn(s_mod))
-        east_m = e_cl - e_m * np.sin(psi)
-        north_m = n_cl + e_m * np.cos(psi)
-        return east_m, north_m
+        """Convert one (s, e) pair to EN coordinates using world map matching."""
+        east_arr, north_arr, _ = self.world.map_match_vectorized(
+            np.asarray([s_m], dtype=float),
+            np.asarray([e_m], dtype=float),
+        )
+        return float(east_arr[0]), float(north_arr[0])
 
     def _nearest_centerline_s(self, east_m: float, north_m: float) -> float:
         """Approximate along-track coordinate of a world-frame position."""
@@ -147,9 +145,14 @@ class TrajectoryOptimizer:
         weight_fx_dot: float = 5.0,
         ux_min: float = 1.0,
         ux_max: Optional[float] = None,
+        track_buffer_m: float = 0.0,
         stage: str = "time",
         obstacles: Optional[Sequence[Union[ObstacleCircle, Dict]]] = None,
         obstacle_window_m: float = 30.0,
+        obstacle_clearance_m: float = 0.0,
+        obstacle_use_slack: bool = False,
+        obstacle_enforce_midpoints: bool = True,
+        obstacle_subsamples_per_segment: int = 5,
         obstacle_slack_weight: float = 1e4,
         smoothness_weight: float = 1.0,
         time_weight_feas: float = 1e-2,
@@ -169,9 +172,14 @@ class TrajectoryOptimizer:
             weight_fx_dot: Penalty on force rate
             ux_min: Minimum forward speed [m/s]
             ux_max: Maximum speed limit [m/s] (optional)
+            track_buffer_m: Safety buffer from track edges [m]
             stage: Optimization stage, one of {"feas", "time"}
             obstacles: Optional static circular obstacles
             obstacle_window_m: Along-track gating window for obstacle constraints [m]
+            obstacle_clearance_m: Extra required clearance beyond obstacle+margin radius [m]
+            obstacle_use_slack: If True, add nonnegative slack to obstacle constraints
+            obstacle_enforce_midpoints: Enforce obstacle constraints at collocation midpoints
+            obstacle_subsamples_per_segment: Number of interior sample points per segment
             obstacle_slack_weight: Penalty on obstacle slack sum
             smoothness_weight: Weight for state/control smoothness terms
             time_weight_feas: Time objective weight during feasibility stage
@@ -228,6 +236,24 @@ class TrajectoryOptimizer:
             posE_cl_data[k] = float(self.world.posE_m_interp_fcn(s_mod))
             posN_cl_data[k] = float(self.world.posN_m_interp_fcn(s_mod))
             psi_cl_data[k] = float(self.world.psi_rad_interp_fcn(s_mod))
+        tau_samples = []
+        if obstacle_enforce_midpoints:
+            # Interior checks reduce between-node obstacle penetration.
+            ns = max(1, int(obstacle_subsamples_per_segment))
+            tau_samples = np.linspace(0.0, 1.0, ns + 2)[1:-1].tolist()
+
+        sample_grids = []
+        for tau in tau_samples:
+            s_tau = s_grid[:-1] + tau * ds_m
+            posE_tau = np.zeros(N)
+            posN_tau = np.zeros(N)
+            psi_tau = np.zeros(N)
+            for k in range(N):
+                s_tau_mod = s_tau[k] % self.world.length_m
+                posE_tau[k] = float(self.world.posE_m_interp_fcn(s_tau_mod))
+                posN_tau[k] = float(self.world.posN_m_interp_fcn(s_tau_mod))
+                psi_tau[k] = float(self.world.psi_rad_interp_fcn(s_tau_mod))
+            sample_grids.append((tau, s_tau, posE_tau, posN_tau, psi_tau))
 
         # Normalize obstacle input.
         obs_list: List[ObstacleCircle] = []
@@ -259,9 +285,14 @@ class TrajectoryOptimizer:
             obs_s_center[j] = float(obs.s_m) if obs.s_m is not None else self._nearest_centerline_s(east_m, north_m)
 
         sigma_obs = None
-        if len(obs_list) > 0:
+        sigma_obs_samples = []
+        if len(obs_list) > 0 and obstacle_use_slack:
             sigma_obs = opti.variable(N + 1, len(obs_list))
             opti.subject_to(ca.vec(sigma_obs) >= 0)
+            for _ in sample_grids:
+                sigma_tau = opti.variable(N, len(obs_list))
+                opti.subject_to(ca.vec(sigma_tau) >= 0)
+                sigma_obs_samples.append(sigma_tau)
 
         # === Objective ===
         time_cost = 0
@@ -285,6 +316,8 @@ class TrajectoryOptimizer:
         slack_cost = 0
         if sigma_obs is not None:
             slack_cost = obstacle_slack_weight * ca.sum1(ca.sum2(sigma_obs))
+        for sigma_tau in sigma_obs_samples:
+            slack_cost += obstacle_slack_weight * ca.sum1(ca.sum2(sigma_tau))
 
         if stage == "feas":
             cost = time_weight_feas * time_cost + reg_cost + slack_cost
@@ -333,9 +366,8 @@ class TrajectoryOptimizer:
                 opti.subject_to(ux[k] <= ux_max)
 
             # Track bounds (with buffer)
-            buffer = 0.5  # [m]
-            opti.subject_to(e[k] >= -track_hw[k] + buffer)
-            opti.subject_to(e[k] <= track_hw[k] - buffer)
+            opti.subject_to(e[k] >= -track_hw[k] + track_buffer_m)
+            opti.subject_to(e[k] <= track_hw[k] - track_buffer_m)
 
             # Heading error bounds
             opti.subject_to(dpsi[k] >= -np.pi/3)
@@ -348,8 +380,8 @@ class TrajectoryOptimizer:
             opti.subject_to(fx[k] >= p.min_fx_kn)
             opti.subject_to(fx[k] <= p.max_fx_kn)
 
-        # === Obstacle constraints (with slack + s-window gating) ===
-        if sigma_obs is not None:
+        # === Obstacle constraints (hard by default; optional slack) ===
+        if len(obs_list) > 0:
             for k in range(N + 1):
                 posE_k = posE_cl_data[k] - e[k] * np.sin(psi_cl_data[k])
                 posN_k = posN_cl_data[k] + e[k] * np.cos(psi_cl_data[k])
@@ -357,8 +389,28 @@ class TrajectoryOptimizer:
                     if abs(self._wrap_s_dist(float(s_grid[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
                         dx = posE_k - obs_east[j]
                         dy = posN_k - obs_north[j]
-                        g_kj = dx * dx + dy * dy - obs_r_tilde[j] ** 2
-                        opti.subject_to(g_kj + sigma_obs[k, j] >= 0)
+                        required_radius = obs_r_tilde[j] + obstacle_clearance_m
+                        g_kj = dx * dx + dy * dy - required_radius ** 2
+                        if sigma_obs is not None:
+                            opti.subject_to(g_kj + sigma_obs[k, j] >= 0)
+                        else:
+                            opti.subject_to(g_kj >= 0)
+            for idx, (tau, s_tau, posE_tau, posN_tau, psi_tau) in enumerate(sample_grids):
+                sigma_tau = sigma_obs_samples[idx] if idx < len(sigma_obs_samples) else None
+                for k in range(N):
+                    e_tau = (1.0 - tau) * e[k] + tau * e[k + 1]
+                    posE_tau_k = posE_tau[k] - e_tau * np.sin(psi_tau[k])
+                    posN_tau_k = posN_tau[k] + e_tau * np.cos(psi_tau[k])
+                    for j in range(len(obs_list)):
+                        if abs(self._wrap_s_dist(float(s_tau[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
+                            dx_mid = posE_tau_k - obs_east[j]
+                            dy_mid = posN_tau_k - obs_north[j]
+                            required_radius = obs_r_tilde[j] + obstacle_clearance_m
+                            g_mid = dx_mid * dx_mid + dy_mid * dy_mid - required_radius ** 2
+                            if sigma_tau is not None:
+                                opti.subject_to(g_mid + sigma_tau[k, j] >= 0)
+                            else:
+                                opti.subject_to(g_mid >= 0)
 
         # === Boundary conditions ===
         # Time starts at zero
@@ -408,6 +460,8 @@ class TrajectoryOptimizer:
 
         if sigma_obs is not None:
             opti.set_initial(sigma_obs, 0.0)
+        for sigma_tau in sigma_obs_samples:
+            opti.set_initial(sigma_tau, 0.0)
 
         # === Solver options ===
         opts = {
@@ -428,6 +482,7 @@ class TrajectoryOptimizer:
             cost_opt = sol.value(cost)
             iterations = sol.stats()['iter_count']
             sigma_opt = sol.value(sigma_obs) if sigma_obs is not None else None
+            sigma_tau_opt = [sol.value(s) for s in sigma_obs_samples]
         except RuntimeError as err:
             if verbose:
                 print(f"Solver failed: {err}")
@@ -437,6 +492,7 @@ class TrajectoryOptimizer:
             cost_opt = float('inf')
             iterations = -1
             sigma_opt = opti.debug.value(sigma_obs) if sigma_obs is not None else None
+            sigma_tau_opt = [opti.debug.value(s) for s in sigma_obs_samples]
 
         solve_time = time.time() - t_start
 
@@ -445,16 +501,27 @@ class TrajectoryOptimizer:
         if len(obs_list) > 0:
             if sigma_opt is not None:
                 max_obstacle_slack = float(np.max(sigma_opt))
+            for s_val in sigma_tau_opt:
+                if np.size(s_val) > 0:
+                    max_obstacle_slack = max(max_obstacle_slack, float(np.max(s_val)))
+
+            # Dense post-check across each segment for reliable reported clearance.
+            dense_per_segment = max(8, int(obstacle_subsamples_per_segment) + 3)
             e_opt = X_opt[self.IDX_E, :]
-            posE_opt = posE_cl_data - e_opt * np.sin(psi_cl_data)
-            posN_opt = posN_cl_data + e_opt * np.cos(psi_cl_data)
-            for k in range(N + 1):
-                for j in range(len(obs_list)):
-                    if abs(self._wrap_s_dist(float(s_grid[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
-                        d = np.sqrt((posE_opt[k] - obs_east[j]) ** 2 + (posN_opt[k] - obs_north[j]) ** 2)
-                        clearance = float(d - obs_r_tilde[j])
-                        if clearance < min_obstacle_clearance:
-                            min_obstacle_clearance = clearance
+            for k in range(N):
+                for q in range(dense_per_segment + 1):
+                    tau = q / dense_per_segment
+                    s_tau = s_grid[k] + tau * ds_m
+                    e_tau = (1.0 - tau) * e_opt[k] + tau * e_opt[k + 1]
+                    s_tau_mod = s_tau % self.world.length_m
+                    posE_tau = float(self.world.posE_m_interp_fcn(s_tau_mod)) - e_tau * np.sin(float(self.world.psi_rad_interp_fcn(s_tau_mod)))
+                    posN_tau = float(self.world.posN_m_interp_fcn(s_tau_mod)) + e_tau * np.cos(float(self.world.psi_rad_interp_fcn(s_tau_mod)))
+                    for j in range(len(obs_list)):
+                        if abs(self._wrap_s_dist(float(s_tau), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
+                            d_tau = np.sqrt((posE_tau - obs_east[j]) ** 2 + (posN_tau - obs_north[j]) ** 2)
+                            clearance_tau = float(d_tau - (obs_r_tilde[j] + obstacle_clearance_m))
+                            if clearance_tau < min_obstacle_clearance:
+                                min_obstacle_clearance = clearance_tau
 
         return OptimizationResult(
             success=success,
@@ -497,8 +564,11 @@ def plan_trajectory(vehicle, world, params: Dict) -> Dict:
         N=params['N'],
         ds_m=params['DS_M'],
         stage=params.get('STAGE', 'time'),
+        track_buffer_m=params.get('TRACK_BUFFER_M', 0.0),
         obstacles=params.get('OBSTACLES'),
         obstacle_window_m=params.get('OBSTACLE_WINDOW_M', 30.0),
+        obstacle_clearance_m=params.get('OBSTACLE_CLEARANCE_M', 0.0),
+        obstacle_enforce_midpoints=params.get('OBSTACLE_ENFORCE_MIDPOINTS', True),
         obstacle_slack_weight=params.get('OBSTACLE_SLACK_WEIGHT', 1e4),
         smoothness_weight=params.get('SMOOTHNESS_WEIGHT', 1.0),
         time_weight_feas=params.get('TIME_WEIGHT_FEAS', 1e-2),

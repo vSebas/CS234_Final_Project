@@ -77,29 +77,11 @@ class TrajectoryVisualizer:
         """
         Extract obstacle data as tuples (east, north, radius, radius_tilde).
 
-        Supports either ENR fields or Frenet fields stored in world.data.
+        Prefer Frenet obstacle fields (s,e,r,margin) so plotting matches optimizer
+        obstacle handling exactly. Fall back to ENR fields if Frenet fields are absent.
         """
         data = self.world.data
         obstacles: List[tuple] = []
-
-        if "obstacles_ENR_m" in data:
-            enr = np.atleast_2d(np.asarray(data["obstacles_ENR_m"], dtype=float))
-            if enr.shape[1] == 3:
-                if "obstacles_ENR_tilde_m" in data:
-                    enr_tilde = np.atleast_2d(np.asarray(data["obstacles_ENR_tilde_m"], dtype=float))
-                    for i in range(min(len(enr), len(enr_tilde))):
-                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), float(enr[i, 2]), float(enr_tilde[i, 2])))
-                    return obstacles
-                if "obstacles_margin_m" in data:
-                    margins = np.atleast_1d(np.asarray(data["obstacles_margin_m"], dtype=float))
-                    for i in range(min(len(enr), len(margins))):
-                        r = float(enr[i, 2])
-                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r + float(margins[i])))
-                    return obstacles
-                for i in range(len(enr)):
-                    r = float(enr[i, 2])
-                    obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r))
-                return obstacles
 
         required_frenet = {"obstacles_s_m", "obstacles_e_m", "obstacles_radius_m"}
         if required_frenet.issubset(set(data.keys())):
@@ -117,6 +99,31 @@ class TrajectoryVisualizer:
             east, north, _ = self.world.map_match_vectorized(s_vals, e_vals)
             for i in range(min(len(east), len(r_vals), len(rt_vals))):
                 obstacles.append((float(east[i]), float(north[i]), float(r_vals[i]), float(rt_vals[i])))
+            return obstacles
+
+        if "obstacles_ENR_m" in data:
+            enr = np.atleast_2d(np.asarray(data["obstacles_ENR_m"], dtype=float))
+            if enr.shape[1] == 3:
+                if "obstacles_ENR_required_m" in data:
+                    enr_req = np.atleast_2d(np.asarray(data["obstacles_ENR_required_m"], dtype=float))
+                    for i in range(min(len(enr), len(enr_req))):
+                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), float(enr[i, 2]), float(enr_req[i, 2])))
+                    return obstacles
+                if "obstacles_ENR_tilde_m" in data:
+                    enr_tilde = np.atleast_2d(np.asarray(data["obstacles_ENR_tilde_m"], dtype=float))
+                    for i in range(min(len(enr), len(enr_tilde))):
+                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), float(enr[i, 2]), float(enr_tilde[i, 2])))
+                    return obstacles
+                if "obstacles_margin_m" in data:
+                    margins = np.atleast_1d(np.asarray(data["obstacles_margin_m"], dtype=float))
+                    for i in range(min(len(enr), len(margins))):
+                        r = float(enr[i, 2])
+                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r + float(margins[i])))
+                    return obstacles
+                for i in range(len(enr)):
+                    r = float(enr[i, 2])
+                    obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r))
+                return obstacles
 
         return obstacles
 

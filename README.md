@@ -85,7 +85,10 @@ Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
 - **Discretization:** Trapezoidal collocation (N nodes)
 - **NLP Solver:** IPOPT (interior point method)
 - **Use case:** Main solver for data generation and refinement
-- **Planned extension:** Obstacle avoidance constraints with slack + two-stage solve (feasibility then min-time)
+- **Obstacle handling:** Static circular obstacles with hard clearance constraints (optional slack for diagnosis)
+- **Coordinate rule (critical):** Frenet-to-ENU conversion must be consistent across optimizer and plotting:
+  - `E = E_cl - e*sin(psi)`
+  - `N = N_cl + e*cos(psi)`
 
 #### 2. SCP Status
 - `planning/scp_solver.py` is frozen for regular development.
@@ -101,6 +104,8 @@ Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
 
 - Current robust path: IPOPT direct collocation.
 - Current project direction: obstacle-aware IPOPT formulation and DT warm-starting of the IPOPT solver.
+- Current demo/production configuration solves a **full lap** with periodic boundary conditions.
+- Obstacle overlap visualization bug was fixed by unifying `world.map_match_vectorized` with optimizer Frenet-to-ENU convention.
 - SCP is not the active production path.
 - Detailed plan: `plan_obstacle_avoidance_ipopt.md`.
 
@@ -177,6 +182,7 @@ This will:
 
 Notes:
 - Production solver path is IPOPT.
+- The default demo configuration is full-lap (`ds = track_length / N`, periodic closure).
 - SCP outputs are kept for reference/diagnostics.
 
 ### Vehicle Simulation

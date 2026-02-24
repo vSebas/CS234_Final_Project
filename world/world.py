@@ -5,7 +5,6 @@ import numpy as np
 import casadi
 import matplotlib.pyplot as plt
 
-
 class World:
     
     def __init__(self, filename, name, edge_buffer_m=0.0, diagnostic_plotting=True):
@@ -116,8 +115,6 @@ class World:
 
         self.local_track_rotation_matrix_interp_fcn = scipy.interpolate.interp1d(self.data["s_m"], self.local_track_rotation_matrix, axis=0, kind="linear", fill_value="extrapolate")
 
-
-
         if(diagnostic_plotting):
             fig, ax = plt.subplots(1, 1, num="Track overhead", constrained_layout=True)
             ax.plot(self.data["inner_bounds_m"][:, 0], self.data["inner_bounds_m"][:, 1], label = "Inner bounds", color = "b", marker = "x", ms = 2)
@@ -131,8 +128,6 @@ class World:
             ax.set_xlabel("East position [m]")
             ax.set_ylabel("North position [m]")
             plt.show()
-            
-               
     
     def map_match_vectorized(self, s_vals, e_vals):
         """
@@ -147,32 +142,25 @@ class World:
              - y_vals: np.array of y (North) coordiantes
              - z_vals: np.array of z (Up) coordinates
         """
-        
-        # Centerline locations
-        x_cl = self.posE_m_interp_fcn(s_vals % self.length_m)
-        y_cl = self.posN_m_interp_fcn(s_vals % self.length_m)
-        z_cl = self.posU_m_interp_fcn(s_vals % self.length_m)
+        s_vals = np.asarray(s_vals, dtype=float)
+        e_vals = np.asarray(e_vals, dtype=float)
+        if s_vals.shape != e_vals.shape:
+            raise ValueError(f"s_vals and e_vals must have same shape, got {s_vals.shape} vs {e_vals.shape}")
 
-        psi_cl = self.psi_rad_interp_fcn(s_vals % self.length_m)
+        # Centerline locations and heading
+        s_mod = s_vals % self.length_m
+        x_cl = self.posE_m_interp_fcn(s_mod)
+        y_cl = self.posN_m_interp_fcn(s_mod)
+        z_cl = self.posU_m_interp_fcn(s_mod)
+        psi_cl = self.psi_rad_interp_fcn(s_mod)
 
-        # Extract the local path frame NED direction
-        t_hat_NED = self.local_track_rotation_matrix_interp_fcn(s_vals % self.length_m)[:, :, 0] # The transformed North vector aligns with the centerline tangent
-        e_hat_NED = -self.local_track_rotation_matrix_interp_fcn(s_vals % self.length_m)[:, :, 1] # The transformed East vector aligns with the negative "e" direction
-        b_hat_NED = -self.local_track_rotation_matrix_interp_fcn(s_vals % self.length_m)[:, :, 2] # The transformed Down vector aligns with the negative Up direction
-        
-        # Convert NED coordinates to ENU
-        t_hat_ENU = np.hstack((t_hat_NED[:, 1].reshape(-1, 1), t_hat_NED[:, 0].reshape(-1, 1), -t_hat_NED[:, 2].reshape(-1, 1)))
-        e_hat_ENU = np.hstack((e_hat_NED[:, 1].reshape(-1, 1), e_hat_NED[:, 0].reshape(-1, 1), -e_hat_NED[:, 2].reshape(-1, 1)))
-        b_hat_ENU = np.hstack((b_hat_NED[:, 1].reshape(-1, 1), b_hat_NED[:, 0].reshape(-1, 1), -b_hat_NED[:, 2].reshape(-1, 1)))
-        
-        x_vals = x_cl + e_vals*e_hat_ENU[:, 0]
-        y_vals = y_cl + e_vals*e_hat_ENU[:, 1]
-        z_vals = z_cl + e_vals*e_hat_ENU[:, 2]
+        # Frenet offset convention in ENU:
+        # +e is left of travel direction.
+        x_vals = x_cl - e_vals * np.sin(psi_cl)
+        y_vals = y_cl + e_vals * np.cos(psi_cl)
+        z_vals = z_cl
 
         return x_vals, y_vals, z_vals
     
-    
     def get_racetrack_params_as_dict(self):
         return self.params
-    
-    

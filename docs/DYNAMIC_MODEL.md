@@ -146,6 +146,20 @@ Where:
 - `Δψ̇` is the rate of heading error change
 - `κ` is the local path curvature
 
+### 2.4 Path (Frenet) to Global Position
+
+For centerline position `(E_cl, N_cl)` and heading `ψ` at arc-length `s`, the lateral offset `e`
+must be mapped to global coordinates as:
+
+```
+E = E_cl - e·sin(ψ)
+N = N_cl + e·cos(ψ)
+```
+
+This must match in all modules (optimizer, obstacle generation, visualization). If one module
+uses a different convention, trajectories can appear to pass through obstacles in plots even when
+the optimizer is enforcing clearance correctly.
+
 ---
 
 ## 3. State and Control Vectors

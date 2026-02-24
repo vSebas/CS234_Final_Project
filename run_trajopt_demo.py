@@ -2,9 +2,10 @@
 """
 IPOPT trajectory optimization demo (production path).
 
-Runs a two-stage solve:
-1) Stage A: feasibility-first
-2) Stage B: minimum-time refinement (warm-started from Stage A)
+Runs a single-stage solve with combined objective terms:
+- time objective
+- smoothness regularization
+- obstacle slack penalty
 """
 
 import os
@@ -96,7 +97,7 @@ def run_demo():
         try:
             print(f"[{datetime.now().isoformat(timespec='seconds')}] Logging to: {log_file}")
             print("=" * 70)
-            print("IPOPT TRAJECTORY OPTIMIZATION DEMO (STAGE A/B)")
+            print("IPOPT TRAJECTORY OPTIMIZATION DEMO (SINGLE STAGE)")
             print("=" * 70)
 
             map_file = Path(os.environ.get("TRACK_MAP", str(project_root / "maps" / "Medium_Oval_Map_260m_Obstacles.mat")))
@@ -120,83 +121,67 @@ def run_demo():
             obstacles = load_obstacles_from_world(world)
             print(f"\n3. Loaded obstacles from map: {len(obstacles)}")
 
-            N = int(os.environ.get("N", "60"))
+            N = int(os.environ.get("N", "120"))
             ds_m = world.length_m / N
+            extra_clearance_m = float(os.environ.get("OBS_EXTRA_CLEAR_M", "0.5"))
+            obstacle_subsamples = int(os.environ.get("OBS_SUBSAMPLES", "7"))
+            track_buffer_m = float(os.environ.get("TRACK_BUFFER_M", "0.0"))
             print(f"\n4. Setup:")
             print(f"   N = {N}")
             print(f"   ds = {ds_m:.2f} m")
+            print(f"   Extra obstacle clearance = {extra_clearance_m:.2f} m")
+            print(f"   Obstacle subsamples/segment = {obstacle_subsamples}")
+            print(f"   Track buffer = {track_buffer_m:.2f} m")
+
+            # Update world metadata so visualizations show the enforced obstacle radius.
+            if "obstacles_radius_m" in world.data:
+                r = np.atleast_1d(np.asarray(world.data["obstacles_radius_m"], dtype=float))
+                m = np.atleast_1d(np.asarray(world.data.get("obstacles_margin_m", np.zeros_like(r)), dtype=float))
+                world.data["obstacles_radius_tilde_m"] = r + m + extra_clearance_m
+            if "obstacles_ENR_m" in world.data:
+                enr = np.atleast_2d(np.asarray(world.data["obstacles_ENR_m"], dtype=float))
+                if enr.shape[1] == 3:
+                    required = enr.copy()
+                    margin = np.atleast_1d(np.asarray(world.data.get("obstacles_margin_m", np.zeros(required.shape[0])), dtype=float))
+                    required[:, 2] = required[:, 2] + margin + extra_clearance_m
+                    world.data["obstacles_ENR_required_m"] = required
 
             optimizer = TrajectoryOptimizer(vehicle, world)
             visualizer = TrajectoryVisualizer(world, output_dir=str(output_dir))
 
             print("\n" + "=" * 70)
-            print("STAGE A: FEASIBILITY")
+            print("SINGLE STAGE: COMBINED OBJECTIVE")
             print("=" * 70)
-            stage_a = optimizer.solve(
-                N=N,
-                ds_m=ds_m,
-                stage="feas",
-                obstacles=obstacles,
-                obstacle_window_m=float(os.environ.get("OBS_WINDOW_M", "30.0")),
-                obstacle_slack_weight=float(os.environ.get("OBS_SLACK_W_FEAS", "1e4")),
-                smoothness_weight=float(os.environ.get("SMOOTHNESS_W_FEAS", "2.0")),
-                time_weight_feas=float(os.environ.get("TIME_W_FEAS", "1e-2")),
-                ux_min=3.0,
-                convergent_lap=True,
-                verbose=True,
-            )
-            print(f"  Success: {stage_a.success}")
-            print(f"  Cost: {stage_a.cost:.4f}")
-            print(f"  Iterations: {stage_a.iterations}")
-            print(f"  Solve time: {stage_a.solve_time:.2f} s")
-            print(f"  Max obstacle slack: {stage_a.max_obstacle_slack:.4e}")
-            print(f"  Min obstacle clearance: {stage_a.min_obstacle_clearance:.4f} m")
-
-            print("\nGenerating Stage A plots...")
-            plots_a = visualizer.generate_full_report(stage_a, prefix="ipopt_stage_a")
-            for _, path in plots_a.items():
-                print(f"  Saved: {path}")
-
-            print("\n" + "=" * 70)
-            print("STAGE B: MIN-TIME REFINEMENT")
-            print("=" * 70)
-            stage_b = optimizer.solve(
+            result = optimizer.solve(
                 N=N,
                 ds_m=ds_m,
                 stage="time",
-                X_init=stage_a.X,
-                U_init=stage_a.U,
+                track_buffer_m=track_buffer_m,
                 obstacles=obstacles,
                 obstacle_window_m=float(os.environ.get("OBS_WINDOW_M", "30.0")),
-                obstacle_slack_weight=float(os.environ.get("OBS_SLACK_W_TIME", "1e6")),
-                smoothness_weight=float(os.environ.get("SMOOTHNESS_W_TIME", "0.5")),
+                obstacle_clearance_m=extra_clearance_m,
+                obstacle_subsamples_per_segment=obstacle_subsamples,
+                obstacle_slack_weight=float(os.environ.get("OBS_SLACK_W", "1e5")),
+                smoothness_weight=float(os.environ.get("SMOOTHNESS_W", "1.0")),
                 ux_min=3.0,
                 convergent_lap=True,
                 verbose=True,
             )
-            print(f"  Success: {stage_b.success}")
-            print(f"  Cost: {stage_b.cost:.4f}")
-            print(f"  Iterations: {stage_b.iterations}")
-            print(f"  Solve time: {stage_b.solve_time:.2f} s")
-            print(f"  Max obstacle slack: {stage_b.max_obstacle_slack:.4e}")
-            print(f"  Min obstacle clearance: {stage_b.min_obstacle_clearance:.4f} m")
+            print(f"  Success: {result.success}")
+            print(f"  Cost: {result.cost:.4f}")
+            print(f"  Iterations: {result.iterations}")
+            print(f"  Solve time: {result.solve_time:.2f} s")
+            print(f"  Max obstacle slack: {result.max_obstacle_slack:.4e}")
+            print(f"  Min obstacle clearance: {result.min_obstacle_clearance:.4f} m")
 
-            print("\nGenerating Stage B plots...")
-            plots_b = visualizer.generate_full_report(stage_b, prefix="ipopt_stage_b")
-            for _, path in plots_b.items():
+            print("\nGenerating plots...")
+            plots = visualizer.generate_full_report(result, prefix="ipopt_single_stage")
+            for _, path in plots.items():
                 print(f"  Saved: {path}")
 
-            print("\nGenerating comparison plot...")
-            comp = visualizer.plot_comparison(
-                {"Stage A (feasibility)": stage_a, "Stage B (time)": stage_b},
-                filename="ipopt_stage_comparison.png",
-                title="IPOPT Stage A/B Comparison",
-            )
-            print(f"  Saved: {comp}")
-
             try:
-                print("\nGenerating animation (Stage B)...")
-                anim = create_animation(visualizer, stage_b, filename="ipopt_stage_b_animation.gif", fps=15)
+                print("\nGenerating animation...")
+                anim = create_animation(visualizer, result, filename="ipopt_single_stage_animation.gif", fps=15)
                 print(f"  Saved: {anim}")
             except Exception as err:
                 print(f"  Animation skipped: {err}")
@@ -206,8 +191,7 @@ def run_demo():
             print("=" * 70)
             print(f"{'Run':<25} {'Iters':<8} {'Time [s]':<10} {'Cost [s]':<10} {'Max Sigma':<12} {'Min Clear [m]':<14} {'Success'}")
             print("-" * 95)
-            print(f"{'Stage A (feas)':<25} {stage_a.iterations:<8} {stage_a.solve_time:<10.2f} {stage_a.cost:<10.4f} {stage_a.max_obstacle_slack:<12.3e} {stage_a.min_obstacle_clearance:<14.4f} {stage_a.success}")
-            print(f"{'Stage B (time)':<25} {stage_b.iterations:<8} {stage_b.solve_time:<10.2f} {stage_b.cost:<10.4f} {stage_b.max_obstacle_slack:<12.3e} {stage_b.min_obstacle_clearance:<14.4f} {stage_b.success}")
+            print(f"{'Single stage':<25} {result.iterations:<8} {result.solve_time:<10.2f} {result.cost:<10.4f} {result.max_obstacle_slack:<12.3e} {result.min_obstacle_clearance:<14.4f} {result.success}")
             print(f"\nAll outputs saved to: {output_dir}")
         finally:
             sys.stdout.flush()

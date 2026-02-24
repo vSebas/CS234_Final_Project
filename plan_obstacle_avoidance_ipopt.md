@@ -24,13 +24,12 @@ The goal is a pipeline that is **reliable**, **trainable**, and **measurable** (
 - Control bounds
 - Obstacle avoidance (see below)
 
-### Why track segments (not full laps) are recommended initially
-- Much easier to solve robustly (smaller NLP, fewer coupled nonconvex interactions)
-- Faster iteration for debugging/tuning (shorter solve times, quicker failure diagnosis)
-- Easier to randomize -> more diverse dataset quickly
-- Same methods extend to full laps later
+### Full-lap default (project decision)
+- Optimize one full closed lap by default.
+- Use periodic boundary conditions (`convergent_lap=True`).
+- Use `ds = track_length / N` so the horizon spans exactly one lap.
 
-**Explicit project stance:** full-lap optimization is intentionally deferred until segment-level obstacle solves are consistently reliable under the Stage A/B acceptance criteria.
+**Explicit project stance:** full-lap optimization is the active default in this repository.
 
 ---
 
@@ -81,53 +80,33 @@ This can reduce constraints by 10×–100×.
 
 ---
 
-## 2) Two-stage solve (critical for robustness with obstacles)
+## 2) Current Solve Strategy (single-stage, full lap)
 
-Obstacle avoidance makes the problem nonconvex. Instead of one-shot min-time, solve in two passes:
+Current active path in code is **single-stage IPOPT** on a full lap.
 
-### Stage A — Feasibility-first solve
-**Goal:** produce a collision-free-ish, track-valid trajectory even from a weak initialization.
+Objective combines:
+- time term (`t[N]`)
+- smoothness regularization
+- obstacle penalty term (only if obstacle slack is enabled)
 
-Objective:
-- minimize:
-  - obstacle slack `∑σ`
-  - smoothness regularizers (e.g., `∑||Δu||^2`, `∑||Δx||^2`)
-  - optionally a mild time term (small weight)
+Obstacle constraints are enforced as:
+- hard constraints by default (no slack),
+- node constraints + interior constraints within each collocation interval,
+- along-track gating window around each obstacle (`obstacle_window_m`),
+- required radius:
+  - `R_required = R + margin + obstacle_clearance_m`
 
-Constraints:
-- full dynamics collocation
-- track bounds
-- obstacle constraints **with slack**
+Important implementation note:
+- There is now **one** clearance knob:
+  - `obstacle_clearance_m` (demo env: `OBS_EXTRA_CLEAR_M`)
+- Do not use multiple additive gap knobs.
 
-Output:
-- a trajectory with low slack and reasonable dynamics consistency
-
-### Stage B — Performance solve (min-time)
-Warm-start Stage B with Stage A solution.
-
-Objective:
-- minimize `t[N]` (primary)
-- keep small smoothness regularizers
-- crank slack penalty high (`w_σ ↑↑`) so the optimizer removes any remaining slack
-
-Constraints:
-- same as Stage A
-
-**Benefit:** this transforms a fragile nonconvex solve into a robust pipeline.
-
-### 2.1 Explicit acceptance criteria (must be coded, not informal)
-Define hard pass/fail checks for each stage:
-
-- Stage A (feasibility) passes only if all are true:
-  - `max_sigma <= eps_sigma_feas` (example: `1e-2`)
-  - max dynamics defect/residual <= `eps_dyn_feas` (example: `1e-2`)
-  - track bound violation <= `eps_track` (example: `1e-3`)
-- Stage B (performance) passes only if all are true:
-  - `max_sigma <= eps_sigma_time` (example: `1e-4`)
-  - max dynamics defect/residual <= `eps_dyn_time` (example: `1e-3`)
-  - track/control constraints satisfied within solver tolerance
-
-If a stage does not pass these checks, treat it as failed even if IPOPT reports solve success.
+### 2.1 Acceptance criteria (single-stage)
+Treat a run as valid only if all are true:
+- `success == True`
+- `max_obstacle_slack <= eps_sigma` (hard mode target: `0`)
+- `min_obstacle_clearance >= 0` (recommended with margin: `>= 0.05 m`)
+- dynamics and path constraints within solver tolerance
 
 ---
 
@@ -149,30 +128,28 @@ Then set:
 - `u_x_init` constant or curvature-limited
 - roll out states to form a consistent `X_init`
 
-This is enough to make Stage A reliable.
+This is enough to make the single-stage solve more reliable.
 
 ---
 
 ## 4) Make IPOPT-collocation the single “official” optimizer
 
-Refactor the optimizer into one entry point:
+Refactor/keep the optimizer as one entry point:
 
-`solve_trajectory(scenario, X_init=None, U_init=None, stage="feas"|"time") -> (X, U, stats)`
+`solve_trajectory(scenario, X_init=None, U_init=None) -> (X, U, stats)`
 
 Key requirements:
-- Stage A/B objective toggles
+- full-lap periodic solve
 - obstacle constraints on/off
 - warm-start support (DT will call this)
-- strict post-solve validation against Stage A/B acceptance criteria
+- strict post-solve validation against single-stage acceptance criteria
 
-### 4.1 Fallback and retry policy (when Stage B fails)
-Add deterministic retries before declaring failure:
-
-1. Retry Stage B from Stage A solution with higher slack penalty schedule.
-2. Retry Stage B with slightly perturbed controls/states around Stage A solution.
-3. If still failing, rerun Stage A with a more conservative initializer and retry Stage B once.
-
-Record which retry path succeeded for later diagnostics.
+### 4.1 Retry policy (single-stage)
+When a run fails acceptance:
+1. Increase `N` and obstacle interior subsamples.
+2. Increase `obstacle_clearance_m`.
+3. Temporarily disable obstacle gating (`obstacle_window_m = large`) to validate formulation.
+4. If still failing, enable obstacle slack only for diagnosis (not for production dataset generation).
 
 ### Also keep deterministic baselines
 - Heuristic initializer (above)
@@ -186,10 +163,10 @@ Create `data/generate_dataset.py`:
 
 For each sample:
 1. Sample a scenario:
-   - `s0`, segment length, initial speed
+   - full-lap track id and initial speed
    - obstacles list (randomized)
 2. Generate heuristic init
-3. Run **Stage A**, then **Stage B**
+3. Run single-stage full-lap solve
 4. If success: save `.npz` with:
    - `s_grid`
    - `X[0:N]`, `U[0:N-1]`, `t[0:N]`
@@ -205,12 +182,11 @@ Define one versioned scenario spec and use it everywhere (generation, training, 
 - `scenario_id`
 - `seed`
 - `track_id`
-- `s0`, `segment_length`
 - `x0`
 - obstacle list: `(E_j, N_j, R_j, margin, R_tilde_j)`
 - solver config hash/version
 
-Reject samples that do not pass Stage A/B acceptance criteria, and store failure reason codes.
+Reject samples that do not pass single-stage acceptance criteria, and store failure reason codes.
 
 ### Dataset size targets
 - Start: **200–500 successful** obstacle scenarios
@@ -258,7 +234,7 @@ Metrics:
 - wall-clock runtime
 - final `t[N]`
 - max constraint violation (track + obstacles)
-- min obstacle distance (or max slack)
+- min obstacle distance / clearance
 
 This directly measures warm-start value without SCP.
 
@@ -268,16 +244,31 @@ This directly measures warm-start value without SCP.
 
 Before training DT, verify:
 
-1. Stage A+B solves succeed for most randomized obstacle scenarios.
-2. Solver produces near-zero slack and respects track bounds.
-3. Warm-starting IPOPT with a **better** initializer (e.g., DC solution) reduces iterations/time.
+1. Single-stage full-lap solves succeed for most randomized obstacle scenarios.
+2. Solver achieves nonnegative minimum obstacle clearance under dense checking.
+3. Warm-starting IPOPT with a **better** initializer reduces iterations/time.
    - If this doesn’t hold, DT won’t help either.
 4. Logs include solver diagnostics for every run:
    - IPOPT status + iteration count
    - objective components (time, slack penalty, smoothness)
    - max dynamics residual, max track/control violation
-   - `max_sigma`, min obstacle distance
-   - retry path used (if any)
+   - `max_sigma`, min obstacle clearance
+   - retry path / parameter escalation used (if any)
+
+---
+
+## 9) Visual-overlap Debug Checklist
+
+If plots appear to show obstacle overlap:
+1. Confirm the run log is from latest code (timestamp + git diff).
+2. Confirm plotting uses obstacle positions derived from Frenet `(s,e)` when available (same source as optimizer).
+3. Confirm `world.map_match_vectorized` uses the same Frenet-to-ENU conversion as optimizer constraints:
+   - `E = E_cl - e*sin(psi)`
+   - `N = N_cl + e*cos(psi)`
+   A mismatch here creates false visual collisions even when NLP constraints are satisfied.
+4. Check `min_obstacle_clearance` from dense post-check, not only node checks.
+5. Increase `N` and obstacle interior subsamples before concluding formulation failure.
+6. If clearance remains negative, temporarily disable gating and diagnose with full-horizon obstacle constraints.
 
 ---
 
