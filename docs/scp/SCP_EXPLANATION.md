@@ -662,7 +662,7 @@ print(f"Converged in {scp_result.iterations} iterations")  # Should be 1-5
 
 ### 10.1 Demo Results
 
-From `run_scp_demo.py` on the 260m oval track:
+From `run_trajopt_demo.py` on the 260m oval track:
 
 | Method | Iterations | Time | Cost | Success |
 |--------|------------|------|------|---------|

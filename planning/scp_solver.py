@@ -259,6 +259,23 @@ class SCPSolver:
         X[self.IDX_T, :] = np.linspace(0.0, N * ds_m / ux_init, N + 1)
         return X, U
 
+    def _perturb_control_seed(self, U_ref: np.ndarray) -> np.ndarray:
+        """
+        Apply a small deterministic perturbation to controls to escape fixed points
+        in QP-debug runs.
+        """
+        p = self.vehicle.params
+        U_pert = U_ref.copy()
+        n_nodes = U_ref.shape[1]
+        phase = np.linspace(0.0, 2.0 * np.pi, n_nodes)
+
+        U_pert[0, :] += 0.01 * np.sin(phase)  # steering perturbation [rad]
+        U_pert[1, :] += 0.05 * np.cos(phase)  # force perturbation [kN]
+
+        U_pert[0, :] = np.clip(U_pert[0, :], -p.max_delta_rad, p.max_delta_rad)
+        U_pert[1, :] = np.clip(U_pert[1, :], p.min_fx_kn, p.max_fx_kn)
+        return U_pert
+
     def _solve_convex_subproblem(
         self,
         X_ref: np.ndarray,
@@ -273,6 +290,7 @@ class SCPSolver:
         ux_max: Optional[float],
         convergent_lap: bool,
         phase_feasibility: bool,
+        iteration: int = 0,
     ) -> Tuple[np.ndarray, np.ndarray, float, float, bool]:
         N = X_ref.shape[1] - 1
         p = self.vehicle.params
@@ -291,9 +309,45 @@ class SCPSolver:
         delta = U[0, :]
         fx = U[1, :]
 
+        # QP debug backends (osqp/qrqp) share relaxed constraints and soft slacks.
+        use_qp_debug = self.params.qp_solver in ("osqp", "qrqp")
+        use_soft_constraints = use_qp_debug
+        slack_penalty_track = 1e3
+        slack_penalty_periodic = 1e3
+        slack_penalty_heading = 5e2
+        slack_penalty_control = 5e2
+
+        if use_soft_constraints:
+            # Slack for track bounds (2 per node: lower and upper)
+            s_track_lo = opti.variable(N + 1)  # e >= -hw + buffer - s_track_lo
+            s_track_hi = opti.variable(N + 1)  # e <= hw - buffer + s_track_hi
+            opti.subject_to(s_track_lo >= 0)
+            opti.subject_to(s_track_hi >= 0)
+
+            # Slack for heading bounds (2 per node)
+            s_dpsi_lo = opti.variable(N + 1)
+            s_dpsi_hi = opti.variable(N + 1)
+            opti.subject_to(s_dpsi_lo >= 0)
+            opti.subject_to(s_dpsi_hi >= 0)
+
+            # Slack for control bounds (4 per node: delta lower/upper, fx lower/upper)
+            s_delta_lo = opti.variable(N + 1)
+            s_delta_hi = opti.variable(N + 1)
+            s_fx_lo = opti.variable(N + 1)
+            s_fx_hi = opti.variable(N + 1)
+            opti.subject_to(s_delta_lo >= 0)
+            opti.subject_to(s_delta_hi >= 0)
+            opti.subject_to(s_fx_lo >= 0)
+            opti.subject_to(s_fx_hi >= 0)
+
+            # Slack for periodicity constraints (one per periodic state/control)
+            n_periodic = 9  # ux, uy, r, dfz_long, dfz_lat, e, dpsi, delta, fx
+            s_periodic = opti.variable(n_periodic)
+            opti.subject_to(s_periodic >= 0)
+
         # Feasibility-first behavior: initially reduce V and stay near reference.
         lap_w = 0.1 if phase_feasibility else self.params.lap_time_weight
-        reg_w = self.params.regularization_weight
+        reg_w = 1e-4 if use_soft_constraints else self.params.regularization_weight
 
         cost = (
             lap_w * t[N]
@@ -301,6 +355,15 @@ class SCPSolver:
             + reg_w * ca.sumsqr(X - X_ref)
             + reg_w * ca.sumsqr(U - U_ref)
         )
+
+        if use_soft_constraints:
+            cost += slack_penalty_track * (ca.sumsqr(s_track_lo) + ca.sumsqr(s_track_hi))
+            cost += slack_penalty_heading * (ca.sumsqr(s_dpsi_lo) + ca.sumsqr(s_dpsi_hi))
+            cost += slack_penalty_control * (
+                ca.sumsqr(s_delta_lo) + ca.sumsqr(s_delta_hi) + ca.sumsqr(s_fx_lo) + ca.sumsqr(s_fx_hi)
+            )
+            cost += slack_penalty_periodic * ca.sumsqr(s_periodic)
+
         opti.minimize(cost)
 
         # Linearized trapezoidal dynamics
@@ -315,16 +378,17 @@ class SCPSolver:
 
             opti.subject_to(x_kp1 == x_k + 0.5 * ds_m * (f_k + f_kp1) + V[:, k])
 
-        # Scaled trust region
-        for k in range(N + 1):
-            for i in range(self.nx):
-                tr_i = tr_multiplier * self.STATE_SCALES[i]
-                opti.subject_to(X[i, k] >= X_ref[i, k] - tr_i)
-                opti.subject_to(X[i, k] <= X_ref[i, k] + tr_i)
-            for j in range(self.nu):
-                tr_j = tr_multiplier * self.CONTROL_SCALES[j]
-                opti.subject_to(U[j, k] >= U_ref[j, k] - tr_j)
-                opti.subject_to(U[j, k] <= U_ref[j, k] + tr_j)
+        # Trust region is disabled in QP-debug mode to isolate feasibility issues.
+        if not use_qp_debug:
+            for k in range(N + 1):
+                for i in range(self.nx):
+                    tr_i = tr_multiplier * self.STATE_SCALES[i]
+                    opti.subject_to(X[i, k] >= X_ref[i, k] - tr_i)
+                    opti.subject_to(X[i, k] <= X_ref[i, k] + tr_i)
+                for j in range(self.nu):
+                    tr_j = tr_multiplier * self.CONTROL_SCALES[j]
+                    opti.subject_to(U[j, k] >= U_ref[j, k] - tr_j)
+                    opti.subject_to(U[j, k] <= U_ref[j, k] + tr_j)
 
         # Path/state constraints
         for k in range(N + 1):
@@ -333,55 +397,102 @@ class SCPSolver:
                 opti.subject_to(ux[k] <= ux_max)
 
             buffer = 0.5
-            opti.subject_to(e[k] >= -track_hw[k] + buffer)
-            opti.subject_to(e[k] <= track_hw[k] - buffer)
-            opti.subject_to(dpsi[k] >= -np.pi / 3)
-            opti.subject_to(dpsi[k] <= np.pi / 3)
+            if use_soft_constraints:
+                # Soft track bounds for OSQP
+                opti.subject_to(e[k] >= -track_hw[k] + buffer - s_track_lo[k])
+                opti.subject_to(e[k] <= track_hw[k] - buffer + s_track_hi[k])
+            else:
+                opti.subject_to(e[k] >= -track_hw[k] + buffer)
+                opti.subject_to(e[k] <= track_hw[k] - buffer)
+            if use_soft_constraints:
+                opti.subject_to(dpsi[k] >= -np.pi / 3 - s_dpsi_lo[k])
+                opti.subject_to(dpsi[k] <= np.pi / 3 + s_dpsi_hi[k])
+            else:
+                opti.subject_to(dpsi[k] >= -np.pi / 3)
+                opti.subject_to(dpsi[k] <= np.pi / 3)
 
             if k > 0:
                 opti.subject_to(t[k] >= t[k - 1])
 
         # Control constraints
         for k in range(N + 1):
-            opti.subject_to(delta[k] >= -p.max_delta_rad)
-            opti.subject_to(delta[k] <= p.max_delta_rad)
-            opti.subject_to(fx[k] >= p.min_fx_kn)
-            opti.subject_to(fx[k] <= p.max_fx_kn)
+            if use_soft_constraints:
+                opti.subject_to(delta[k] >= -p.max_delta_rad - s_delta_lo[k])
+                opti.subject_to(delta[k] <= p.max_delta_rad + s_delta_hi[k])
+                opti.subject_to(fx[k] >= p.min_fx_kn - s_fx_lo[k])
+                opti.subject_to(fx[k] <= p.max_fx_kn + s_fx_hi[k])
+            else:
+                opti.subject_to(delta[k] >= -p.max_delta_rad)
+                opti.subject_to(delta[k] <= p.max_delta_rad)
+                opti.subject_to(fx[k] >= p.min_fx_kn)
+                opti.subject_to(fx[k] <= p.max_fx_kn)
 
         # Boundary conditions
         opti.subject_to(t[0] == 0)
         if convergent_lap:
-            opti.subject_to(ux[0] == ux[N])
-            opti.subject_to(X[self.IDX_UY, 0] == X[self.IDX_UY, N])
-            opti.subject_to(X[self.IDX_R, 0] == X[self.IDX_R, N])
-            opti.subject_to(dfz_long[0] == dfz_long[N])
-            opti.subject_to(dfz_lat[0] == dfz_lat[N])
-            opti.subject_to(e[0] == e[N])
-            opti.subject_to(dpsi[0] == dpsi[N])
-            opti.subject_to(delta[0] == delta[N])
-            opti.subject_to(fx[0] == fx[N])
+            if use_soft_constraints:
+                # Soft periodicity for OSQP (allow small violations)
+                opti.subject_to(ux[0] - ux[N] <= s_periodic[0])
+                opti.subject_to(ux[N] - ux[0] <= s_periodic[0])
+                opti.subject_to(X[self.IDX_UY, 0] - X[self.IDX_UY, N] <= s_periodic[1])
+                opti.subject_to(X[self.IDX_UY, N] - X[self.IDX_UY, 0] <= s_periodic[1])
+                opti.subject_to(X[self.IDX_R, 0] - X[self.IDX_R, N] <= s_periodic[2])
+                opti.subject_to(X[self.IDX_R, N] - X[self.IDX_R, 0] <= s_periodic[2])
+                opti.subject_to(dfz_long[0] - dfz_long[N] <= s_periodic[3])
+                opti.subject_to(dfz_long[N] - dfz_long[0] <= s_periodic[3])
+                opti.subject_to(dfz_lat[0] - dfz_lat[N] <= s_periodic[4])
+                opti.subject_to(dfz_lat[N] - dfz_lat[0] <= s_periodic[4])
+                opti.subject_to(e[0] - e[N] <= s_periodic[5])
+                opti.subject_to(e[N] - e[0] <= s_periodic[5])
+                opti.subject_to(dpsi[0] - dpsi[N] <= s_periodic[6])
+                opti.subject_to(dpsi[N] - dpsi[0] <= s_periodic[6])
+                opti.subject_to(delta[0] - delta[N] <= s_periodic[7])
+                opti.subject_to(delta[N] - delta[0] <= s_periodic[7])
+                opti.subject_to(fx[0] - fx[N] <= s_periodic[8])
+                opti.subject_to(fx[N] - fx[0] <= s_periodic[8])
+            else:
+                opti.subject_to(ux[0] == ux[N])
+                opti.subject_to(X[self.IDX_UY, 0] == X[self.IDX_UY, N])
+                opti.subject_to(X[self.IDX_R, 0] == X[self.IDX_R, N])
+                opti.subject_to(dfz_long[0] == dfz_long[N])
+                opti.subject_to(dfz_lat[0] == dfz_lat[N])
+                opti.subject_to(e[0] == e[N])
+                opti.subject_to(dpsi[0] == dpsi[N])
+                opti.subject_to(delta[0] == delta[N])
+                opti.subject_to(fx[0] == fx[N])
 
         opti.set_initial(X, X_ref)
         opti.set_initial(U, U_ref)
         opti.set_initial(V, 0)
+
+        if use_soft_constraints:
+            opti.set_initial(s_track_lo, 0)
+            opti.set_initial(s_track_hi, 0)
+            opti.set_initial(s_dpsi_lo, 0)
+            opti.set_initial(s_dpsi_hi, 0)
+            opti.set_initial(s_delta_lo, 0)
+            opti.set_initial(s_delta_hi, 0)
+            opti.set_initial(s_fx_lo, 0)
+            opti.set_initial(s_fx_hi, 0)
+            opti.set_initial(s_periodic, 0)
 
         if self.params.qp_solver == "osqp":
             opts = {
                 "print_time": False,
                 "qpsol": "osqp",
                 "qpsol_options": {
+                    "error_on_fail": False,
                     "osqp": {
                         "verbose": False,
-                        "eps_abs": 1e-5,
-                        "eps_rel": 1e-5,
-                        "max_iter": 4000,
-                        "polish": True,
+                        "eps_abs": 1e-3,
+                        "eps_rel": 1e-3,
+                        "max_iter": 10000,
+                        "polish": False,
                     }
                 },
                 "print_iteration": False,
                 "print_header": False,
-                # Subproblem is already convex QP; one SQP sweep is typically enough.
-                "max_iter": 1,
+                "max_iter": 20,
                 "convexify_strategy": "regularize",
             }
             opti.solver("sqpmethod", opts)
@@ -389,10 +500,14 @@ class SCPSolver:
             opts = {
                 "print_time": False,
                 "qpsol": "qrqp",
-                "qpsol_options": {"print_iter": False, "print_header": False},
+                "qpsol_options": {
+                    "error_on_fail": False,
+                    "print_iter": False,
+                    "print_header": False,
+                },
                 "print_iteration": False,
                 "print_header": False,
-                "max_iter": 1,
+                "max_iter": 20,
             }
             opti.solver("sqpmethod", opts)
         else:
@@ -413,8 +528,65 @@ class SCPSolver:
             V_sol = sol.value(V)
             V_norm_sq = float(np.sum(V_sol**2))
             cost_qp = float(sol.value(cost))
+
+            # Log slack usage for OSQP debug
+            if use_soft_constraints and self.params.verbose:
+                s_track_lo_val = np.array(sol.value(s_track_lo)).flatten()
+                s_track_hi_val = np.array(sol.value(s_track_hi)).flatten()
+                s_dpsi_lo_val = np.array(sol.value(s_dpsi_lo)).flatten()
+                s_dpsi_hi_val = np.array(sol.value(s_dpsi_hi)).flatten()
+                s_delta_lo_val = np.array(sol.value(s_delta_lo)).flatten()
+                s_delta_hi_val = np.array(sol.value(s_delta_hi)).flatten()
+                s_fx_lo_val = np.array(sol.value(s_fx_lo)).flatten()
+                s_fx_hi_val = np.array(sol.value(s_fx_hi)).flatten()
+                s_periodic_val = np.array(sol.value(s_periodic)).flatten()
+                track_slack_norm = float(np.sqrt(np.sum(s_track_lo_val**2) + np.sum(s_track_hi_val**2)))
+                dpsi_slack_norm = float(np.sqrt(np.sum(s_dpsi_lo_val**2) + np.sum(s_dpsi_hi_val**2)))
+                control_slack_norm = float(
+                    np.sqrt(
+                        np.sum(s_delta_lo_val**2) + np.sum(s_delta_hi_val**2)
+                        + np.sum(s_fx_lo_val**2) + np.sum(s_fx_hi_val**2)
+                    )
+                )
+                periodic_slack_norm = float(np.sqrt(np.sum(s_periodic_val**2)))
+                if (
+                    track_slack_norm > 1e-4
+                    or dpsi_slack_norm > 1e-4
+                    or control_slack_norm > 1e-4
+                    or periodic_slack_norm > 1e-4
+                ):
+                    print(
+                        "    [OSQP SLACKS] "
+                        f"track={track_slack_norm:.4f}, "
+                        f"dpsi={dpsi_slack_norm:.4f}, "
+                        f"control={control_slack_norm:.4f}, "
+                        f"periodic={periodic_slack_norm:.4f}"
+                    )
+
             return X_new, U_new, cost_qp, V_norm_sq, True
-        except RuntimeError:
+        except RuntimeError as e:
+            if self.params.verbose:
+                print(f"    [SUBPROBLEM FAILURE] iter={iteration}, tr={tr_multiplier:.4f}, "
+                      f"solver={self.params.qp_solver}")
+                print(f"    [SUBPROBLEM FAILURE] exception:\n{str(e)}")
+                try:
+                    stats = opti.stats()
+                    print("    [SUBPROBLEM FAILURE] solver stats:")
+                    for k in ("return_status", "success", "iter_count", "unified_return_status"):
+                        if k in stats:
+                            print(f"      - {k}: {stats[k]}")
+                except Exception as stats_e:
+                    print(f"    [SUBPROBLEM FAILURE] solver stats unavailable: {stats_e}")
+                # Summary of reference trajectory bounds
+                ux_range = (float(X_ref[self.IDX_UX, :].min()), float(X_ref[self.IDX_UX, :].max()))
+                e_range = (float(X_ref[self.IDX_E, :].min()), float(X_ref[self.IDX_E, :].max()))
+                print(f"    [SUBPROBLEM FAILURE] X_ref: ux=[{ux_range[0]:.2f}, {ux_range[1]:.2f}], "
+                      f"e=[{e_range[0]:.2f}, {e_range[1]:.2f}]")
+                try:
+                    print("    [SUBPROBLEM FAILURE] infeasibility report:")
+                    opti.debug.show_infeasibilities()
+                except Exception as infeas_e:
+                    print(f"    [SUBPROBLEM FAILURE] infeasibility report unavailable: {infeas_e}")
             return X_ref.copy(), U_ref.copy(), float("inf"), float("inf"), False
 
     def solve(
@@ -430,6 +602,7 @@ class SCPSolver:
     ) -> SCPResult:
         t_start = time.time()
         verbose = self.params.verbose if verbose is None else verbose
+        use_qp_debug = self.params.qp_solver in ("osqp", "qrqp")
 
         s_grid = np.linspace(0, N * ds_m, N + 1)
         k_psi_data = np.zeros(N + 1)
@@ -492,6 +665,7 @@ class SCPSolver:
         converged = False
         termination_reason = ""
         min_tr_reject_streak = 0
+        tiny_step_streak = 0
 
         for it in range(self.params.max_iterations):
             if (time.time() - t_start) >= self.params.max_solve_time_s:
@@ -519,18 +693,41 @@ class SCPSolver:
                 ux_max,
                 convergent_lap,
                 phase_feas,
+                iteration=it,
             )
 
             subproblem_times.append(time.time() - t_iter)
 
             if not qp_ok:
-                tr_multiplier = max(self.params.tr_radius_min, tr_multiplier * self.params.tr_shrink_factor)
+                if not use_qp_debug:
+                    tr_multiplier = max(self.params.tr_radius_min, tr_multiplier * self.params.tr_shrink_factor)
                 iteration_history.append(lap_prev)
                 tr_radius_history.append(tr_multiplier)
                 constraint_violation_history.append(defect_prev)
                 virtual_control_history.append(float("inf"))
                 if verbose:
                     print(f"  Iter {it}: subproblem failed, shrinking trust region")
+                continue
+
+            step_x_norm = float(np.linalg.norm(X_new - X_ref))
+            step_u_norm = float(np.linalg.norm(U_new - U_ref))
+            if verbose:
+                print(f"    [STEP DIAG] ||dX||={step_x_norm:.3e}, ||dU||={step_u_norm:.3e}")
+
+            if use_qp_debug and step_x_norm < 1e-7 and step_u_norm < 1e-7:
+                tiny_step_streak += 1
+            else:
+                tiny_step_streak = 0
+
+            if use_qp_debug and tiny_step_streak >= 3:
+                U_ref = self._perturb_control_seed(U_ref)
+                tiny_step_streak = 0
+                if verbose:
+                    print("    [DEBUG RESEED] tiny-step fixed point detected, perturbing control seed")
+                iteration_history.append(lap_prev)
+                tr_radius_history.append(tr_multiplier)
+                constraint_violation_history.append(defect_prev)
+                virtual_control_history.append(float(np.sqrt(V_norm_sq)))
                 continue
 
             merit_new, lap_new, defect_new, _ = self._compute_nonlinear_merit(
@@ -560,9 +757,10 @@ class SCPSolver:
                     tr_multiplier = min(self.params.tr_radius_max, tr_multiplier * self.params.tr_expand_factor)
                 accepted_txt = "accepted"
             else:
-                tr_multiplier = max(self.params.tr_radius_min, tr_multiplier * self.params.tr_shrink_factor)
-                if tr_multiplier <= self.params.tr_radius_min + 1e-12:
-                    min_tr_reject_streak += 1
+                if not use_qp_debug:
+                    tr_multiplier = max(self.params.tr_radius_min, tr_multiplier * self.params.tr_shrink_factor)
+                    if tr_multiplier <= self.params.tr_radius_min + 1e-12:
+                        min_tr_reject_streak += 1
                 accepted_txt = "rejected"
 
             iteration_history.append(lap_prev)
@@ -593,7 +791,7 @@ class SCPSolver:
                     )
                     break
 
-            if tr_multiplier <= self.params.tr_radius_min and min_tr_reject_streak >= 6:
+            if (not use_qp_debug) and tr_multiplier <= self.params.tr_radius_min and min_tr_reject_streak >= 6:
                 termination_reason = "Trust region stuck at minimum with repeated rejections"
                 break
         else:

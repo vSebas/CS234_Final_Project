@@ -9,6 +9,7 @@ import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for saving
 import matplotlib.pyplot as plt
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Circle
 from pathlib import Path
 from typing import Optional, Dict, List, Union
 from dataclasses import dataclass
@@ -72,6 +73,53 @@ class TrajectoryVisualizer:
         """Convert path coordinates to global (East, North)."""
         return self.world.map_match_vectorized(s_m, e_m)
 
+    def _get_obstacle_plot_data(self) -> List[tuple]:
+        """
+        Extract obstacle data as tuples (east, north, radius, radius_tilde).
+
+        Supports either ENR fields or Frenet fields stored in world.data.
+        """
+        data = self.world.data
+        obstacles: List[tuple] = []
+
+        if "obstacles_ENR_m" in data:
+            enr = np.atleast_2d(np.asarray(data["obstacles_ENR_m"], dtype=float))
+            if enr.shape[1] == 3:
+                if "obstacles_ENR_tilde_m" in data:
+                    enr_tilde = np.atleast_2d(np.asarray(data["obstacles_ENR_tilde_m"], dtype=float))
+                    for i in range(min(len(enr), len(enr_tilde))):
+                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), float(enr[i, 2]), float(enr_tilde[i, 2])))
+                    return obstacles
+                if "obstacles_margin_m" in data:
+                    margins = np.atleast_1d(np.asarray(data["obstacles_margin_m"], dtype=float))
+                    for i in range(min(len(enr), len(margins))):
+                        r = float(enr[i, 2])
+                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r + float(margins[i])))
+                    return obstacles
+                for i in range(len(enr)):
+                    r = float(enr[i, 2])
+                    obstacles.append((float(enr[i, 0]), float(enr[i, 1]), r, r))
+                return obstacles
+
+        required_frenet = {"obstacles_s_m", "obstacles_e_m", "obstacles_radius_m"}
+        if required_frenet.issubset(set(data.keys())):
+            s_vals = np.atleast_1d(np.asarray(data["obstacles_s_m"], dtype=float))
+            e_vals = np.atleast_1d(np.asarray(data["obstacles_e_m"], dtype=float))
+            r_vals = np.atleast_1d(np.asarray(data["obstacles_radius_m"], dtype=float))
+            if "obstacles_radius_tilde_m" in data:
+                rt_vals = np.atleast_1d(np.asarray(data["obstacles_radius_tilde_m"], dtype=float))
+            elif "obstacles_margin_m" in data:
+                margins = np.atleast_1d(np.asarray(data["obstacles_margin_m"], dtype=float))
+                rt_vals = r_vals + margins
+            else:
+                rt_vals = r_vals
+
+            east, north, _ = self.world.map_match_vectorized(s_vals, e_vals)
+            for i in range(min(len(east), len(r_vals), len(rt_vals))):
+                obstacles.append((float(east[i]), float(north[i]), float(r_vals[i]), float(rt_vals[i])))
+
+        return obstacles
+
     def plot_trajectory_overhead(
         self,
         result,
@@ -110,6 +158,34 @@ class TrajectoryVisualizer:
         ax.plot(self.world.data['posE_m'], self.world.data['posN_m'],
                 color=self.config.centerline_color, linewidth=0.5,
                 linestyle='--', alpha=0.5, label='Centerline')
+
+        # Plot obstacles if available
+        obstacles = self._get_obstacle_plot_data()
+        for i, (east_m, north_m, radius_m, radius_tilde_m) in enumerate(obstacles):
+            show_label_obs = (i == 0)
+            obs_circle = Circle(
+                (east_m, north_m),
+                radius_m,
+                edgecolor='tab:red',
+                facecolor='tab:red',
+                alpha=0.25,
+                linewidth=1.5,
+                label='Obstacle' if show_label_obs else None,
+                zorder=3,
+            )
+            ax.add_patch(obs_circle)
+            safe_circle = Circle(
+                (east_m, north_m),
+                radius_tilde_m,
+                edgecolor='tab:red',
+                facecolor='none',
+                linestyle='--',
+                linewidth=1.0,
+                alpha=0.9,
+                label='Obstacle safety' if show_label_obs else None,
+                zorder=3,
+            )
+            ax.add_patch(safe_circle)
 
         # Convert trajectory to global coordinates
         s_m = result.s_m
@@ -646,6 +722,13 @@ def create_animation(
     outer = world.data['outer_bounds_m']
     ax.plot(inner[:, 0], inner[:, 1], color='gray', linewidth=1.5)
     ax.plot(outer[:, 0], outer[:, 1], color='gray', linewidth=1.5)
+
+    # Obstacles (static overlays)
+    for east_m, north_m, radius_m, radius_tilde_m in visualizer._get_obstacle_plot_data():
+        ax.add_patch(Circle((east_m, north_m), radius_m, edgecolor='tab:red',
+                            facecolor='tab:red', alpha=0.25, linewidth=1.5, zorder=3))
+        ax.add_patch(Circle((east_m, north_m), radius_tilde_m, edgecolor='tab:red',
+                            facecolor='none', linestyle='--', linewidth=1.0, alpha=0.9, zorder=3))
 
     # Get trajectory
     s_m = result.s_m

@@ -4,7 +4,7 @@
 
 This project investigates whether an offline sequence model (Decision Transformer) can amortize nonlinear constrained trajectory optimization for autonomous vehicles by producing high-quality **warm-start trajectories**.
 
-**Core Idea:** Sequential Convex Programming (SCP) is sensitive to initialization. A learned neural trajectory prior can significantly reduce SCP iterations and failure rates while preserving hard constraint satisfaction through optimization refinement.
+**Core Idea:** Use a robust direct-transcription NLP solved by IPOPT as the production optimizer (including future obstacle-avoidance constraints), and use a learned neural prior to improve warm-start quality and reduce solve time/iterations.
 
 ```
 ┌─────────────────────────┐
@@ -12,8 +12,8 @@ This project investigates whether an offline sequence model (Decision Transforme
 │  (learned from data)    │                        │
 └─────────────────────────┘                        ▼
                                     ┌──────────────────────────┐
-                                    │   SCP / Trajectory Opt   │
-                                    │   (refines to feasible)  │
+                                    │ IPOPT Trajectory NLP     │
+                                    │ (collocation + constraints) │
                                     └──────────────────────────┘
                                                    │
                                                    ▼
@@ -77,46 +77,32 @@ min  J = ∫₀^s_final (1/ṡ) ds = ∫₀^s_final dt
 
 ### Implemented Solvers
 
-#### 1. Direct Collocation + IPOPT
+#### 1. Production Solver: Direct Collocation + IPOPT
 ```
 Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
                 (trapezoidal)
 ```
 - **Discretization:** Trapezoidal collocation (N nodes)
 - **NLP Solver:** IPOPT (interior point method)
-- **Use case:** Baseline solver, generates training data
+- **Use case:** Main solver for data generation and refinement
+- **Planned extension:** Obstacle avoidance constraints with slack + two-stage solve (feasibility then min-time)
 
-#### 2. Sequential Convex Programming (SCP)
-```
-Initial guess x⁰
-repeat:
-    1. Linearize dynamics around xᵏ
-    2. Solve convex QP subproblem
-    3. Update: xᵏ⁺¹ with trust region
-until convergence
-```
-- **Linearization:** Jacobians computed via CasADi AD
-- **Trust region:** Adaptive radius with expand/shrink logic
-- **Iteration tracking:** Key metric for warm-start evaluation
-
-**SCP Advantages for This Project:**
-- Iteration count directly measures warm-start quality
-- Convex subproblems are fast to solve
-- Natural trust region framework
+#### 2. SCP Status
+- `planning/scp_solver.py` is frozen for regular development.
+- SCP remains an experimental/archival branch.
+- See:
+  - `docs/SCP_TRAJECTORY_OPTIMIZER_STATUS.md`
+  - `docs/SCP_EXPLANATION.md`
+  - `docs/scp_archive/`
 
 ---
 
-## Demo Results
+## Optimization Status
 
-Running `python run_scp_demo.py` produces:
-
-| Method | Iterations | Time | Cost (Lap Time) | Success |
-|--------|------------|------|-----------------|---------|
-| Direct Collocation | 34 | 8.34s | 14.46s | Yes |
-| SCP (Cold Start) | 9 | 12.73s | 26.00s | No (failed) |
-| SCP (Warm Start) | 2 | 4.69s | 13.92s | Yes |
-
-**Key Finding:** Warm-start reduces SCP iterations by **4.5x** and solves successfully where cold start fails. This validates the potential for Decision Transformer warm-starts.
+- Current robust path: IPOPT direct collocation.
+- Current project direction: obstacle-aware IPOPT formulation and DT warm-starting of the IPOPT solver.
+- SCP is not the active production path.
+- Detailed plan: `plan_obstacle_avoidance_ipopt.md`.
 
 ---
 
@@ -132,8 +118,8 @@ CS234_Final_Project/
 │
 ├── planning/
 │   ├── __init__.py
-│   ├── optimizer.py          # Direct collocation + IPOPT
-│   └── scp_solver.py         # Sequential Convex Programming solver
+│   ├── optimizer.py          # Direct collocation + IPOPT (production)
+│   └── scp_solver.py         # SCP solver (frozen experimental)
 │
 ├── world/
 │   └── world.py              # Track geometry and boundaries
@@ -153,7 +139,7 @@ CS234_Final_Project/
 │   ├── warm_start_analysis.png
 │   └── trajectory_animation.gif
 │
-├── run_scp_demo.py           # Main demo script
+├── run_trajopt_demo.py       # Trajectory optimization demo (IPOPT production path)
 ├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
 ├── test_dynamic_model.py     # Model verification script
 ├── create_oval_track.py      # Track generation script
@@ -173,20 +159,25 @@ conda activate DT_trajopt
 
 # Install dependencies
 pip install numpy scipy matplotlib casadi PyYAML
+
+# Optional: faster QP solver (may have issues on ill-conditioned problems)
+# pip install osqp
 ```
 
 ### Run Demo
 
 ```bash
 cd CS234_Final_Project
-python run_scp_demo.py
+python run_trajopt_demo.py
 ```
 
 This will:
-1. Solve trajectory optimization with Direct Collocation
-2. Solve with SCP (cold start)
-3. Solve with SCP (warm start from DC result)
-4. Generate comparison visualizations in `results/`
+1. Solve trajectory optimization with IPOPT direct collocation
+2. Run current comparison pipeline and save plots/logs in `results/`
+
+Notes:
+- Production solver path is IPOPT.
+- SCP outputs are kept for reference/diagnostics.
 
 ### Vehicle Simulation
 
@@ -230,14 +221,14 @@ Outputs are saved to `results/dynamic_simulations/`:
 
 ```python
 from models import SingleTrackModel, VehicleParams, FialaBrushTire
-from planning import TrajectoryOptimizer, SCPSolver, SCPParams
+from planning import TrajectoryOptimizer
 from world.world import World
 
 # Load track
 world = World("maps/Medium_Oval_Map_260m.mat", "Oval", diagnostic_plotting=False)
 
 # Create vehicle
-params = VehicleParams(...)  # See run_scp_demo.py for example
+params = VehicleParams(...)  # See run_trajopt_demo.py for example
 f_tire = FialaBrushTire(c0_alpha_nprad=0, c1_alpha_1prad=8.0, mu_none=0.9)
 r_tire = FialaBrushTire(c0_alpha_nprad=0, c1_alpha_1prad=13.0, mu_none=0.9)
 vehicle = SingleTrackModel(params, f_tire, r_tire)
@@ -246,11 +237,7 @@ vehicle = SingleTrackModel(params, f_tire, r_tire)
 dc_opt = TrajectoryOptimizer(vehicle, world)
 dc_result = dc_opt.solve(N=100, ds_m=2.6)
 
-# SCP with warm-start
-scp_opt = SCPSolver(vehicle, world, params=SCPParams(max_iterations=30))
-scp_result = scp_opt.solve(N=100, ds_m=2.6, X_init=dc_result.X, U_init=dc_result.U)
-
-print(f"SCP iterations: {scp_result.iterations}")
+print(f"Collocation solve time: {dc_result.solve_time:.2f}s")
 ```
 
 ---
@@ -265,7 +252,7 @@ print(f"SCP iterations: {scp_result.iterations}")
 
 4. **Transformer Warm-Starts:** Guffanti et al., "Transformers for Trajectory Optimization with Application to Spacecraft Rendezvous", IEEE Aerospace 2024.
 
-5. **SCP for Trajectory Optimization:** Mao et al., "Successive Convexification of Non-Convex Optimal Control Problems", 2016.
+5. **SCP for Trajectory Optimization (background only):** Mao et al., "Successive Convexification of Non-Convex Optimal Control Problems", 2016.
 
 ---
 
@@ -273,11 +260,11 @@ print(f"SCP iterations: {scp_result.iterations}")
 
 - [x] Implement unified vehicle model
 - [x] Implement direct collocation optimizer
-- [x] Implement SCP solver with trust regions
 - [x] Create visualization tools
-- [ ] What are we optimizing on? Max speed? Obstacle avoidance?
+- [x] Archive/freeze SCP experimental branch
+- [ ] IPOPT obstacle-avoidance constraints (slack + staged solve)
 - [ ] Dataset generation pipeline
 - [ ] Decision Transformer training script
-- [ ] Warm-start integration with SCP
+- [ ] Warm-start integration with IPOPT solver
 - [ ] Evaluation benchmarks
 - [ ] Multi-track generalization
