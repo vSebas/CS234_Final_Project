@@ -8,12 +8,10 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend for saving
 import matplotlib.pyplot as plt
-from matplotlib.colors import LinearSegmentedColormap
 from matplotlib.patches import Circle
 from pathlib import Path
-from typing import Optional, Dict, List, Union
+from typing import Optional, Dict, List
 from dataclasses import dataclass
-import os
 
 
 @dataclass
@@ -22,7 +20,6 @@ class PlotConfig:
     figsize_trajectory: tuple = (8, 8)
     figsize_states: tuple = (12, 8)
     figsize_controls: tuple = (10, 5)
-    figsize_convergence: tuple = (10, 6)
 
     dpi: int = 150
     line_width: float = 1.5
@@ -104,11 +101,6 @@ class TrajectoryVisualizer:
         if "obstacles_ENR_m" in data:
             enr = np.atleast_2d(np.asarray(data["obstacles_ENR_m"], dtype=float))
             if enr.shape[1] == 3:
-                if "obstacles_ENR_required_m" in data:
-                    enr_req = np.atleast_2d(np.asarray(data["obstacles_ENR_required_m"], dtype=float))
-                    for i in range(min(len(enr), len(enr_req))):
-                        obstacles.append((float(enr[i, 0]), float(enr[i, 1]), float(enr[i, 2]), float(enr_req[i, 2])))
-                    return obstacles
                 if "obstacles_ENR_tilde_m" in data:
                     enr_tilde = np.atleast_2d(np.asarray(data["obstacles_ENR_tilde_m"], dtype=float))
                     for i in range(min(len(enr), len(enr_tilde))):
@@ -358,312 +350,6 @@ class TrajectoryVisualizer:
 
         return str(filepath)
 
-    def plot_scp_convergence(
-        self,
-        result,
-        filename: str = "scp_convergence.png",
-        title: Optional[str] = None
-    ) -> str:
-        """
-        Plot SCP convergence history.
-
-        Args:
-            result: SCPResult with iteration history
-            filename: Output filename
-            title: Plot title
-
-        Returns:
-            Path to saved file
-        """
-        if not hasattr(result, 'iteration_history') or not result.iteration_history:
-            print("Warning: No iteration history in result")
-            return ""
-
-        fig, axes = plt.subplots(3, 1, figsize=self.config.figsize_convergence,
-                                  sharex=True)
-
-        iterations = np.arange(len(result.iteration_history))
-
-        # Cost history
-        axes[0].plot(iterations, result.iteration_history, 'o-',
-                     color=self.config.trajectory_color,
-                     linewidth=self.config.line_width,
-                     markersize=self.config.marker_size)
-        axes[0].set_ylabel('Cost (lap time) [s]')
-        axes[0].grid(True, alpha=0.3)
-        axes[0].set_title('Cost Convergence')
-
-        # Trust region history
-        if result.tr_radius_history:
-            axes[1].plot(iterations, result.tr_radius_history, 's-',
-                         color='tab:orange',
-                         linewidth=self.config.line_width,
-                         markersize=self.config.marker_size)
-            axes[1].set_ylabel('Trust Region Radius')
-            axes[1].set_yscale('log')
-            axes[1].grid(True, alpha=0.3)
-            axes[1].set_title('Trust Region Evolution')
-
-        # Constraint violation
-        if result.constraint_violation_history:
-            axes[2].plot(iterations, result.constraint_violation_history, '^-',
-                         color='tab:red',
-                         linewidth=self.config.line_width,
-                         markersize=self.config.marker_size)
-            axes[2].set_ylabel('Max Constraint Violation')
-            axes[2].set_yscale('log')
-            axes[2].grid(True, alpha=0.3)
-            axes[2].set_title('Constraint Satisfaction')
-
-        axes[-1].set_xlabel('SCP Iteration')
-
-        if title:
-            fig.suptitle(title)
-        else:
-            fig.suptitle(f'SCP Convergence ({result.iterations} iterations, '
-                         f'{result.solve_time:.2f}s)')
-
-        fig.tight_layout()
-
-        filepath = self.output_dir / filename
-        fig.savefig(filepath, dpi=self.config.dpi, bbox_inches='tight')
-        plt.close(fig)
-
-        return str(filepath)
-
-    def plot_comparison(
-        self,
-        results: Dict[str, object],
-        filename: str = "comparison.png",
-        title: Optional[str] = None
-    ) -> str:
-        """
-        Compare multiple optimization results.
-
-        Args:
-            results: Dict mapping name -> result object
-            filename: Output filename
-            title: Plot title
-
-        Returns:
-            Path to saved file
-        """
-        fig, axes = plt.subplots(2, 2, figsize=(12, 10))
-
-        colors = plt.cm.tab10(np.linspace(0, 1, len(results)))
-
-        # Top-down trajectory comparison
-        ax = axes[0, 0]
-
-        # Track
-        inner = self.world.data['inner_bounds_m']
-        outer = self.world.data['outer_bounds_m']
-        ax.plot(inner[:, 0], inner[:, 1], color=self.config.track_color, linewidth=1)
-        ax.plot(outer[:, 0], outer[:, 1], color=self.config.track_color, linewidth=1)
-
-        for i, (name, result) in enumerate(results.items()):
-            s_m = result.s_m
-            e_m = result.X[6, :]
-            x_traj, y_traj, _ = self._convert_to_global(s_m, e_m)
-            ax.plot(x_traj, y_traj, color=colors[i], linewidth=1.5, label=name)
-
-        ax.set_xlabel('East [m]')
-        ax.set_ylabel('North [m]')
-        ax.set_aspect('equal')
-        ax.legend()
-        ax.set_title('Trajectories')
-
-        # Velocity comparison
-        ax = axes[0, 1]
-        for i, (name, result) in enumerate(results.items()):
-            ax.plot(result.s_m, result.X[0, :], color=colors[i],
-                    linewidth=1.5, label=name)
-        ax.set_xlabel('Arc length [m]')
-        ax.set_ylabel('Velocity [m/s]')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.set_title('Velocity Profiles')
-
-        # Steering comparison
-        ax = axes[1, 0]
-        for i, (name, result) in enumerate(results.items()):
-            ax.plot(result.s_m, np.degrees(result.U[0, :]), color=colors[i],
-                    linewidth=1.5, label=name)
-        ax.set_xlabel('Arc length [m]')
-        ax.set_ylabel('Steering [deg]')
-        ax.legend()
-        ax.grid(True, alpha=0.3)
-        ax.set_title('Steering Angle')
-
-        # Performance bar chart
-        ax = axes[1, 1]
-        names = list(results.keys())
-        costs = [r.cost for r in results.values()]
-        iterations = [getattr(r, 'iterations', 0) for r in results.values()]
-
-        x = np.arange(len(names))
-        width = 0.35
-
-        bars1 = ax.bar(x - width/2, costs, width, label='Cost [s]', color='tab:blue')
-        ax.set_ylabel('Cost (lap time) [s]', color='tab:blue')
-        ax.tick_params(axis='y', labelcolor='tab:blue')
-
-        ax2 = ax.twinx()
-        bars2 = ax2.bar(x + width/2, iterations, width, label='Iterations', color='tab:orange')
-        ax2.set_ylabel('Iterations', color='tab:orange')
-        ax2.tick_params(axis='y', labelcolor='tab:orange')
-
-        ax.set_xticks(x)
-        ax.set_xticklabels(names, rotation=45, ha='right')
-        ax.set_title('Performance Comparison')
-
-        if title:
-            fig.suptitle(title)
-
-        fig.tight_layout()
-
-        filepath = self.output_dir / filename
-        fig.savefig(filepath, dpi=self.config.dpi, bbox_inches='tight')
-        plt.close(fig)
-
-        return str(filepath)
-
-    def plot_warm_start_analysis(
-        self,
-        cold_result,
-        warm_result,
-        filename: str = "warm_start_analysis.png",
-        title: Optional[str] = None
-    ) -> str:
-        """
-        Analyze warm-start effectiveness.
-
-        Args:
-            cold_result: Result from cold start (no warm-start)
-            warm_result: Result from warm-started solve
-            filename: Output filename
-            title: Plot title
-
-        Returns:
-            Path to saved file
-        """
-        fig = plt.figure(figsize=(14, 10))
-
-        # Create grid
-        gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
-
-        # Trajectory comparison
-        ax1 = fig.add_subplot(gs[0, :2])
-
-        inner = self.world.data['inner_bounds_m']
-        outer = self.world.data['outer_bounds_m']
-        ax1.plot(inner[:, 0], inner[:, 1], color=self.config.track_color, linewidth=1)
-        ax1.plot(outer[:, 0], outer[:, 1], color=self.config.track_color, linewidth=1)
-
-        # Cold start
-        s_m = cold_result.s_m
-        e_m = cold_result.X[6, :]
-        x_cold, y_cold, _ = self._convert_to_global(s_m, e_m)
-        ax1.plot(x_cold, y_cold, 'b-', linewidth=1.5, label='Cold start')
-
-        # Warm start
-        s_m = warm_result.s_m
-        e_m = warm_result.X[6, :]
-        x_warm, y_warm, _ = self._convert_to_global(s_m, e_m)
-        ax1.plot(x_warm, y_warm, 'r--', linewidth=1.5, label='Warm start')
-
-        ax1.set_xlabel('East [m]')
-        ax1.set_ylabel('North [m]')
-        ax1.set_aspect('equal')
-        ax1.legend()
-        ax1.set_title('Trajectory Comparison')
-
-        # Metrics bar chart
-        ax2 = fig.add_subplot(gs[0, 2])
-        metrics = ['Iterations', 'Time [s]', 'Cost [s]']
-        cold_vals = [cold_result.iterations, cold_result.solve_time, cold_result.cost]
-        warm_vals = [warm_result.iterations, warm_result.solve_time, warm_result.cost]
-
-        x = np.arange(len(metrics))
-        width = 0.35
-
-        ax2.bar(x - width/2, cold_vals, width, label='Cold', color='tab:blue')
-        ax2.bar(x + width/2, warm_vals, width, label='Warm', color='tab:red')
-        ax2.set_xticks(x)
-        ax2.set_xticklabels(metrics)
-        ax2.legend()
-        ax2.set_title('Performance Metrics')
-
-        # Convergence comparison
-        ax3 = fig.add_subplot(gs[1, :])
-        if hasattr(cold_result, 'iteration_history') and cold_result.iteration_history:
-            ax3.plot(cold_result.iteration_history, 'b-o', label='Cold start',
-                     markersize=4)
-        if hasattr(warm_result, 'iteration_history') and warm_result.iteration_history:
-            ax3.plot(warm_result.iteration_history, 'r-s', label='Warm start',
-                     markersize=4)
-        ax3.set_xlabel('Iteration')
-        ax3.set_ylabel('Cost [s]')
-        ax3.legend()
-        ax3.grid(True, alpha=0.3)
-        ax3.set_title('Convergence Comparison')
-
-        # State difference
-        ax4 = fig.add_subplot(gs[2, 0])
-        state_diff = np.abs(cold_result.X - warm_result.X)
-        ax4.semilogy(cold_result.s_m, np.max(state_diff, axis=0), 'k-')
-        ax4.set_xlabel('Arc length [m]')
-        ax4.set_ylabel('Max |state difference|')
-        ax4.grid(True, alpha=0.3)
-        ax4.set_title('State Trajectory Difference')
-
-        # Velocity comparison
-        ax5 = fig.add_subplot(gs[2, 1])
-        ax5.plot(cold_result.s_m, cold_result.X[0, :], 'b-', label='Cold')
-        ax5.plot(warm_result.s_m, warm_result.X[0, :], 'r--', label='Warm')
-        ax5.set_xlabel('Arc length [m]')
-        ax5.set_ylabel('Velocity [m/s]')
-        ax5.legend()
-        ax5.grid(True, alpha=0.3)
-        ax5.set_title('Velocity Profile')
-
-        # Summary text
-        ax6 = fig.add_subplot(gs[2, 2])
-        ax6.axis('off')
-
-        speedup = cold_result.iterations / max(warm_result.iterations, 1)
-        time_savings = (cold_result.solve_time - warm_result.solve_time)
-        cost_diff = warm_result.cost - cold_result.cost
-
-        summary_text = (
-            f"Warm-Start Analysis\n"
-            f"{'='*30}\n\n"
-            f"Cold start:\n"
-            f"  Iterations: {cold_result.iterations}\n"
-            f"  Time: {cold_result.solve_time:.2f}s\n"
-            f"  Cost: {cold_result.cost:.4f}s\n\n"
-            f"Warm start:\n"
-            f"  Iterations: {warm_result.iterations}\n"
-            f"  Time: {warm_result.solve_time:.2f}s\n"
-            f"  Cost: {warm_result.cost:.4f}s\n\n"
-            f"Improvement:\n"
-            f"  Iteration speedup: {speedup:.2f}x\n"
-            f"  Time saved: {time_savings:.2f}s\n"
-            f"  Cost diff: {cost_diff:+.4f}s"
-        )
-
-        ax6.text(0.1, 0.9, summary_text, transform=ax6.transAxes,
-                 fontfamily='monospace', fontsize=10, verticalalignment='top')
-
-        if title:
-            fig.suptitle(title, fontsize=14)
-
-        filepath = self.output_dir / filename
-        fig.savefig(filepath, dpi=self.config.dpi, bbox_inches='tight')
-        plt.close(fig)
-
-        return str(filepath)
-
     def generate_full_report(
         self,
         result,
@@ -692,11 +378,6 @@ class TrajectoryVisualizer:
         filepaths['controls'] = self.plot_controls(
             result, f"{prefix}_controls.png"
         )
-
-        if hasattr(result, 'iteration_history') and result.iteration_history:
-            filepaths['convergence'] = self.plot_scp_convergence(
-                result, f"{prefix}_convergence.png"
-            )
 
         return filepaths
 

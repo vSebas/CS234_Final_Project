@@ -63,8 +63,8 @@ def create_oval_obstacle_track(
     track_data["obstacles_radius_m"] = r_obs
     track_data["obstacles_margin_m"] = margin_obs
     track_data["obstacles_radius_tilde_m"] = r_tilde
-    track_data["obstacles_ENR_m"] = np.column_stack([e_obs_en, n_obs_en, r_obs])
-    track_data["obstacles_ENR_tilde_m"] = np.column_stack([e_obs_en, n_obs_en, r_tilde])
+    # Do not store duplicated EN obstacle metadata; keep Frenet fields as source-of-truth.
+    # EN positions are derived via world.map_match_vectorized by optimizer/visualizer.
 
     sio.savemat(str(output_path), track_data)
     print(f"Saved obstacle track to: {output_path}")

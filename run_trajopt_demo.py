@@ -123,28 +123,13 @@ def run_demo():
 
             N = int(os.environ.get("N", "120"))
             ds_m = world.length_m / N
-            extra_clearance_m = float(os.environ.get("OBS_EXTRA_CLEAR_M", "0.5"))
             obstacle_subsamples = int(os.environ.get("OBS_SUBSAMPLES", "7"))
             track_buffer_m = float(os.environ.get("TRACK_BUFFER_M", "0.0"))
             print(f"\n4. Setup:")
             print(f"   N = {N}")
             print(f"   ds = {ds_m:.2f} m")
-            print(f"   Extra obstacle clearance = {extra_clearance_m:.2f} m")
             print(f"   Obstacle subsamples/segment = {obstacle_subsamples}")
             print(f"   Track buffer = {track_buffer_m:.2f} m")
-
-            # Update world metadata so visualizations show the enforced obstacle radius.
-            if "obstacles_radius_m" in world.data:
-                r = np.atleast_1d(np.asarray(world.data["obstacles_radius_m"], dtype=float))
-                m = np.atleast_1d(np.asarray(world.data.get("obstacles_margin_m", np.zeros_like(r)), dtype=float))
-                world.data["obstacles_radius_tilde_m"] = r + m + extra_clearance_m
-            if "obstacles_ENR_m" in world.data:
-                enr = np.atleast_2d(np.asarray(world.data["obstacles_ENR_m"], dtype=float))
-                if enr.shape[1] == 3:
-                    required = enr.copy()
-                    margin = np.atleast_1d(np.asarray(world.data.get("obstacles_margin_m", np.zeros(required.shape[0])), dtype=float))
-                    required[:, 2] = required[:, 2] + margin + extra_clearance_m
-                    world.data["obstacles_ENR_required_m"] = required
 
             optimizer = TrajectoryOptimizer(vehicle, world)
             visualizer = TrajectoryVisualizer(world, output_dir=str(output_dir))
@@ -155,13 +140,11 @@ def run_demo():
             result = optimizer.solve(
                 N=N,
                 ds_m=ds_m,
-                stage="time",
                 track_buffer_m=track_buffer_m,
                 obstacles=obstacles,
                 obstacle_window_m=float(os.environ.get("OBS_WINDOW_M", "30.0")),
-                obstacle_clearance_m=extra_clearance_m,
+                obstacle_clearance_m=0.0,
                 obstacle_subsamples_per_segment=obstacle_subsamples,
-                obstacle_slack_weight=float(os.environ.get("OBS_SLACK_W", "1e5")),
                 smoothness_weight=float(os.environ.get("SMOOTHNESS_W", "1.0")),
                 ux_min=3.0,
                 convergent_lap=True,

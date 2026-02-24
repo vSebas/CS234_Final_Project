@@ -1,6 +1,5 @@
 import scipy.interpolate
 import scipy.io as sio
-import scipy.spatial
 import numpy as np
 import casadi
 import matplotlib.pyplot as plt
@@ -100,21 +99,6 @@ class World:
         self.virtual_track_width_m_interp_fcn = scipy.interpolate.interp1d(self.data["s_m"], self.data["virtual_track_width_m"], kind = "linear", fill_value = "extrapolate") 
         
         
-        # Local track rotation matrix as defined by Heading/Grade/Bank Euler angles
-        self.local_track_rotation_matrix = np.zeros((len(self.data["s_m"]), 3, 3)) # Rotation matrix ^I R ^B to describe the relation between the inertial i1i2i3 (NED) frame (I) and local frame p1p2p3 (P)
-
-        self.local_track_rotation_matrix[:, 0, 0] = np.cos(-self.data["psi_rad"])*np.cos(-self.data["grade_rad"])
-        self.local_track_rotation_matrix[:, 0, 1] = -np.sin(-self.data["psi_rad"])*np.cos(self.data["bank_rad"]) + np.sin(-self.data["grade_rad"])*np.sin(self.data["bank_rad"])*np.cos(-self.data["psi_rad"])
-        self.local_track_rotation_matrix[:, 0, 2] = np.sin(-self.data["psi_rad"])*np.sin(self.data["bank_rad"]) + np.sin(-self.data["grade_rad"])*np.cos(-self.data["psi_rad"])*np.cos(self.data["bank_rad"])
-        self.local_track_rotation_matrix[:, 1, 0] = np.sin(-self.data["psi_rad"])*np.cos(-self.data["grade_rad"])
-        self.local_track_rotation_matrix[:, 1, 1] = np.cos(-self.data["psi_rad"])*np.cos(self.data["bank_rad"]) + np.sin(-self.data["psi_rad"])*np.sin(-self.data["grade_rad"])*np.sin(self.data["bank_rad"])
-        self.local_track_rotation_matrix[:, 1, 2] = -np.sin(self.data["bank_rad"])*np.cos(-self.data["psi_rad"]) + np.sin(-self.data["psi_rad"])*np.sin(-self.data["grade_rad"])*np.cos(self.data["bank_rad"])
-        self.local_track_rotation_matrix[:, 2, 0] = -np.sin(-self.data["grade_rad"])
-        self.local_track_rotation_matrix[:, 2, 1] = np.sin(self.data["bank_rad"])*np.cos(-self.data["grade_rad"])
-        self.local_track_rotation_matrix[:, 2, 2] = np.cos(-self.data["grade_rad"])*np.cos(self.data["bank_rad"])
-
-        self.local_track_rotation_matrix_interp_fcn = scipy.interpolate.interp1d(self.data["s_m"], self.local_track_rotation_matrix, axis=0, kind="linear", fill_value="extrapolate")
-
         if(diagnostic_plotting):
             fig, ax = plt.subplots(1, 1, num="Track overhead", constrained_layout=True)
             ax.plot(self.data["inner_bounds_m"][:, 0], self.data["inner_bounds_m"][:, 1], label = "Inner bounds", color = "b", marker = "x", ms = 2)

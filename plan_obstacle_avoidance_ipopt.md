@@ -97,9 +97,9 @@ Obstacle constraints are enforced as:
   - `R_required = R + margin + obstacle_clearance_m`
 
 Important implementation note:
-- There is now **one** clearance knob:
-  - `obstacle_clearance_m` (demo env: `OBS_EXTRA_CLEAR_M`)
-- Do not use multiple additive gap knobs.
+- Avoid multiple additive gap knobs.
+- In the current demo, `obstacle_clearance_m` is fixed to `0.0` and effective obstacle size is
+  controlled by map data (`radius + margin`).
 
 ### 2.1 Acceptance criteria (single-stage)
 Treat a run as valid only if all are true:

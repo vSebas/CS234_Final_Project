@@ -10,7 +10,7 @@ Control: [delta, fx_kn] (2 inputs)
 
 import numpy as np
 import casadi as ca
-from typing import Dict, List, Optional, Sequence, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 import time
 
@@ -146,8 +146,7 @@ class TrajectoryOptimizer:
         ux_min: float = 1.0,
         ux_max: Optional[float] = None,
         track_buffer_m: float = 0.0,
-        stage: str = "time",
-        obstacles: Optional[Sequence[Union[ObstacleCircle, Dict]]] = None,
+        obstacles: Optional[Sequence[Union[ObstacleCircle, dict]]] = None,
         obstacle_window_m: float = 30.0,
         obstacle_clearance_m: float = 0.0,
         obstacle_use_slack: bool = False,
@@ -155,7 +154,6 @@ class TrajectoryOptimizer:
         obstacle_subsamples_per_segment: int = 5,
         obstacle_slack_weight: float = 1e4,
         smoothness_weight: float = 1.0,
-        time_weight_feas: float = 1e-2,
         convergent_lap: bool = True,
         verbose: bool = True
     ) -> OptimizationResult:
@@ -173,7 +171,6 @@ class TrajectoryOptimizer:
             ux_min: Minimum forward speed [m/s]
             ux_max: Maximum speed limit [m/s] (optional)
             track_buffer_m: Safety buffer from track edges [m]
-            stage: Optimization stage, one of {"feas", "time"}
             obstacles: Optional static circular obstacles
             obstacle_window_m: Along-track gating window for obstacle constraints [m]
             obstacle_clearance_m: Extra required clearance beyond obstacle+margin radius [m]
@@ -182,7 +179,6 @@ class TrajectoryOptimizer:
             obstacle_subsamples_per_segment: Number of interior sample points per segment
             obstacle_slack_weight: Penalty on obstacle slack sum
             smoothness_weight: Weight for state/control smoothness terms
-            time_weight_feas: Time objective weight during feasibility stage
             convergent_lap: Whether start and end should match (periodic)
             verbose: Print solver output
 
@@ -223,9 +219,6 @@ class TrajectoryOptimizer:
         for k in range(N + 1):
             k_psi_data[k], theta_data[k], phi_data[k] = self._get_road_geometry(s_grid[k])
             track_hw[k] = self._get_track_half_width(s_grid[k])
-
-        if stage not in {"feas", "time"}:
-            raise ValueError(f"Unsupported stage={stage}. Use 'feas' or 'time'.")
 
         # Precompute centerline EN/heading at nodes for obstacle constraints.
         posE_cl_data = np.zeros(N + 1)
@@ -319,10 +312,7 @@ class TrajectoryOptimizer:
         for sigma_tau in sigma_obs_samples:
             slack_cost += obstacle_slack_weight * ca.sum1(ca.sum2(sigma_tau))
 
-        if stage == "feas":
-            cost = time_weight_feas * time_cost + reg_cost + slack_cost
-        else:
-            cost = time_cost + reg_cost + slack_cost
+        cost = time_cost + reg_cost + slack_cost
 
         opti.minimize(cost)
 
@@ -537,53 +527,3 @@ class TrajectoryOptimizer:
             max_obstacle_slack=max_obstacle_slack,
             min_obstacle_clearance=min_obstacle_clearance
         )
-
-
-def plan_trajectory(vehicle, world, params: Dict) -> Dict:
-    """
-    High-level interface for trajectory planning.
-
-    Args:
-        vehicle: SingleTrackModel instance
-        world: Track/world model
-        params: Parameters dict with keys:
-            - N: discretization steps
-            - DS_M: step size [m]
-            - WEIGHT_DELTA_DOT, WEIGHT_FX_DOT: regularization weights
-            - UX_MAX: speed limit [m/s] (optional)
-            - CONVERGENT_LAP: periodic BC flag
-
-    Returns:
-        Dictionary with optimization results
-    """
-    optimizer = TrajectoryOptimizer(vehicle, world)
-
-    print(f"Solving trajectory optimization (N={params['N']}, ds={params['DS_M']}m)...")
-
-    result = optimizer.solve(
-        N=params['N'],
-        ds_m=params['DS_M'],
-        stage=params.get('STAGE', 'time'),
-        track_buffer_m=params.get('TRACK_BUFFER_M', 0.0),
-        obstacles=params.get('OBSTACLES'),
-        obstacle_window_m=params.get('OBSTACLE_WINDOW_M', 30.0),
-        obstacle_clearance_m=params.get('OBSTACLE_CLEARANCE_M', 0.0),
-        obstacle_enforce_midpoints=params.get('OBSTACLE_ENFORCE_MIDPOINTS', True),
-        obstacle_slack_weight=params.get('OBSTACLE_SLACK_WEIGHT', 1e4),
-        smoothness_weight=params.get('SMOOTHNESS_WEIGHT', 1.0),
-        time_weight_feas=params.get('TIME_WEIGHT_FEAS', 1e-2),
-        weight_delta_dot=params.get('WEIGHT_DELTA_DOT', 5.0),
-        weight_fx_dot=params.get('WEIGHT_FX_DOT', 5.0),
-        ux_max=params.get('UX_MAX'),
-        convergent_lap=params.get('CONVERGENT_LAP', True),
-    )
-
-    print(f"  Lap time: {result.cost:.2f}s")
-    print(f"  Success: {result.success}")
-    print(f"  Solve time: {result.solve_time:.1f}s")
-    print(f"  Iterations: {result.iterations}")
-
-    return {
-        'result': result,
-        'params': params,
-    }

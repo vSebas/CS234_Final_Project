@@ -219,10 +219,10 @@ if __name__ == "__main__":
     track_data = create_oval_track(
         total_length=260.0,
         track_width=10.0,
-        turn_radius=30.0,
+        turn_radius=18.0,
         num_points=520,
-        output_filename="multimodel-trajectory-optimization-main/src/Medium_Oval_Map_260m.mat"
+        output_filename="maps/Medium_Oval_Map_260m.mat"
     )
 
-    # Visualize
+    # Visualize and save preview
     plot_track(track_data)

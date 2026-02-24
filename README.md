@@ -130,19 +130,16 @@ CS234_Final_Project/
 │   └── world.py              # Track geometry and boundaries
 │
 ├── utils/
-│   ├── plotting_utils.py     # Legacy plotting (with display)
-│   └── visualization.py      # New visualization (saves to files)
+│   └── visualization.py      # Visualization (saves to files)
 │
 ├── maps/
 │   └── Medium_Oval_Map_260m.mat   # Example track
 │
 ├── results/                  # Output visualizations
-│   ├── dc_trajectory.png
-│   ├── scp_cold_*.png
-│   ├── scp_warm_*.png
-│   ├── method_comparison.png
-│   ├── warm_start_analysis.png
-│   └── trajectory_animation.gif
+│   ├── ipopt_single_stage_trajectory.png
+│   ├── ipopt_single_stage_states.png
+│   ├── ipopt_single_stage_controls.png
+│   └── ipopt_single_stage_animation.gif
 │
 ├── run_trajopt_demo.py       # Trajectory optimization demo (IPOPT production path)
 ├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
