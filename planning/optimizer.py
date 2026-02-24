@@ -134,6 +134,59 @@ class TrajectoryOptimizer:
             d -= length_m
         return d
 
+    def _estimate_obstacle_e_from_en(self, east_m: float, north_m: float, s_center_m: float) -> float:
+        """Estimate obstacle lateral offset e at a given along-track location."""
+        s_mod = s_center_m % self.world.length_m
+        e_cl = float(self.world.posE_m_interp_fcn(s_mod))
+        n_cl = float(self.world.posN_m_interp_fcn(s_mod))
+        psi = float(self.world.psi_rad_interp_fcn(s_mod))
+        # Left-normal in ENU for path heading psi (from +North, CCW).
+        n_hat_e = -np.sin(psi)
+        n_hat_n = np.cos(psi)
+        de = east_m - e_cl
+        dn = north_m - n_cl
+        return float(de * n_hat_e + dn * n_hat_n)
+
+    def _build_obstacle_aware_e_init(
+        self,
+        s_grid: np.ndarray,
+        track_hw: np.ndarray,
+        obs_s_center: np.ndarray,
+        obs_e_center: np.ndarray,
+        obs_r_tilde: np.ndarray,
+        obstacle_clearance_m: float,
+        track_buffer_m: float,
+        init_sigma_m: float,
+        init_margin_m: float,
+    ) -> np.ndarray:
+        """Construct a smooth lateral-reference init that biases away from obstacles."""
+        e_init = np.zeros_like(s_grid, dtype=float)
+        sigma = max(2.0, float(init_sigma_m))
+
+        for j in range(len(obs_s_center)):
+            # Required lateral separation target near obstacle center.
+            target_abs = float(obs_r_tilde[j] + obstacle_clearance_m + init_margin_m)
+            idx_center = int(np.argmin(np.abs(((s_grid - obs_s_center[j] + 0.5 * self.world.length_m) % self.world.length_m) - 0.5 * self.world.length_m)))
+            e_limit = max(0.0, float(track_hw[idx_center] - track_buffer_m - 0.05))
+            target_abs = min(target_abs, 0.9 * e_limit)
+
+            # Pass on opposite side by default.
+            e_obs = float(obs_e_center[j])
+            if abs(e_obs) < 1e-2:
+                target = target_abs
+            else:
+                target = -np.sign(e_obs) * target_abs
+
+            for k in range(len(s_grid)):
+                d_s = self._wrap_s_dist(float(s_grid[k]), float(obs_s_center[j]), float(self.world.length_m))
+                bump = np.exp(-0.5 * (d_s / sigma) ** 2)
+                e_init[k] += target * bump
+
+        # Respect track limits in initializer.
+        e_max = np.maximum(0.0, track_hw - track_buffer_m - 0.05)
+        e_min = -e_max
+        return np.clip(e_init, e_min, e_max)
+
     def solve(
         self,
         N: int,
@@ -153,6 +206,9 @@ class TrajectoryOptimizer:
         obstacle_enforce_midpoints: bool = True,
         obstacle_subsamples_per_segment: int = 5,
         obstacle_slack_weight: float = 1e4,
+        obstacle_aware_init: bool = True,
+        obstacle_init_sigma_m: float = 8.0,
+        obstacle_init_margin_m: float = 0.3,
         smoothness_weight: float = 1.0,
         convergent_lap: bool = True,
         verbose: bool = True
@@ -178,6 +234,9 @@ class TrajectoryOptimizer:
             obstacle_enforce_midpoints: Enforce obstacle constraints at collocation midpoints
             obstacle_subsamples_per_segment: Number of interior sample points per segment
             obstacle_slack_weight: Penalty on obstacle slack sum
+            obstacle_aware_init: Build obstacle-aware e(s) init when X_init is not provided
+            obstacle_init_sigma_m: Along-track spread for obstacle-avoidance init bumps
+            obstacle_init_margin_m: Extra lateral init margin beyond required obstacle radius
             smoothness_weight: Weight for state/control smoothness terms
             convergent_lap: Whether start and end should match (periodic)
             verbose: Print solver output
@@ -260,6 +319,7 @@ class TrajectoryOptimizer:
         obs_north = np.zeros(len(obs_list))
         obs_r_tilde = np.zeros(len(obs_list))
         obs_s_center = np.zeros(len(obs_list))
+        obs_e_center = np.zeros(len(obs_list))
 
         for j, obs in enumerate(obs_list):
             if obs.east_m is not None and obs.north_m is not None:
@@ -276,6 +336,10 @@ class TrajectoryOptimizer:
             obs_north[j] = north_m
             obs_r_tilde[j] = float(obs.radius_m + obs.margin_m)
             obs_s_center[j] = float(obs.s_m) if obs.s_m is not None else self._nearest_centerline_s(east_m, north_m)
+            if obs.e_m is not None:
+                obs_e_center[j] = float(obs.e_m)
+            else:
+                obs_e_center[j] = self._estimate_obstacle_e_from_en(east_m, north_m, obs_s_center[j])
 
         sigma_obs = None
         sigma_obs_samples = []
@@ -431,13 +495,31 @@ class TrajectoryOptimizer:
             opti.set_initial(X, X_init)
         else:
             ux_init = 10.0  # [m/s]
+            e_init = np.zeros(N + 1)
+            if obstacle_aware_init and len(obs_list) > 0:
+                e_init = self._build_obstacle_aware_e_init(
+                    s_grid=s_grid,
+                    track_hw=track_hw,
+                    obs_s_center=obs_s_center,
+                    obs_e_center=obs_e_center,
+                    obs_r_tilde=obs_r_tilde,
+                    obstacle_clearance_m=obstacle_clearance_m,
+                    track_buffer_m=track_buffer_m,
+                    init_sigma_m=obstacle_init_sigma_m,
+                    init_margin_m=obstacle_init_margin_m,
+                )
+                if verbose:
+                    print(
+                        f"Initializer: obstacle-aware e(s) enabled "
+                        f"(sigma={obstacle_init_sigma_m:.2f}m, margin={obstacle_init_margin_m:.2f}m)"
+                    )
             opti.set_initial(ux, ux_init)
             opti.set_initial(uy, 0)
             opti.set_initial(r, 0)
             opti.set_initial(dfz_long, 0)
             opti.set_initial(dfz_lat, 0)
             opti.set_initial(t, np.cumsum(np.ones(N + 1) * ds_m / ux_init) - ds_m / ux_init)
-            opti.set_initial(e, 0)
+            opti.set_initial(e, e_init)
             opti.set_initial(dpsi, 0)
 
         if U_init is not None:

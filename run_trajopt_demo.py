@@ -100,12 +100,12 @@ def run_demo():
             print("IPOPT TRAJECTORY OPTIMIZATION DEMO (SINGLE STAGE)")
             print("=" * 70)
 
-            map_file = Path(os.environ.get("TRACK_MAP", str(project_root / "maps" / "Medium_Oval_Map_260m_Obstacles.mat")))
+            map_file = Path(os.environ.get("TRACK_MAP", str(project_root / "maps" / "Medium_Oval_Map_260m.mat")))
             if not map_file.exists():
                 map_file = project_root / "maps" / "Medium_Oval_Map_260m.mat"
             if not map_file.exists():
                 print(f"Error: Map file not found at {map_file}")
-                print("Run: python create_oval_track.py")
+                print("Run: python create_tracks.py --preset all")
                 return
 
             matplotlib.use("Agg")
@@ -134,28 +134,98 @@ def run_demo():
             optimizer = TrajectoryOptimizer(vehicle, world)
             visualizer = TrajectoryVisualizer(world, output_dir=str(output_dir))
 
+            # Deterministic retry schedule for acceptance-gated runs.
+            # Each fallback step increases conservatism/resolution in a fixed order.
+            acceptance_min_clearance_m = float(os.environ.get("ACCEPT_MIN_CLEARANCE_M", "-0.001"))
+            acceptance_max_slack = float(os.environ.get("ACCEPT_MAX_SLACK", "0.0"))
+            obstacle_window_m = float(os.environ.get("OBS_WINDOW_M", "30.0"))
+            smoothness_weight = float(os.environ.get("SMOOTHNESS_W", "1.0"))
+            base_clearance_m = float(os.environ.get("OBSTACLE_CLEARANCE_M", "0.0"))
+            obstacle_aware_init = os.environ.get("OBSTACLE_AWARE_INIT", "1") != "0"
+            obstacle_init_sigma_m = float(os.environ.get("OBSTACLE_INIT_SIGMA_M", "8.0"))
+            obstacle_init_margin_m = float(os.environ.get("OBSTACLE_INIT_MARGIN_M", "0.3"))
+
+            retry_N_1 = int(os.environ.get("RETRY_N_1", str(max(N, 160))))
+            retry_subsamples_2 = int(os.environ.get("RETRY_SUBSAMPLES_2", str(max(obstacle_subsamples, 11))))
+            retry_clearance_3 = float(os.environ.get("RETRY_CLEARANCE_3", str(max(base_clearance_m, 0.10))))
+            retry_N_3 = int(os.environ.get("RETRY_N_3", str(max(retry_N_1, 180))))
+            retry_subsamples_3 = int(os.environ.get("RETRY_SUBSAMPLES_3", str(max(retry_subsamples_2, 13))))
+
+            attempt_configs = [
+                ("baseline", N, obstacle_subsamples, base_clearance_m),
+                ("retry_higher_N", retry_N_1, obstacle_subsamples, base_clearance_m),
+                ("retry_higher_subsamples", retry_N_1, retry_subsamples_2, base_clearance_m),
+                ("retry_more_conservative", retry_N_3, retry_subsamples_3, retry_clearance_3),
+            ]
+
+            def is_accepted(res) -> bool:
+                return (
+                    bool(res.success)
+                    and float(res.max_obstacle_slack) <= acceptance_max_slack
+                    and float(res.min_obstacle_clearance) >= acceptance_min_clearance_m
+                )
+
+            attempt_results = []
+            accepted_result = None
+            accepted_name = None
+
             print("\n" + "=" * 70)
-            print("SINGLE STAGE: COMBINED OBJECTIVE")
+            print("SINGLE STAGE: COMBINED OBJECTIVE (ACCEPTANCE-GATED)")
             print("=" * 70)
-            result = optimizer.solve(
-                N=N,
-                ds_m=ds_m,
-                track_buffer_m=track_buffer_m,
-                obstacles=obstacles,
-                obstacle_window_m=float(os.environ.get("OBS_WINDOW_M", "30.0")),
-                obstacle_clearance_m=0.0,
-                obstacle_subsamples_per_segment=obstacle_subsamples,
-                smoothness_weight=float(os.environ.get("SMOOTHNESS_W", "1.0")),
-                ux_min=3.0,
-                convergent_lap=True,
-                verbose=True,
+            print(f"Acceptance gates: success=True, max_slack<={acceptance_max_slack:.3e}, min_clearance>={acceptance_min_clearance_m:.4f} m")
+            if acceptance_min_clearance_m < 0:
+                print("Acceptance policy: practical epsilon mode (allows tiny negative dense clearance).")
+            else:
+                print("Acceptance policy: strict mode (no negative dense clearance).")
+            print(
+                "Initializer: "
+                f"obstacle_aware_init={obstacle_aware_init}, "
+                f"sigma={obstacle_init_sigma_m:.2f} m, "
+                f"margin={obstacle_init_margin_m:.2f} m"
             )
-            print(f"  Success: {result.success}")
-            print(f"  Cost: {result.cost:.4f}")
-            print(f"  Iterations: {result.iterations}")
-            print(f"  Solve time: {result.solve_time:.2f} s")
-            print(f"  Max obstacle slack: {result.max_obstacle_slack:.4e}")
-            print(f"  Min obstacle clearance: {result.min_obstacle_clearance:.4f} m")
+
+            for idx, (attempt_name, n_i, subs_i, clear_i) in enumerate(attempt_configs, start=1):
+                ds_i = world.length_m / n_i
+                print(f"\nAttempt {idx}/{len(attempt_configs)}: {attempt_name}")
+                print(f"  N={n_i}, ds={ds_i:.3f} m, subsamples={subs_i}, obstacle_clearance_m={clear_i:.3f}")
+                result_i = optimizer.solve(
+                    N=n_i,
+                    ds_m=ds_i,
+                    track_buffer_m=track_buffer_m,
+                    obstacles=obstacles,
+                    obstacle_window_m=obstacle_window_m,
+                    obstacle_clearance_m=clear_i,
+                    obstacle_subsamples_per_segment=subs_i,
+                    obstacle_aware_init=obstacle_aware_init,
+                    obstacle_init_sigma_m=obstacle_init_sigma_m,
+                    obstacle_init_margin_m=obstacle_init_margin_m,
+                    smoothness_weight=smoothness_weight,
+                    ux_min=3.0,
+                    convergent_lap=True,
+                    verbose=True,
+                )
+                accepted_i = is_accepted(result_i)
+                attempt_results.append((attempt_name, n_i, subs_i, clear_i, result_i, accepted_i))
+                print(f"  Success: {result_i.success}")
+                print(f"  Cost: {result_i.cost:.4f}")
+                print(f"  Iterations: {result_i.iterations}")
+                print(f"  Solve time: {result_i.solve_time:.2f} s")
+                print(f"  Max obstacle slack: {result_i.max_obstacle_slack:.4e}")
+                print(f"  Min obstacle clearance: {result_i.min_obstacle_clearance:.4f} m")
+                print(f"  Accepted: {accepted_i}")
+                if accepted_i:
+                    accepted_result = result_i
+                    accepted_name = attempt_name
+                    break
+
+            # If no attempt passes gates, keep the last attempt result for diagnostics/artifacts.
+            if accepted_result is None:
+                attempt_name, _, _, _, result, _ = attempt_results[-1]
+                accepted_name = f"{attempt_name} (failed acceptance)"
+                print("\nNo attempt passed acceptance gates; using last attempt outputs for diagnostics.")
+            else:
+                result = accepted_result
+                print(f"\nAccepted attempt: {accepted_name}")
 
             print("\nGenerating plots...")
             plots = visualizer.generate_full_report(result, prefix="ipopt_single_stage")
@@ -172,9 +242,11 @@ def run_demo():
             print("\n" + "=" * 70)
             print("SUMMARY")
             print("=" * 70)
-            print(f"{'Run':<25} {'Iters':<8} {'Time [s]':<10} {'Cost [s]':<10} {'Max Sigma':<12} {'Min Clear [m]':<14} {'Success'}")
-            print("-" * 95)
-            print(f"{'Single stage':<25} {result.iterations:<8} {result.solve_time:<10.2f} {result.cost:<10.4f} {result.max_obstacle_slack:<12.3e} {result.min_obstacle_clearance:<14.4f} {result.success}")
+            print(f"Selected attempt: {accepted_name}")
+            print(f"{'Attempt':<26} {'N':<6} {'Subs':<6} {'Clear':<8} {'Iters':<8} {'Time [s]':<10} {'Cost [s]':<10} {'Max Sigma':<12} {'Min Clear [m]':<14} {'Accepted'}")
+            print("-" * 125)
+            for attempt_name, n_i, subs_i, clear_i, res_i, accepted_i in attempt_results:
+                print(f"{attempt_name:<26} {n_i:<6} {subs_i:<6} {clear_i:<8.3f} {res_i.iterations:<8} {res_i.solve_time:<10.2f} {res_i.cost:<10.4f} {res_i.max_obstacle_slack:<12.3e} {res_i.min_obstacle_clearance:<14.4f} {accepted_i}")
             print(f"\nAll outputs saved to: {output_dir}")
         finally:
             sys.stdout.flush()
