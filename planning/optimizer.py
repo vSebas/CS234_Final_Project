@@ -13,6 +13,7 @@ import casadi as ca
 from typing import List, Optional, Sequence, Tuple, Union
 from dataclasses import dataclass
 import time
+import os
 
 
 @dataclass
@@ -543,6 +544,9 @@ class TrajectoryOptimizer:
             'ipopt.tol': 1e-6,
             'ipopt.acceptable_tol': 1e-4,
         }
+        max_cpu_time = float(os.environ.get("IPOPT_MAX_CPU_TIME", "0.0"))
+        if max_cpu_time > 0.0:
+            opts['ipopt.max_cpu_time'] = max_cpu_time
         opti.solver('ipopt', opts)
 
         # === Solve ===

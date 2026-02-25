@@ -1,0 +1,41 @@
+[tool.poetry]
+name = "models"
+version = "0.0.2"
+description = "Repository for dynamics models used with rooster"
+authors = ["Firstname Lastname <username@domain.com>"]
+license = "MIT"
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.12"
+numpy = "^1.23.2"
+scipy = "^1.9.0"
+PyYAML = "^6.0"
+typing-extensions = "^4.6.3"
+matplotlib = "^3.7.1"
+casadi = {version="^3.6.3", optional=true}
+data-parsers = { git = "git@github.com:dynamicdesignlab/data-parsers.git", optional=true}
+# By default this will install the main branch of casadi-tools from git.
+# You can swap this with the line below to point to your locally cloned
+# copy of casadi_tools.
+# casadi_tools = { git = "git@github.com:dynamicdesignlab/casadi-tools.git", optional=true}
+casadi_tools = { path = "/home/username/Documents/casadi-tools/", develop = true}
+
+[tool.poetry.extras]
+casadi = ["casadi"]
+casadi_tools = ["casadi-tools"]
+data-parsers = ["data-parsers"]
+
+[tool.poetry.group.dev]
+optional=true
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.1.2"
+pytest-cov = "^3.0.0"
+black = "^22.6.0"
+flake8 = "^5.0.4"
+Sphinx = "^5.1.1"
+sphinx-rtd-theme = "^1.0.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

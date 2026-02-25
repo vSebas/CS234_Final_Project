@@ -144,7 +144,7 @@ CS234_Final_Project/
 ├── run_trajopt_demo.py       # Trajectory optimization demo (IPOPT production path)
 ├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
 ├── test_dynamic_model.py     # Model verification script
-├── create_oval_track.py      # Track generation script
+├── create_tracks.py          # Unified track generation script
 └── README.md                 # This file
 ```
 
@@ -181,6 +181,34 @@ Notes:
 - Production solver path is IPOPT.
 - The default demo configuration is full-lap (`ds = track_length / N`, periodic closure).
 - SCP outputs are kept for reference/diagnostics.
+
+### Acceptance Policy + Batch Evaluation
+
+The demo now uses acceptance-gated retries by default.
+
+Default acceptance gates:
+- `success == True`
+- `max_obstacle_slack <= 0`
+- `min_obstacle_clearance >= -0.001` m (practical epsilon for dense post-check)
+
+Run demo with defaults:
+```bash
+python run_trajopt_demo.py
+```
+
+Run strict acceptance (no negative dense clearance allowed):
+```bash
+ACCEPT_MIN_CLEARANCE_M=0.0 python run_trajopt_demo.py
+```
+
+Batch evaluate randomized obstacle scenarios:
+```bash
+python run_trajopt_batch_eval.py --num-scenarios 20 --seed 42
+```
+
+Batch outputs are written to `results/trajectory_optimization/`:
+- `trajopt_batch_eval_<timestamp>.json` (summary)
+- `trajopt_batch_eval_<timestamp>.csv` (per-scenario details)
 
 ### Vehicle Simulation
 
