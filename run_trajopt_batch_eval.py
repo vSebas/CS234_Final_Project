@@ -49,7 +49,13 @@ def wrap_s_dist(s_a: float, s_b: float, length_m: float) -> float:
     return d
 
 
-def sample_obstacles(world: World, rng: np.random.Generator, n_obs: int) -> List[ObstacleCircle]:
+def sample_obstacles(
+    world: World,
+    rng: np.random.Generator,
+    n_obs: int,
+    vehicle_radius_m: float,
+    track_buffer_m: float,
+) -> List[ObstacleCircle]:
     length_m = float(world.length_m)
     min_ds = 0.12 * length_m / max(1, n_obs)
     obs: List[ObstacleCircle] = []
@@ -66,7 +72,7 @@ def sample_obstacles(world: World, rng: np.random.Generator, n_obs: int) -> List
         margin = float(rng.uniform(0.6, 0.9))
         hw = float(world.track_width_m_LUT(s % length_m)) / 2.0
         # Keep center away from edges by required obstacle radius + small margin.
-        e_limit = hw - (radius + margin) - 0.4
+        e_limit = hw - track_buffer_m - (radius + margin + vehicle_radius_m) - 0.4
         if e_limit <= 0.4:
             continue
         e = float(rng.uniform(-e_limit, e_limit))
@@ -101,7 +107,10 @@ def main():
     parser.add_argument("--obs-subsamples", type=int, default=7)
     parser.add_argument("--obs-window-m", type=float, default=30.0)
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
-    parser.add_argument("--smoothness-w", type=float, default=1.0)
+    parser.add_argument("--lambda-u", type=float, default=1e-3)
+    parser.add_argument("--vehicle-radius-m", type=float, default=0.0)
+    parser.add_argument("--eps-s", type=float, default=0.1)
+    parser.add_argument("--eps-kappa", type=float, default=0.05)
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.001)
     parser.add_argument("--accept-max-slack", type=float, default=0.0)
     parser.add_argument("--min-obstacles", type=int, default=3)
@@ -117,6 +126,7 @@ def main():
     vehicle = create_vehicle(project_root)
     optimizer = TrajectoryOptimizer(vehicle, world)
     rng = np.random.default_rng(args.seed)
+    lambda_u = args.lambda_u
 
     retry_N_1 = max(args.N, 160)
     retry_subsamples_2 = max(args.obs_subsamples, 11)
@@ -141,7 +151,7 @@ def main():
 
     for i in range(args.num_scenarios):
         n_obs = int(rng.integers(args.min_obstacles, args.max_obstacles + 1))
-        obstacles = sample_obstacles(world, rng, n_obs)
+        obstacles = sample_obstacles(world, rng, n_obs, args.vehicle_radius_m, args.track_buffer_m)
         if len(obstacles) < n_obs:
             rows.append(
                 {
@@ -165,7 +175,10 @@ def main():
                 obstacle_window_m=args.obs_window_m,
                 obstacle_clearance_m=clear_i,
                 obstacle_subsamples_per_segment=subs_i,
-                smoothness_weight=args.smoothness_w,
+                lambda_u=lambda_u,
+                vehicle_radius_m=args.vehicle_radius_m,
+                eps_s=args.eps_s,
+                eps_kappa=args.eps_kappa,
                 obstacle_aware_init=True,
                 obstacle_init_sigma_m=8.0,
                 obstacle_init_margin_m=0.3,
@@ -246,7 +259,10 @@ def main():
         "base_obs_subsamples": args.obs_subsamples,
         "obs_window_m": args.obs_window_m,
         "track_buffer_m": args.track_buffer_m,
-        "smoothness_w": args.smoothness_w,
+        "lambda_u": lambda_u,
+        "vehicle_radius_m": args.vehicle_radius_m,
+        "eps_s": args.eps_s,
+        "eps_kappa": args.eps_kappa,
         "seed": args.seed,
         "csv_path": str(csv_path),
     }

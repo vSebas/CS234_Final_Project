@@ -156,6 +156,7 @@ class TrajectoryOptimizer:
         obs_e_center: np.ndarray,
         obs_r_tilde: np.ndarray,
         obstacle_clearance_m: float,
+        vehicle_radius_m: float,
         track_buffer_m: float,
         init_sigma_m: float,
         init_margin_m: float,
@@ -166,7 +167,7 @@ class TrajectoryOptimizer:
 
         for j in range(len(obs_s_center)):
             # Required lateral separation target near obstacle center.
-            target_abs = float(obs_r_tilde[j] + obstacle_clearance_m + init_margin_m)
+            target_abs = float(obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m + init_margin_m)
             idx_center = int(np.argmin(np.abs(((s_grid - obs_s_center[j] + 0.5 * self.world.length_m) % self.world.length_m) - 0.5 * self.world.length_m)))
             e_limit = max(0.0, float(track_hw[idx_center] - track_buffer_m - 0.05))
             target_abs = min(target_abs, 0.9 * e_limit)
@@ -195,8 +196,7 @@ class TrajectoryOptimizer:
         x0: Optional[np.ndarray] = None,
         X_init: Optional[np.ndarray] = None,
         U_init: Optional[np.ndarray] = None,
-        weight_delta_dot: float = 5.0,
-        weight_fx_dot: float = 5.0,
+        lambda_u: float = 1e-3,
         ux_min: float = 1.0,
         ux_max: Optional[float] = None,
         track_buffer_m: float = 0.0,
@@ -204,13 +204,15 @@ class TrajectoryOptimizer:
         obstacle_window_m: float = 30.0,
         obstacle_clearance_m: float = 0.0,
         obstacle_use_slack: bool = False,
-        obstacle_enforce_midpoints: bool = True,
+        obstacle_enforce_midpoints: bool = False,
         obstacle_subsamples_per_segment: int = 5,
         obstacle_slack_weight: float = 1e4,
         obstacle_aware_init: bool = True,
         obstacle_init_sigma_m: float = 8.0,
         obstacle_init_margin_m: float = 0.3,
-        smoothness_weight: float = 1.0,
+        vehicle_radius_m: float = 0.0,
+        eps_s: float = 0.1,
+        eps_kappa: float = 0.05,
         convergent_lap: bool = True,
         verbose: bool = True
     ) -> OptimizationResult:
@@ -223,8 +225,7 @@ class TrajectoryOptimizer:
             x0: Initial state (optional, for non-convergent lap)
             X_init: Initial state trajectory guess [nx, N+1] (optional)
             U_init: Initial control trajectory guess [nu, N+1] (optional)
-            weight_delta_dot: Penalty on steering rate
-            weight_fx_dot: Penalty on force rate
+            lambda_u: Weight for control-difference regularizer
             ux_min: Minimum forward speed [m/s]
             ux_max: Maximum speed limit [m/s] (optional)
             track_buffer_m: Safety buffer from track edges [m]
@@ -238,7 +239,9 @@ class TrajectoryOptimizer:
             obstacle_aware_init: Build obstacle-aware e(s) init when X_init is not provided
             obstacle_init_sigma_m: Along-track spread for obstacle-avoidance init bumps
             obstacle_init_margin_m: Extra lateral init margin beyond required obstacle radius
-            smoothness_weight: Weight for state/control smoothness terms
+            vehicle_radius_m: Conservative footprint radius added to obstacle clearance
+            eps_s: Minimum forward progress (sdot) to avoid singularity
+            eps_kappa: Minimum Frenet non-singularity margin (1 - kappa*e)
             convergent_lap: Whether start and end should match (periodic)
             verbose: Print solver output
 
@@ -352,24 +355,11 @@ class TrajectoryOptimizer:
                 opti.subject_to(ca.vec(sigma_tau) >= 0)
                 sigma_obs_samples.append(sigma_tau)
 
-        # === Objective ===
-        time_cost = 0
+        # === Objective (Tier 1) ===
+        time_cost = t[-1]
         reg_cost = 0
         for k in range(N):
-            # s_dot at node k
-            s_dot_k = (ux[k] * ca.cos(dpsi[k]) - uy[k] * ca.sin(dpsi[k])) / (1 - k_psi_data[k] * e[k])
-
-            # Time = integral of ds / s_dot
-            time_cost += ds_m / s_dot_k
-
-            # Control rate penalties (regularization)
-            if k < N:
-                delta_dot = (U[0, k+1] - U[0, k]) / ds_m * s_dot_k
-                fx_dot = (U[1, k+1] - U[1, k]) / ds_m * s_dot_k
-                reg_cost += weight_delta_dot * delta_dot**2 * ds_m / s_dot_k
-                reg_cost += weight_fx_dot * fx_dot**2 * ds_m / s_dot_k
-                reg_cost += smoothness_weight * (e[k+1] - e[k])**2
-                reg_cost += smoothness_weight * (dpsi[k+1] - dpsi[k])**2
+            reg_cost += lambda_u * ca.sumsqr(U[:, k + 1] - U[:, k])
 
         slack_cost = 0
         if sigma_obs is not None:
@@ -420,6 +410,14 @@ class TrajectoryOptimizer:
             if ux_max is not None:
                 opti.subject_to(ux[k] <= ux_max)
 
+            # Frenet non-singularity and forward progress
+            one_minus_kappa_e = 1 - k_psi_data[k] * e[k]
+            # CasADi rejects constant-only constraints; skip this at zero-curvature nodes.
+            if abs(float(k_psi_data[k])) > 1e-12:
+                opti.subject_to(one_minus_kappa_e >= eps_kappa)
+            s_dot_k = (ux[k] * ca.cos(dpsi[k]) - uy[k] * ca.sin(dpsi[k])) / one_minus_kappa_e
+            opti.subject_to(s_dot_k >= eps_s)
+
             # Track bounds (with buffer)
             opti.subject_to(e[k] >= -track_hw[k] + track_buffer_m)
             opti.subject_to(e[k] <= track_hw[k] - track_buffer_m)
@@ -444,7 +442,7 @@ class TrajectoryOptimizer:
                     if abs(self._wrap_s_dist(float(s_grid[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
                         dx = posE_k - obs_east[j]
                         dy = posN_k - obs_north[j]
-                        required_radius = obs_r_tilde[j] + obstacle_clearance_m
+                        required_radius = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
                         g_kj = dx * dx + dy * dy - required_radius ** 2
                         if sigma_obs is not None:
                             opti.subject_to(g_kj + sigma_obs[k, j] >= 0)
@@ -460,7 +458,7 @@ class TrajectoryOptimizer:
                         if abs(self._wrap_s_dist(float(s_tau[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
                             dx_mid = posE_tau_k - obs_east[j]
                             dy_mid = posN_tau_k - obs_north[j]
-                            required_radius = obs_r_tilde[j] + obstacle_clearance_m
+                            required_radius = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
                             g_mid = dx_mid * dx_mid + dy_mid * dy_mid - required_radius ** 2
                             if sigma_tau is not None:
                                 opti.subject_to(g_mid + sigma_tau[k, j] >= 0)
@@ -505,6 +503,7 @@ class TrajectoryOptimizer:
                     obs_e_center=obs_e_center,
                     obs_r_tilde=obs_r_tilde,
                     obstacle_clearance_m=obstacle_clearance_m,
+                    vehicle_radius_m=vehicle_radius_m,
                     track_buffer_m=track_buffer_m,
                     init_sigma_m=obstacle_init_sigma_m,
                     init_margin_m=obstacle_init_margin_m,
@@ -595,7 +594,7 @@ class TrajectoryOptimizer:
                     for j in range(len(obs_list)):
                         if abs(self._wrap_s_dist(float(s_tau), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
                             d_tau = np.sqrt((posE_tau - obs_east[j]) ** 2 + (posN_tau - obs_north[j]) ** 2)
-                            clearance_tau = float(d_tau - (obs_r_tilde[j] + obstacle_clearance_m))
+                            clearance_tau = float(d_tau - (obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m))
                             if clearance_tau < min_obstacle_clearance:
                                 min_obstacle_clearance = clearance_tau
 

@@ -30,7 +30,7 @@ from world.world import World
 class GridRecord:
     N: int
     obs_subsamples: int
-    smoothness_w: float
+    lambda_u: float
     ux_min: float
     obstacle_clearance_m: float
     success: bool
@@ -112,7 +112,7 @@ def main():
     parser.add_argument("--map-file", type=str, default="maps/Medium_Oval_Map_260m.mat")
     parser.add_argument("--N-grid", type=str, default="100,120,140,160")
     parser.add_argument("--obs-subsamples-grid", type=str, default="5,7,9")
-    parser.add_argument("--smoothness-grid", type=str, default="0.3,0.6,1.0")
+    parser.add_argument("--lambda-u-grid", type=str, default="0.001,0.003,0.01")
     parser.add_argument("--ux-min-grid", type=str, default="2.0,2.5,3.0")
     parser.add_argument("--obstacle-clearance-grid", type=str, default="0.0")
     parser.add_argument("--obs-window-m", type=float, default=30.0)
@@ -134,16 +134,16 @@ def main():
 
     N_grid = parse_grid(args.N_grid, int)
     subs_grid = parse_grid(args.obs_subsamples_grid, int)
-    smooth_grid = parse_grid(args.smoothness_grid, float)
+    lambda_u_grid = parse_grid(args.lambda_u_grid, float)
     uxmin_grid = parse_grid(args.ux_min_grid, float)
     clear_grid = parse_grid(args.obstacle_clearance_grid, float)
 
-    combos = list(product(N_grid, subs_grid, smooth_grid, uxmin_grid, clear_grid))
+    combos = list(product(N_grid, subs_grid, lambda_u_grid, uxmin_grid, clear_grid))
     print(f"Running {len(combos)} configurations on map: {args.map_file}")
     print(f"Obstacles loaded from map: {len(obstacles)}")
 
     records: list[GridRecord] = []
-    for i, (N, subs, sw, ux_min, clear) in enumerate(combos, start=1):
+    for i, (N, subs, lambda_u, ux_min, clear) in enumerate(combos, start=1):
         ds_m = float(world.length_m) / float(N)
         res = optimizer.solve(
             N=N,
@@ -153,7 +153,7 @@ def main():
             obstacle_window_m=args.obs_window_m,
             obstacle_clearance_m=clear,
             obstacle_subsamples_per_segment=subs,
-            smoothness_weight=sw,
+            lambda_u=lambda_u,
             obstacle_aware_init=True,
             obstacle_init_sigma_m=8.0,
             obstacle_init_margin_m=0.3,
@@ -164,7 +164,7 @@ def main():
         rec = GridRecord(
             N=N,
             obs_subsamples=subs,
-            smoothness_w=float(sw),
+            lambda_u=float(lambda_u),
             ux_min=float(ux_min),
             obstacle_clearance_m=float(clear),
             success=bool(res.success),
@@ -179,7 +179,7 @@ def main():
         print(
             f"[{i:03d}/{len(combos):03d}] "
             f"ok={rec.success and rec.accepted} "
-            f"N={N:<3} sub={subs:<2} sw={sw:<4.2f} ux_min={ux_min:<3.1f} "
+            f"N={N:<3} sub={subs:<2} lambda_u={lambda_u:<6.4f} ux_min={ux_min:<3.1f} "
             f"cost={rec.cost_s:7.3f}s t={rec.solve_time_s:6.2f}s"
         )
 
@@ -206,7 +206,7 @@ def main():
         "grid": {
             "N": N_grid,
             "obs_subsamples": subs_grid,
-            "smoothness_w": smooth_grid,
+            "lambda_u": lambda_u_grid,
             "ux_min": uxmin_grid,
             "obstacle_clearance_m": clear_grid,
         },
@@ -224,7 +224,7 @@ def main():
     if best is not None:
         print(
             "  Best: "
-            f"N={best.N}, sub={best.obs_subsamples}, sw={best.smoothness_w}, ux_min={best.ux_min}, "
+            f"N={best.N}, sub={best.obs_subsamples}, lambda_u={best.lambda_u}, ux_min={best.ux_min}, "
             f"clear={best.obstacle_clearance_m}, cost={best.cost_s:.3f}s"
         )
     print(f"  CSV:  {csv_path}")

@@ -4,7 +4,7 @@ IPOPT trajectory optimization demo (production path).
 
 Runs a single-stage solve with combined objective terms:
 - time objective
-- smoothness regularization
+- control-difference regularization (lambda_u)
 - obstacle slack penalty
 """
 
@@ -125,11 +125,22 @@ def run_demo():
             ds_m = world.length_m / N
             obstacle_subsamples = int(os.environ.get("OBS_SUBSAMPLES", "7"))
             track_buffer_m = float(os.environ.get("TRACK_BUFFER_M", "0.0"))
+            lambda_u = float(os.environ.get("LAMBDA_U", "0.001"))
+            base_clearance_m = float(os.environ.get("OBSTACLE_CLEARANCE_M", "0.0"))
+            obstacle_aware_init = os.environ.get("OBSTACLE_AWARE_INIT", "1") != "0"
+            obstacle_init_sigma_m = float(os.environ.get("OBSTACLE_INIT_SIGMA_M", "8.0"))
+            obstacle_init_margin_m = float(os.environ.get("OBSTACLE_INIT_MARGIN_M", "0.3"))
+            vehicle_radius_m = float(os.environ.get("VEHICLE_RADIUS_M", "0.0"))
+            eps_s = float(os.environ.get("EPS_S", "0.1"))
+            eps_kappa = float(os.environ.get("EPS_KAPPA", "0.05"))
             print(f"\n4. Setup:")
             print(f"   N = {N}")
             print(f"   ds = {ds_m:.2f} m")
             print(f"   Obstacle subsamples/segment = {obstacle_subsamples}")
             print(f"   Track buffer = {track_buffer_m:.2f} m")
+            print(f"   lambda_u = {lambda_u:.4g}")
+            print(f"   vehicle_radius_m = {vehicle_radius_m:.2f}")
+            print(f"   eps_s = {eps_s:.3f}, eps_kappa = {eps_kappa:.3f}")
 
             optimizer = TrajectoryOptimizer(vehicle, world)
             visualizer = TrajectoryVisualizer(world, output_dir=str(output_dir))
@@ -139,11 +150,6 @@ def run_demo():
             acceptance_min_clearance_m = float(os.environ.get("ACCEPT_MIN_CLEARANCE_M", "-0.001"))
             acceptance_max_slack = float(os.environ.get("ACCEPT_MAX_SLACK", "0.0"))
             obstacle_window_m = float(os.environ.get("OBS_WINDOW_M", "30.0"))
-            smoothness_weight = float(os.environ.get("SMOOTHNESS_W", "1.0"))
-            base_clearance_m = float(os.environ.get("OBSTACLE_CLEARANCE_M", "0.0"))
-            obstacle_aware_init = os.environ.get("OBSTACLE_AWARE_INIT", "1") != "0"
-            obstacle_init_sigma_m = float(os.environ.get("OBSTACLE_INIT_SIGMA_M", "8.0"))
-            obstacle_init_margin_m = float(os.environ.get("OBSTACLE_INIT_MARGIN_M", "0.3"))
 
             retry_N_1 = int(os.environ.get("RETRY_N_1", str(max(N, 160))))
             retry_subsamples_2 = int(os.environ.get("RETRY_SUBSAMPLES_2", str(max(obstacle_subsamples, 11))))
@@ -199,7 +205,10 @@ def run_demo():
                     obstacle_aware_init=obstacle_aware_init,
                     obstacle_init_sigma_m=obstacle_init_sigma_m,
                     obstacle_init_margin_m=obstacle_init_margin_m,
-                    smoothness_weight=smoothness_weight,
+                    lambda_u=lambda_u,
+                    vehicle_radius_m=vehicle_radius_m,
+                    eps_s=eps_s,
+                    eps_kappa=eps_kappa,
                     ux_min=3.0,
                     convergent_lap=True,
                     verbose=True,
