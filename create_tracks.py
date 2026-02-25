@@ -145,6 +145,74 @@ def create_oval_track(
     return data
 
 
+def _frenet_to_en_from_map(
+    data: dict,
+    s_query_m: np.ndarray,
+    e_query_m: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    s_ref = np.asarray(data["s_m"], dtype=float)
+    length_m = float(data["length_m"])
+    posE_ref = np.asarray(data["posE_m"], dtype=float)
+    posN_ref = np.asarray(data["posN_m"], dtype=float)
+    psi_ref = np.asarray(data["psi_rad"], dtype=float)
+
+    s_mod = np.mod(np.asarray(s_query_m, dtype=float), length_m)
+    e_arr = np.asarray(e_query_m, dtype=float)
+
+    s_ext = np.r_[s_ref, length_m]
+    posE_ext = np.r_[posE_ref, posE_ref[0]]
+    posN_ext = np.r_[posN_ref, posN_ref[0]]
+    psi_ext = np.r_[psi_ref, psi_ref[0]]
+
+    posE_cl = np.interp(s_mod, s_ext, posE_ext)
+    posN_cl = np.interp(s_mod, s_ext, posN_ext)
+    psi_cl = np.interp(s_mod, s_ext, psi_ext)
+
+    posE = posE_cl - e_arr * np.sin(psi_cl)
+    posN = posN_cl + e_arr * np.cos(psi_cl)
+    return posE, posN
+
+
+def create_oval_track_with_obstacles(
+    output_filename: str,
+    total_length: float = 260.0,
+    track_width: float = 10.0,
+    turn_radius: float = 18.0,
+    num_points: int = 520,
+) -> dict:
+    data = create_oval_track(
+        output_filename=output_filename,
+        total_length=total_length,
+        track_width=track_width,
+        turn_radius=turn_radius,
+        num_points=num_points,
+    )
+
+    # Fixed obstacle set for reproducible obstacle-avoidance experiments.
+    # These are intentionally larger and close to centerline so the optimizer
+    # must make visible avoidance maneuvers.
+    obstacles_s_m = np.array([36.0, 86.0, 138.0, 196.0, 238.0], dtype=float)
+    obstacles_e_m = np.array([0.35, -0.30, 0.20, -0.25, 0.30], dtype=float)
+    obstacles_radius_m = np.array([2.20, 2.10, 2.25, 2.15, 2.05], dtype=float)
+    obstacles_margin_m = np.array([0.55, 0.55, 0.55, 0.55, 0.55], dtype=float)
+    obstacles_radius_tilde_m = obstacles_radius_m + obstacles_margin_m
+
+    obs_east, obs_north = _frenet_to_en_from_map(data, obstacles_s_m, obstacles_e_m)
+    obstacles_ENR_m = np.column_stack([obs_east, obs_north, obstacles_radius_m])
+    obstacles_ENR_tilde_m = np.column_stack([obs_east, obs_north, obstacles_radius_tilde_m])
+
+    data["obstacles_s_m"] = obstacles_s_m
+    data["obstacles_e_m"] = obstacles_e_m
+    data["obstacles_radius_m"] = obstacles_radius_m
+    data["obstacles_margin_m"] = obstacles_margin_m
+    data["obstacles_radius_tilde_m"] = obstacles_radius_tilde_m
+    data["obstacles_ENR_m"] = obstacles_ENR_m
+    data["obstacles_ENR_tilde_m"] = obstacles_ENR_tilde_m
+
+    sio.savemat(output_filename, data)
+    return data
+
+
 def _bezier_point(t: float, p0: np.ndarray, p1: np.ndarray, p2: np.ndarray) -> np.ndarray:
     a = (1.0 - t) * p0 + t * p1
     b = (1.0 - t) * p1 + t * p2
@@ -431,6 +499,11 @@ def main():
         default="all",
         choices=["medium_oval", "isaac_style", "overview", "all"],
     )
+    parser.add_argument(
+        "--with-obstacles",
+        action="store_true",
+        help="Also generate an obstacle variant for the medium oval map.",
+    )
     args = parser.parse_args()
 
     maps = Path("maps")
@@ -440,6 +513,10 @@ def main():
         out = maps / "Medium_Oval_Map_260m.mat"
         create_oval_track(str(out))
         print(f"Saved {out}")
+        if args.with_obstacles:
+            out_obs = maps / "Medium_Oval_Map_260m_Obstacles.mat"
+            create_oval_track_with_obstacles(str(out_obs))
+            print(f"Saved {out_obs}")
 
     if args.preset in ("isaac_style", "all"):
         out = maps / "MAP1.mat"
