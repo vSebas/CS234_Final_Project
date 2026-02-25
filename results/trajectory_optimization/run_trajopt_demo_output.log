@@ -1,4 +1,4 @@
-[2026-02-24T20:14:00] Logging to: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/run_trajopt_demo_output.log
+[2026-02-24T20:21:02] Logging to: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/run_trajopt_demo_output.log
 ======================================================================
 IPOPT TRAJECTORY OPTIMIZATION DEMO (SINGLE STAGE)
 ======================================================================
@@ -294,20 +294,20 @@ Number of inequality constraint evaluations          = 435
 Number of equality constraint Jacobian evaluations   = 203
 Number of inequality constraint Jacobian evaluations = 203
 Number of Lagrangian Hessian evaluations             = 201
-Total seconds in IPOPT                               = 32.431
+Total seconds in IPOPT                               = 31.913
 
 EXIT: Optimal Solution Found.
       solver  :   t_proc      (avg)   t_wall      (avg)    n_eval
-       nlp_f  |  14.71ms ( 33.81us)  14.78ms ( 33.97us)       435
-       nlp_g  |   1.86 s (  4.27ms)   1.87 s (  4.30ms)       435
-  nlp_grad_f  |  11.80ms ( 58.13us)  11.87ms ( 58.46us)       203
-  nlp_hess_l  |  20.89 s (104.47ms)  21.02 s (105.08ms)       200
-   nlp_jac_g  |   5.79 s ( 28.36ms)   5.82 s ( 28.53ms)       204
-       total  |  32.25 s ( 32.25 s)  32.43 s ( 32.43 s)         1
+       nlp_f  |  14.84ms ( 34.12us)  14.95ms ( 34.37us)       435
+       nlp_g  |   1.82 s (  4.19ms)   1.83 s (  4.21ms)       435
+  nlp_grad_f  |  11.89ms ( 58.59us)  11.95ms ( 58.85us)       203
+  nlp_hess_l  |  20.50 s (102.51ms)  20.61 s (103.04ms)       200
+   nlp_jac_g  |   5.74 s ( 28.12ms)   5.77 s ( 28.27ms)       204
+       total  |  31.75 s ( 31.75 s)  31.91 s ( 31.91 s)         1
   Success: True
   Cost: 15.0688
   Iterations: 201
-  Solve time: 41.68 s
+  Solve time: 41.09 s
   Max obstacle slack: 0.0000e+00
   Min obstacle clearance: inf m
   Accepted: True
@@ -328,6 +328,6 @@ SUMMARY
 Selected attempt: baseline
 Attempt                    N      Subs   Clear    Iters    Time [s]   Cost [s]   Max Sigma    Min Clear [m]  Accepted
 -----------------------------------------------------------------------------------------------------------------------------
-baseline                   120    7      0.000    201      41.68      15.0688    0.000e+00    inf            True
+baseline                   120    7      0.000    201      41.09      15.0688    0.000e+00    inf            True
 
 All outputs saved to: /run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization

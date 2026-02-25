@@ -100,13 +100,25 @@ def run_demo():
             print("IPOPT TRAJECTORY OPTIMIZATION DEMO (SINGLE STAGE)")
             print("=" * 70)
 
-            map_file = Path(os.environ.get("TRACK_MAP", str(project_root / "maps" / "Medium_Oval_Map_260m.mat")))
-            if not map_file.exists():
+            # Accept MAP_FILE (preferred) and TRACK_MAP (legacy) for compatibility.
+            map_env = os.environ.get("MAP_FILE") or os.environ.get("TRACK_MAP")
+            if map_env:
+                map_file = Path(map_env)
+                if not map_file.is_absolute():
+                    if map_file.exists():
+                        map_file = map_file.resolve()
+                    else:
+                        map_file = (project_root / map_file).resolve()
+                if not map_file.exists():
+                    print(f"Error: Requested map file not found: {map_file}")
+                    print("Set MAP_FILE to a valid .mat path.")
+                    return
+            else:
                 map_file = project_root / "maps" / "Medium_Oval_Map_260m.mat"
-            if not map_file.exists():
-                print(f"Error: Map file not found at {map_file}")
-                print("Run: python create_tracks.py --preset all")
-                return
+                if not map_file.exists():
+                    print(f"Error: Default map file not found at {map_file}")
+                    print("Run: python create_tracks.py --preset all")
+                    return
 
             matplotlib.use("Agg")
 
