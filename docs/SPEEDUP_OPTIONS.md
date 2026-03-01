@@ -1,406 +1,161 @@
 # Trajectory Optimization Speedup Options
 
-## Current Performance Baseline
-
-| Metric | Value |
-|--------|-------|
-| Solver | IPOPT via CasADi (Python) |
-| Typical solve (N=120) | 2.26s |
-| Bottleneck | Hessian computation (71% of time) |
-| Root cause | CasADi symbolic interpretation overhead |
+This note is written against the **current repo behavior**: the simplified **Tier 1** NLP (min-time + Δu regularizer, node-only obstacles + dense post-check) is now the intended trajectory optimizer for dataset generation and DT warm-start refinement.
 
 ---
 
-## Option 1: CasADi C Code Generation (Recommended First Step)
+## Current Performance Baseline (measure the right thing)
 
-**Speedup: 2-3x**
+There are **two** relevant timings:
 
-CasADi can generate standalone C code from symbolic expressions. Currently unused.
+| Metric | What it is | Typical value | Why it matters |
+|---|---|---:|---|
+| **IPOPT core time** | time spent inside IPOPT once the NLP is built | ~2–3 s | reflects objective/constraint eval + derivatives (Hessian/Jacobian) |
+| **End-to-end solve time** | Python + CasADi graph building + precomputations + IPOPT | often **much larger** (e.g., 10–15 s) | **this is usually the real bottleneck** in the current code path |
 
-### Implementation
-
-```python
-# In optimizer.py or vehicle.py
-f_dynamics = ca.Function("f_dynamics", [x, u, params], [dx_dt])
-f_dynamics.generate("generated/f_dynamics.c", {"with_header": True})
-
-# Compile to shared library
-# gcc -shared -fPIC -O3 f_dynamics.c -o libf_dynamics.so
-
-# Load back into CasADi
-f_dynamics_compiled = ca.external("f_dynamics", "./libf_dynamics.so")
-```
-
-### What to Generate
-
-1. **Vehicle dynamics** (`dynamics_dt_path_vec`)
-2. **Tire force computation** (`calc_fy_kn`, `calc_fx_kn`)
-3. **Jacobians** (A, B matrices for linearization)
-4. **Full NLP function/gradient/Hessian**
-
-### Pros/Cons
-
-| Pros | Cons |
-|------|------|
-| Minimal code changes | Build system complexity |
-| Drop-in replacement | Regenerate on model changes |
-| Works with existing IPOPT flow | |
+Key observation from recent logs: IPOPT may report a few seconds, while the wrapper reports ~5–10× more. That means **we’re spending most time outside IPOPT** (problem construction and Python loops), not “solver math”.
 
 ---
 
-## Option 2: Hand-Coded C++ Dynamics with Analytical Jacobians
+## Option 0: Remove Python/NLP build overhead (fastest real-world win)
 
-**Speedup: 5-8x**
+**Expected speedup: 3–8× end-to-end** (often bigger than any IPOPT tweak)
 
-Replace CasADi symbolic dynamics with hand-written C++ and explicit Jacobian formulas.
+### 0.1 Skip obstacle midpoint/sample-grid work when it’s not needed
+In `planning/optimizer.py`, the code currently constructs obstacle sample grids and calls track interpolants thousands of times **even when there are no obstacles** or when Tier 1 is set to “node-only + dense post-check”.
 
-### Architecture
+**Fix:**
+- Only build `sample_grids` when: `len(obstacles) > 0 and obstacle_enforce_midpoints == True`.
+- In Tier 1 dataset-generation mode: default `obstacle_enforce_midpoints = False`.
 
-```
-cpp/
-├── dynamics/
-│   ├── single_track_model.hpp    # State derivatives
-│   ├── single_track_model.cpp
-│   ├── fiala_tire.hpp            # Tire model
-│   ├── fiala_tire.cpp
-│   └── jacobians.cpp             # Hand-coded ∂f/∂x, ∂f/∂u
-├── bindings/
-│   └── pybind_dynamics.cpp       # Python bindings
-└── CMakeLists.txt
-```
+This change alone can cut many seconds from “build time”.
 
-### Key Functions to Implement
+### 0.2 Vectorize track geometry lookups (stop per-node Python loops)
+You currently loop over k and call `posE_m_interp_fcn`, `posN_m_interp_fcn`, `psi_rad_interp_fcn`, etc. per node.
 
-```cpp
-// State derivative (8 states, 2 controls)
-void dynamics_dt(
-    const double* x,      // [ux, uy, r, dfz_long, dfz_lat, t, e, dpsi]
-    const double* u,      // [delta, fx_kn]
-    double k_psi,         // curvature
-    double theta,         // grade
-    double phi,           // bank
-    double* dx_dt,        // output: 8 derivatives
-    double* s_dot         // output: ds/dt
-);
+**Fix:**
+- Evaluate interpolants on **vector inputs** once per solve (or once per build if cached).
+- Convert results to NumPy arrays once (avoid repeated Python↔CasADi overhead).
 
-// Analytical Jacobians (exploit sparsity)
-void dynamics_jacobians(
-    const double* x,
-    const double* u,
-    double k_psi, double theta, double phi,
-    double* A,            // 8x8 ∂f/∂x
-    double* B             // 8x2 ∂f/∂u
-);
-```
+### 0.3 Cache the NLP: build once, solve many (parameterize scenarios)
+For dataset generation you typically keep `(map_id, N, ds)` fixed while changing only obstacles (and maybe margins).
 
-### Jacobian Sparsity Structure
+**Refactor goal:**
+- `build_problem(map_id, N, ds, Jmax)` once.
+- Treat scenario-dependent items as `Opti.parameter(...)`:
+  - obstacle centers/radii (Frenet or world)
+  - margins / buffers
+- Then for each scenario: set parameter values + set initial guess + call `opti.solve()`.
 
-The 8x8 state Jacobian has exploitable sparsity:
+**Important:** variable obstacle count forces rebuild. Avoid that by padding:
+- choose a maximum number of obstacles `Jmax` (e.g., 8),
+- if fewer, set unused obstacles “inactive” (radius=0 or place far away).
 
-```
-        ux  uy  r   dfz_l dfz_t t   e   dpsi
-ux    [ x   x   x   x     x     .   .   .   ]
-uy    [ x   x   x   x     x     .   .   .   ]
-r     [ x   x   x   x     x     .   .   .   ]
-dfz_l [ x   .   .   x     .     .   .   .   ]
-dfz_t [ .   x   x   .     x     .   .   .   ]
-t     [ x   x   .   .     .     .   x   x   ]
-e     [ x   x   .   .     .     .   .   x   ]
-dpsi  [ x   x   x   .     .     .   x   x   ]
-```
+This usually makes end-to-end runtime approach IPOPT time.
 
-~40% zeros exploitable.
+### 0.4 Parallelize dataset generation (throughput multiplier)
+Even without algorithmic changes:
+- each scenario solve is independent
+- use `multiprocessing` (or joblib) to run multiple solves in parallel
 
-### Python Binding
-
-```cpp
-// pybind_dynamics.cpp
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include "single_track_model.hpp"
-
-PYBIND11_MODULE(cpp_dynamics, m) {
-    m.def("dynamics_dt", &dynamics_dt_py);
-    m.def("dynamics_jacobians", &dynamics_jacobians_py);
-}
-```
+This is especially effective after caching (because each process amortizes the build cost).
 
 ---
 
-## Option 3: CasADi C++ API (No Python in Solve Loop)
+## Option 1: IPOPT configuration tweaks (cheap, after Option 0)
 
-**Speedup: 5-10x**
+**Expected speedup: 1.2–2× IPOPT time** (varies)
 
-Use CasADi's native C++ API to build and solve the NLP entirely in C++.
+### 1.1 Hessian approximation: L-BFGS
+Hessian evaluation can dominate IPOPT time.
 
-### Architecture
+Try:
+- `ipopt.hessian_approximation = "limited-memory"`
 
-```
-cpp/
-├── trajectory_optimizer.hpp
-├── trajectory_optimizer.cpp      # NLP construction in C++
-├── ipopt_interface.cpp           # Direct IPOPT callback
-└── python_wrapper.cpp            # Thin Python entry point
-```
+Often reduces wall time substantially for collocation NLPs, at the risk of slightly more iterations.
 
-### Key Change
+### 1.2 Relax tolerances for dataset-gen mode
+For training data, you typically do not need ultra-tight KKT tolerances.
 
-Move from:
-```python
-# Python (slow)
-opti = ca.Opti()
-X = opti.variable(8, N+1)
-for k in range(N):
-    opti.subject_to(...)  # Python loop overhead
-sol = opti.solve()
-```
+Try:
+- `ipopt.tol = 1e-4`
+- `ipopt.acceptable_tol = 1e-3`
 
-To:
-```cpp
-// C++ (fast)
-casadi::Opti opti;
-casadi::MX X = opti.variable(8, N+1);
-for (int k = 0; k < N; k++) {
-    opti.subject_to(...);  // Native C++ loop
-}
-casadi::OptiSol sol = opti.solve();
-```
+Validate that trajectories still pass acceptance checks.
 
-### Build System
+### 1.3 Linear solver choice
+If available on your system, switching linear solvers can help:
+- MA57 / MA86 / Pardiso often outperform MUMPS
 
-```cmake
-find_package(casadi REQUIRED)
-find_package(pybind11 REQUIRED)
-
-add_library(cpp_trajopt MODULE
-    trajectory_optimizer.cpp
-    python_wrapper.cpp
-)
-target_link_libraries(cpp_trajopt casadi pybind11::module)
-```
+(This depends on licensing/installation.)
 
 ---
 
-## Option 4: Direct IPOPT C++ Interface (Maximum Performance)
+## Option 2: CasADi C Code Generation (optional, after caching)
 
-**Speedup: 10-15x**
+**Expected speedup: 2–3× IPOPT time** (not end-to-end unless Option 0 is done)
 
-Bypass CasADi entirely. Implement IPOPT's `TNLP` interface directly in C++.
+CasADi can generate C code for functions (and derivatives) to reduce evaluation overhead.
 
-### Architecture
+### What to codegen
+- vehicle dynamics in spatial form (or temporal + sdot)
+- tire force computations
+- constraint functions for collocation residuals
+- optionally full NLP callbacks (objective, constraints, gradient, Jacobian, Hessian)
 
-```
-cpp/
-├── nlp/
-│   ├── trajectory_nlp.hpp        # IPOPT TNLP implementation
-│   ├── trajectory_nlp.cpp
-│   ├── dynamics.hpp              # Vehicle model
-│   ├── constraints.hpp           # Track bounds, obstacles
-│   └── sparse_hessian.cpp        # Hand-coded sparse Hessian
-├── solvers/
-│   └── ipopt_solver.cpp          # IPOPT setup and solve
-└── bindings/
-    └── python_interface.cpp
-```
-
-### IPOPT TNLP Interface
-
-```cpp
-class TrajectoryNLP : public Ipopt::TNLP {
-public:
-    // Problem dimensions
-    bool get_nlp_info(Index& n, Index& m, Index& nnz_jac_g,
-                      Index& nnz_h_lag, IndexStyleEnum& index_style) override;
-
-    // Variable bounds
-    bool get_bounds_info(Index n, Number* x_l, Number* x_u,
-                         Index m, Number* g_l, Number* g_u) override;
-
-    // Objective + gradient
-    bool eval_f(Index n, const Number* x, bool new_x, Number& obj_value) override;
-    bool eval_grad_f(Index n, const Number* x, bool new_x, Number* grad_f) override;
-
-    // Constraints + Jacobian (sparse)
-    bool eval_g(Index n, const Number* x, bool new_x, Index m, Number* g) override;
-    bool eval_jac_g(Index n, const Number* x, bool new_x, Index m,
-                    Index nele_jac, Index* iRow, Index* jCol, Number* values) override;
-
-    // Hessian of Lagrangian (sparse)
-    bool eval_h(Index n, const Number* x, bool new_x, Number obj_factor,
-                Index m, const Number* lambda, bool new_lambda,
-                Index nele_hess, Index* iRow, Index* jCol, Number* values) override;
-
-private:
-    int N_;                        // Discretization nodes
-    double ds_;                    // Step size
-    VehicleParams params_;
-    std::vector<Obstacle> obstacles_;
-
-    // Precomputed sparsity patterns
-    std::vector<int> jac_rows_, jac_cols_;
-    std::vector<int> hess_rows_, hess_cols_;
-};
-```
-
-### Sparse Hessian Structure
-
-For N=120 nodes, 8 states, 2 controls:
-- Variables: 1210
-- Dense Hessian: 1.46M entries
-- **Sparse Hessian: ~15K entries** (block-tridiagonal structure from collocation)
-
-```cpp
-// Hessian sparsity: block-tridiagonal from dynamics coupling
-// Only adjacent nodes interact via collocation constraints
-//
-// [ H_0   C_0                           ]
-// [ C_0^T H_1   C_1                     ]
-// [       C_1^T H_2   C_2               ]
-// [             ...   ...   ...         ]
-// [                   C_{N-1}^T  H_N    ]
-//
-// H_k: 10x10 (states + controls at node k)
-// C_k: 10x10 (coupling between nodes k and k+1)
-```
+### Why this matters
+Once you’ve removed Python build overhead (Option 0), IPOPT’s inner loop becomes the main cost. Codegen makes those evaluations faster.
 
 ---
 
-## Option 5: GPU-Accelerated Batch Solves (For Dataset Generation)
+## Option 4: Algorithmic changes (bigger redesign)
 
-**Speedup: 50-100x throughput (batch)**
+### 4.1 Multi-resolution / coarse-to-fine
+Solve a coarse problem, then refine (warm-start) at higher N.
 
-For generating training data, solve many trajectories in parallel on GPU.
-
-### Approaches
-
-1. **cuOpt / NVIDIA Optimization**: Commercial GPU optimizer
-2. **Custom CUDA kernels**: Parallelize across scenarios
-3. **JAX + jaxopt**: GPU-accelerated optimization in Python
-
-### When Useful
-
-- Dataset generation (1000s of solves)
-- Real-time MPC with multiple horizon samples
-- Monte Carlo scenario evaluation
-
-### JAX Example
-
-```python
-import jax
-import jax.numpy as jnp
-from jaxopt import ProjectedGradient
-
-@jax.jit
-def dynamics_residual(X_flat, U_flat, params):
-    # Vectorized dynamics for GPU
-    ...
-
-# Batch solve across 100 scenarios
-scenarios = jax.vmap(solve_single_trajectory)
-results = scenarios(batch_params)  # Runs on GPU
-```
+### 4.2 Multiple shooting vs collocation
+May improve parallelism and structure; depends on implementation details.
 
 ---
 
-## Option 6: Algorithmic Improvements (Complementary)
+## SCP like ART? (when and why)
 
-**Speedup: 2-5x (orthogonal to C++)**
+ART uses SCP when the problem is “mostly convex” except for a small set of nonconvex constraints (e.g., keep-out zones) that can be sequentially linearized with a trust region.
 
-### 6.1 Warm-Starting
+For the raceline NLP:
+- dynamics are nonlinear (tire + load transfer),
+- min-time objective introduces nonconvexity,
+- obstacle avoidance is nonconvex.
 
-```python
-# Use previous solution as initial guess
-result = optimizer.solve(N, ds, X_init=prev_X, U_init=prev_U)
-```
+So “ART-style SCP” would require linearizing **a lot**, not just one constraint. That becomes a major solver rewrite (sequential convexification / SQP-like), and **it won’t address today’s main issue** (Python/NLP build overhead).
 
-Current: Cold start every solve
-Improvement: 2-3x fewer iterations
-
-### 6.2 Adaptive Mesh Refinement
-
-```python
-# Start coarse, refine where needed
-result_coarse = solve(N=30)
-result_fine = solve(N=120, X_init=interpolate(result_coarse))
-```
-
-### 6.3 Multiple Shooting vs Collocation
-
-Current: Direct collocation (dense coupling)
-Alternative: Multiple shooting (parallelizable segments)
-
-### 6.4 Inexact Newton Steps
-
-```python
-opts = {
-    'ipopt.linear_solver': 'ma57',      # Faster than MUMPS
-    'ipopt.mehrotra_algorithm': 'yes',  # Predictor-corrector
-    'ipopt.mu_strategy': 'adaptive',
-}
-```
+If later you need real-time MPC-like solves, SCP/QP solvers can be worth it, but it’s a Phase-2+ project.
 
 ---
 
-## Comparison Summary
+## Recommended Path (updated)
 
-| Option | Speedup | Effort | Maintainability | Best For |
-|--------|---------|--------|-----------------|----------|
-| 1. CasADi codegen | 2-3x | Low | High | Quick win |
-| 2. C++ dynamics | 5-8x | Medium | Medium | Production |
-| 3. CasADi C++ API | 5-10x | Medium | Medium | Clean rewrite |
-| 4. Direct IPOPT | 10-15x | High | Low | Maximum speed |
-| 5. GPU batch | 50-100x | High | Low | Dataset gen |
-| 6. Algorithmic | 2-5x | Low | High | Complement any |
+### Phase 0: Fix the real bottleneck (days)
+1. Guard midpoint/sample-grid work behind obstacle presence + flag
+2. Vectorize track interpolant queries (no per-node Python loops)
+3. Cache the NLP (build once) and parameterize obstacles with fixed `Jmax`
+4. Parallelize dataset generation
 
----
+### Phase 1: IPOPT speedups (hours)
+1. `hessian_approximation = limited-memory`
+2. Relax tolerances for dataset mode
+3. Try a faster linear solver if available
 
-## Recommended Path
-
-### Phase 1: Quick Wins (Week 1)
-1. Enable CasADi code generation for dynamics
-2. Add warm-starting to optimizer
-3. Switch to MA57 linear solver (if available)
-
-### Phase 2: C++ Core (Weeks 2-4)
-1. Implement vehicle dynamics in C++ with pybind11
-2. Hand-code analytical Jacobians with sparsity
-3. Replace CasADi dynamics calls with C++ module
-
-### Phase 3: Full C++ Solver (Weeks 5-8)
-1. Implement IPOPT TNLP interface
-2. Exploit block-tridiagonal Hessian structure
-3. Thin Python wrapper for orchestration
-
-### Expected Final Performance
-
-| Metric | Current | After Phase 3 |
-|--------|---------|---------------|
-| Single solve (N=120) | 2.26s | 0.15-0.25s |
-| Dataset gen (1000 solves) | 37 min | 3-4 min |
-| Real-time capable | No | Yes (10-20 Hz) |
+### Phase 2: Codegen / compiled eval (days)
+1. CasADi codegen for dynamics + derivatives
+2. (Optional) codegen for full NLP callbacks
 
 ---
 
-## Files to Modify/Create
+## Expected outcomes (realistic)
 
-```
-CS234_Final_Project/
-├── cpp/                              # NEW: C++ source
-│   ├── CMakeLists.txt
-│   ├── dynamics/
-│   │   ├── single_track_model.cpp
-│   │   ├── fiala_tire.cpp
-│   │   └── jacobians.cpp
-│   ├── nlp/
-│   │   ├── trajectory_nlp.cpp        # IPOPT interface
-│   │   └── sparse_structure.cpp
-│   └── bindings/
-│       └── pybind_trajopt.cpp
-├── planning/
-│   ├── optimizer.py                  # MODIFY: use compiled dynamics
-│   └── optimizer_cpp.py              # NEW: thin wrapper for C++ solver
-├── models/
-│   └── vehicle.py                    # MODIFY: optional CasADi codegen
-└── scripts/
-    └── build_cpp.sh                  # NEW: build script
-```
+| Step | Main benefit | Typical impact |
+|---|---|---|
+| Option 0 (cache + skip work) | eliminates Python build overhead | **3–8×** end-to-end speedup |
+| L-BFGS Hessian | reduces derivative work | **1.2–2×** IPOPT time |
+| CasADi codegen | faster inner evals | **2–3×** IPOPT time |

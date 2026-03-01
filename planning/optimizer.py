@@ -536,21 +536,43 @@ class TrajectoryOptimizer:
             opti.set_initial(sigma_tau, 0.0)
 
         # === Solver options ===
+        def _env_float(key: str, default: float) -> float:
+            val = os.environ.get(key, "").strip()
+            return default if not val else float(val)
+
+        def _env_int(key: str, default: int) -> int:
+            val = os.environ.get(key, "").strip()
+            return default if not val else int(val)
+
+        ipopt_tol = _env_float("IPOPT_TOL", 1e-6)
+        ipopt_acceptable_tol = _env_float("IPOPT_ACCEPTABLE_TOL", 1e-4)
+        ipopt_max_iter = _env_int("IPOPT_MAX_ITER", 1000)
+        ipopt_print = _env_int("IPOPT_PRINT_LEVEL", 5 if verbose else 0)
+        ipopt_linear_solver = os.environ.get("IPOPT_LINEAR_SOLVER", "").strip()
+        try_ma57_default = not ipopt_linear_solver
+        if try_ma57_default:
+            ipopt_linear_solver = "ma57"
+
         opts = {
-            'ipopt.print_level': 5 if verbose else 0,
+            'ipopt.print_level': ipopt_print,
             'print_time': verbose,
-            'ipopt.max_iter': 1000,
-            'ipopt.tol': 1e-6,
-            'ipopt.acceptable_tol': 1e-4,
+            'ipopt.max_iter': ipopt_max_iter,
+            'ipopt.tol': ipopt_tol,
+            'ipopt.acceptable_tol': ipopt_acceptable_tol,
         }
+        if ipopt_linear_solver:
+            opts['ipopt.linear_solver'] = ipopt_linear_solver
         max_cpu_time = float(os.environ.get("IPOPT_MAX_CPU_TIME", "0.0"))
         if max_cpu_time > 0.0:
             opts['ipopt.max_cpu_time'] = max_cpu_time
-        opti.solver('ipopt', opts)
+        def _solve_with_opts(solver_opts):
+            opti.solver('ipopt', solver_opts)
+            sol = opti.solve()
+            return sol
 
         # === Solve ===
         try:
-            sol = opti.solve()
+            sol = _solve_with_opts(opts)
             success = True
             X_opt = sol.value(X)
             U_opt = sol.value(U)
@@ -559,15 +581,42 @@ class TrajectoryOptimizer:
             sigma_opt = sol.value(sigma_obs) if sigma_obs is not None else None
             sigma_tau_opt = [sol.value(s) for s in sigma_obs_samples]
         except RuntimeError as err:
-            if verbose:
-                print(f"Solver failed: {err}")
-            success = False
-            X_opt = opti.debug.value(X)
-            U_opt = opti.debug.value(U)
-            cost_opt = float('inf')
-            iterations = -1
-            sigma_opt = opti.debug.value(sigma_obs) if sigma_obs is not None else None
-            sigma_tau_opt = [opti.debug.value(s) for s in sigma_obs_samples]
+            # If MA57 is unavailable, fall back to IPOPT defaults.
+            if ipopt_linear_solver and try_ma57_default:
+                if verbose:
+                    print(f"Solver failed with ipopt.linear_solver={ipopt_linear_solver}: {err}")
+                    print("Retrying with IPOPT default linear solver.")
+                try:
+                    opts_fallback = dict(opts)
+                    opts_fallback.pop('ipopt.linear_solver', None)
+                    sol = _solve_with_opts(opts_fallback)
+                    success = True
+                    X_opt = sol.value(X)
+                    U_opt = sol.value(U)
+                    cost_opt = sol.value(cost)
+                    iterations = sol.stats()['iter_count']
+                    sigma_opt = sol.value(sigma_obs) if sigma_obs is not None else None
+                    sigma_tau_opt = [sol.value(s) for s in sigma_obs_samples]
+                except RuntimeError as err2:
+                    if verbose:
+                        print(f"Solver failed: {err2}")
+                    success = False
+                    X_opt = opti.debug.value(X)
+                    U_opt = opti.debug.value(U)
+                    cost_opt = float('inf')
+                    iterations = -1
+                    sigma_opt = opti.debug.value(sigma_obs) if sigma_obs is not None else None
+                    sigma_tau_opt = [opti.debug.value(s) for s in sigma_obs_samples]
+            else:
+                if verbose:
+                    print(f"Solver failed: {err}")
+                success = False
+                X_opt = opti.debug.value(X)
+                U_opt = opti.debug.value(U)
+                cost_opt = float('inf')
+                iterations = -1
+                sigma_opt = opti.debug.value(sigma_obs) if sigma_obs is not None else None
+                sigma_tau_opt = [opti.debug.value(s) for s in sigma_obs_samples]
 
         solve_time = time.time() - t_start
 

@@ -136,10 +136,12 @@ CS234_Final_Project/
 │   └── Medium_Oval_Map_260m.mat   # Example track
 │
 ├── results/                  # Output visualizations
-│   ├── ipopt_single_stage_trajectory.png
-│   ├── ipopt_single_stage_states.png
-│   ├── ipopt_single_stage_controls.png
-│   └── ipopt_single_stage_animation.gif
+│   └── trajectory_optimization/
+│       └── nlp/
+│           ├── ipopt_single_stage_trajectory.png
+│           ├── ipopt_single_stage_states.png
+│           ├── ipopt_single_stage_controls.png
+│           └── ipopt_single_stage_animation.gif
 │
 ├── run_trajopt_demo.py       # Trajectory optimization demo (IPOPT production path)
 ├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
@@ -175,7 +177,7 @@ python run_trajopt_demo.py
 
 This will:
 1. Solve trajectory optimization with IPOPT direct collocation
-2. Run current comparison pipeline and save plots/logs in `results/`
+2. Run current comparison pipeline and save plots/logs in `results/trajectory_optimization/nlp`
 
 Notes:
 - Production solver path is IPOPT.

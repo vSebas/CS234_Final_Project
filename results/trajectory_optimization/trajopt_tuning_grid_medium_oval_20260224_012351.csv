@@ -1,2 +1,0 @@
-N,obs_subsamples,smoothness_w,ux_min,obstacle_clearance_m,success,accepted,cost_s,solve_time_s,iterations,max_obstacle_slack,min_obstacle_clearance_m
-120,7,1.0,3.0,0.0,True,True,21.423023312256213,12.542972803115845,17,0.0,inf

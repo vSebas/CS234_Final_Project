@@ -61,7 +61,7 @@ def _compute_bounds_from_centerline(
 def create_oval_track(
     output_filename: str,
     total_length: float = 260.0,
-    track_width: float = 10.0,
+    track_width: float = 6.0,
     turn_radius: float = 18.0,
     num_points: int = 520,
 ) -> dict:
@@ -176,7 +176,7 @@ def _frenet_to_en_from_map(
 def create_oval_track_with_obstacles(
     output_filename: str,
     total_length: float = 260.0,
-    track_width: float = 10.0,
+    track_width: float = 6.0,
     turn_radius: float = 18.0,
     num_points: int = 520,
 ) -> dict:
@@ -511,11 +511,11 @@ def main():
 
     if args.preset in ("medium_oval", "all"):
         out = maps / "Medium_Oval_Map_260m.mat"
-        create_oval_track(str(out))
+        create_oval_track(str(out), track_width=6.0)
         print(f"Saved {out}")
         if args.with_obstacles:
             out_obs = maps / "Medium_Oval_Map_260m_Obstacles.mat"
-            create_oval_track_with_obstacles(str(out_obs))
+            create_oval_track_with_obstacles(str(out_obs), track_width=6.0)
             print(f"Saved {out_obs}")
 
     if args.preset in ("isaac_style", "all"):
