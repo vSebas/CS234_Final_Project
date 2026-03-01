@@ -12,3 +12,5 @@ To get context about dynamic model, optimizer, tracks, check:
 To check current trajectory optimizer results:
 - results/trajectory_optimization
 - run_trajopt_demo.py
+
+Check best cost = time_cost + reg_cost + slack_cost in optimizer

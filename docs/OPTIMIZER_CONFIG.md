@@ -36,8 +36,11 @@ N = ceil(track_length / ds_m)
 ds_m = track_length / N
 ```
 
-**Paper-aligned default (Aggarwal & Gerdes 2025):**
+**Paper-aligned discretization (Aggarwal & Gerdes 2025):**
 - `N = 260`, `ds_m = 1.0 m` on the 260 m oval
+
+**Project default (fast/clean on Oval_Track_260m):**
+- `N = 120`, `ds_m ≈ 2.17 m` on the 260 m oval
 
 ---
 
@@ -48,7 +51,7 @@ These are the main knobs you will set or tune:
 **Basic**
 - `N`: nodes
 - `ds_m`: spatial step
-- `lambda_u`: control smoothness regularizer (default `1e-3`)
+- `lambda_u`: control smoothness regularizer (default `0.005`)
 - `ux_min`: minimum longitudinal speed (default `3.0`)
 - `ux_max`: optional max speed cap
 - `track_buffer_m`: shrink track bounds (default `0.0`)
@@ -99,9 +102,9 @@ If `IPOPT_LINEAR_SOLVER` **is set**, the optimizer will use it as-is.
 
 The demo uses these defaults unless overridden via CLI args or env vars:
 
-- `N = 260` (paper-aligned discretization)
+- `N = 120` (fast/clean default for Oval_Track_260m)
 - `ds_m = track_length / N`
-- `lambda_u = 1e-3`
+- `lambda_u = 0.005`
 - `ux_min = 3.0`
 - `obstacle_subsamples_per_segment = 7`
 - `obstacle_enforce_midpoints = False`

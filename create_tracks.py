@@ -197,8 +197,8 @@ def create_oval_track_with_obstacles(
     # must make visible avoidance maneuvers.
     obstacles_s_m = np.array([36.0, 86.0, 138.0, 196.0, 238.0], dtype=float)
     obstacles_e_m = np.array([0.35, -0.30, 0.20, -0.25, 0.30], dtype=float)
-    obstacles_radius_m = np.array([2.20, 2.10, 2.25, 2.15, 2.05], dtype=float)
-    obstacles_margin_m = np.array([0.55, 0.55, 0.55, 0.55, 0.55], dtype=float)
+    obstacles_radius_m = np.array([1.50, 1.40, 1.50, 1.45, 1.35], dtype=float)
+    obstacles_margin_m = np.array([0.30, 0.30, 0.30, 0.30, 0.30], dtype=float)
     obstacles_radius_tilde_m = obstacles_radius_m + obstacles_margin_m
 
     obs_east, obs_north = _frenet_to_en_from_map(data, obstacles_s_m, obstacles_e_m)
@@ -237,8 +237,8 @@ def add_obstacles_to_map(
     rng = np.random.RandomState(seed)
 
     # Place obstacles away from each other and away from boundaries.
-    margin = 0.55
-    radius_min, radius_max = 1.6, 2.4
+    margin = 0.30
+    radius_min, radius_max = 1.0, 1.5
     e_max = max(0.0, 0.5 * width_min - (radius_max + margin))
     if e_max <= 0:
         raise ValueError("Track too narrow for obstacles with current radius/margin.")
