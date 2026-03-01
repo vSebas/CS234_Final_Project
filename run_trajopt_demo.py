@@ -181,7 +181,7 @@ def run_demo(args):
                     print("Set MAP_FILE to a valid .mat path.")
                     return
             else:
-                map_file = project_root / "maps" / "Medium_Oval_Map_260m.mat"
+                map_file = project_root / "maps" / "Oval_Track_260m.mat"
                 if not map_file.exists():
                     print(f"Error: Default map file not found at {map_file}")
                     print("Run: python create_tracks.py --preset all")

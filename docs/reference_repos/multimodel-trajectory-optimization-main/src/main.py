@@ -19,7 +19,7 @@ if(__name__=="__main__"):
         "VEHICLE_PARAMS_FILENAME" : "vehicle_params_gti.yaml",
         
         # Map parameters
-        "MAP_FILENAME"   : "Medium_Oval_Map_260m.mat",
+        "MAP_FILENAME"   : "Oval_Track_260m.mat",
         "MAP_NAME"       : "Medium_Oval",
         "SECTOR_NAME"    : "Full_Lap",
         "CONVERGENT_LAP" : True, # Whether to solve for a coincident horizon start and end point

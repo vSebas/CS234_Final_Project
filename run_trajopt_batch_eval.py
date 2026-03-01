@@ -102,7 +102,7 @@ def main():
     parser = argparse.ArgumentParser(description="Batch evaluation for IPOPT trajectory optimizer")
     parser.add_argument("--num-scenarios", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--map-file", type=str, default="maps/Medium_Oval_Map_260m.mat")
+    parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     parser.add_argument("--N", type=int, default=120)
     parser.add_argument("--obs-subsamples", type=int, default=7)
     parser.add_argument("--obs-window-m", type=float, default=30.0)

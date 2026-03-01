@@ -2,10 +2,12 @@ To get context about the project, check the next files:
 - PLAN.md
 - README.md
 
-To get context about dynamic model and optimizer, check:
+To get context about dynamic model, optimizer, tracks, check:
 - docs/DYNAMIC_MODEL.md
+- models/
 - planning/optimizer.py
-- and the remaining files
+- maps/
+- create_tracks.py
 
 To check current trajectory optimizer results:
 - results/trajectory_optimization

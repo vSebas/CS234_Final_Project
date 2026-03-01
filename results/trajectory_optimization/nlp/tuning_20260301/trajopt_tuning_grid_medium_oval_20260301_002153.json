@@ -1,0 +1,64 @@
+{
+  "timestamp": "20260301_002153",
+  "map_file": "maps/Medium_Oval_Map_260m.mat",
+  "num_configs": 1,
+  "num_success_and_accepted": 1,
+  "accept_min_clearance_m": -0.001,
+  "accept_max_slack": 0.0,
+  "grid": {
+    "N": [
+      140
+    ],
+    "obs_subsamples": [
+      7
+    ],
+    "lambda_u": [
+      0.005
+    ],
+    "ux_min": [
+      3.0
+    ],
+    "obstacle_clearance_m": [
+      0.0
+    ]
+  },
+  "best": {
+    "N": 140,
+    "obs_subsamples": 7,
+    "lambda_u": 0.005,
+    "ux_min": 3.0,
+    "obstacle_clearance_m": 0.0,
+    "success": true,
+    "accepted": true,
+    "cost_s": 15.572079927164522,
+    "solve_time_s": 30.66336226463318,
+    "iterations": 121,
+    "max_obstacle_slack": 0.0,
+    "min_obstacle_clearance_m": Infinity,
+    "tv_delta": 4.99481279475513,
+    "tv_fx": 41.10776169929119,
+    "max_abs_ddelta": 0.8926234752673268,
+    "max_abs_dfx": 0.9011032239211358
+  },
+  "top_k": [
+    {
+      "N": 140,
+      "obs_subsamples": 7,
+      "lambda_u": 0.005,
+      "ux_min": 3.0,
+      "obstacle_clearance_m": 0.0,
+      "success": true,
+      "accepted": true,
+      "cost_s": 15.572079927164522,
+      "solve_time_s": 30.66336226463318,
+      "iterations": 121,
+      "max_obstacle_slack": 0.0,
+      "min_obstacle_clearance_m": Infinity,
+      "tv_delta": 4.99481279475513,
+      "tv_fx": 41.10776169929119,
+      "max_abs_ddelta": 0.8926234752673268,
+      "max_abs_dfx": 0.9011032239211358
+    }
+  ],
+  "csv_path": "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/results/trajectory_optimization/nlp/trajopt_tuning_grid_medium_oval_20260301_002153.csv"
+}

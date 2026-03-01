@@ -188,7 +188,7 @@ Both stages should use the same acceptance-gated retry schedule style as `run_tr
 Goal: validate the Tier-1 optimizer, dataset writing, and pose computations before adding obstacles.
 
 **Map choice**
-- Use the map that is already stable in your logs: `maps/Medium_Oval_Map_260m.mat` (or the current default map used in your demos).
+- Use the map that is already stable in your logs: `maps/Oval_Track_260m.mat` (or the current default map used in your demos).
 
 **Discretization**
 - Start with the values that are already working:

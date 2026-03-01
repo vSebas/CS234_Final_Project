@@ -40,6 +40,10 @@ class GridRecord:
     iterations: int
     max_obstacle_slack: float
     min_obstacle_clearance_m: float
+    tv_delta: float
+    tv_fx: float
+    max_abs_ddelta: float
+    max_abs_dfx: float
 
 
 def parse_grid(s: str, cast):
@@ -109,18 +113,19 @@ def rank_key(r: GridRecord):
 
 def main():
     parser = argparse.ArgumentParser(description="Grid tuning for trajectory optimizer")
-    parser.add_argument("--map-file", type=str, default="maps/Medium_Oval_Map_260m.mat")
-    parser.add_argument("--N-grid", type=str, default="100,120,140,160")
-    parser.add_argument("--obs-subsamples-grid", type=str, default="5,7,9")
-    parser.add_argument("--lambda-u-grid", type=str, default="0.001,0.003,0.01")
-    parser.add_argument("--ux-min-grid", type=str, default="2.0,2.5,3.0")
+    parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
+    # Paper-aligned defaults: N=260 (ds=1m on 260m oval). Tune a small, relevant subset.
+    parser.add_argument("--N-grid", type=str, default="260")
+    parser.add_argument("--obs-subsamples-grid", type=str, default="7")
+    parser.add_argument("--lambda-u-grid", type=str, default="0.0005,0.001,0.003")
+    parser.add_argument("--ux-min-grid", type=str, default="2.5,3.0")
     parser.add_argument("--obstacle-clearance-grid", type=str, default="0.0")
     parser.add_argument("--obs-window-m", type=float, default=30.0)
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.001)
     parser.add_argument("--accept-max-slack", type=float, default=0.0)
     parser.add_argument("--top-k", type=int, default=10)
-    parser.add_argument("--output-dir", type=str, default="results/trajectory_optimization")
+    parser.add_argument("--output-dir", type=str, default="results/trajectory_optimization/nlp")
     args = parser.parse_args()
 
     project_root = Path(__file__).parent
@@ -161,6 +166,15 @@ def main():
             convergent_lap=True,
             verbose=False,
         )
+        delta = res.U[0, :]
+        fx = res.U[1, :]
+        d_delta = np.diff(delta)
+        d_fx = np.diff(fx)
+        tv_delta = float(np.sum(np.abs(d_delta)))
+        tv_fx = float(np.sum(np.abs(d_fx)))
+        max_abs_ddelta = float(np.max(np.abs(d_delta))) if d_delta.size else 0.0
+        max_abs_dfx = float(np.max(np.abs(d_fx))) if d_fx.size else 0.0
+
         rec = GridRecord(
             N=N,
             obs_subsamples=subs,
@@ -174,6 +188,10 @@ def main():
             iterations=int(res.iterations),
             max_obstacle_slack=float(res.max_obstacle_slack),
             min_obstacle_clearance_m=float(res.min_obstacle_clearance),
+            tv_delta=tv_delta,
+            tv_fx=tv_fx,
+            max_abs_ddelta=max_abs_ddelta,
+            max_abs_dfx=max_abs_dfx,
         )
         records.append(rec)
         print(

@@ -133,7 +133,7 @@ CS234_Final_Project/
 │   └── visualization.py      # Visualization (saves to files)
 │
 ├── maps/
-│   └── Medium_Oval_Map_260m.mat   # Example track
+│   └── Oval_Track_260m.mat        # Example track
 │
 ├── results/                  # Output visualizations
 │   └── trajectory_optimization/
@@ -258,7 +258,7 @@ from planning import TrajectoryOptimizer
 from world.world import World
 
 # Load track
-world = World("maps/Medium_Oval_Map_260m.mat", "Oval", diagnostic_plotting=False)
+world = World("maps/Oval_Track_260m.mat", "Oval", diagnostic_plotting=False)
 
 # Create vehicle
 params = VehicleParams(...)  # See run_trajopt_demo.py for example

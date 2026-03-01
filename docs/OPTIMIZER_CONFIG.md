@@ -134,3 +134,38 @@ results/trajectory_optimization/nlp
 
 Paper alignment for discretization and solver choice:
 Aggarwal & Gerdes, *Friction-Robust Autonomous Racing Using Trajectory Optimization Over Multiple Models*, IEEE OJCS 2025.
+
+---
+
+## 8) Tuning Results (Local Runs)
+
+These results were measured on `maps/Oval_Track_260m.mat` (width 6 m, dry asphalt),
+with no obstacles in the map. IPOPT fell back to the default linear solver (MA57 not available).
+
+**Grid run (8 configs)**  
+File: `results/trajectory_optimization/nlp/trajopt_tuning_grid_medium_oval_20260301_001607.csv`
+
+Parameters swept:
+- `N`: 100, 120
+- `lambda_u`: 0.003, 0.005
+- `ux_min`: 2.5, 3.0
+- `obs_subsamples`: 7
+
+Fastest overall:
+- `N=100`, `lambda_u=0.003`, `ux_min=2.5`
+- `cost=15.557 s`, `solve_time=22.52 s`
+
+Fastest with smoother controls (median `tv_delta` and `tv_fx` thresholds):
+- `N=120`, `lambda_u=0.005`, `ux_min=3.0`
+- `cost=15.659 s`, `solve_time=26.98 s`
+- `tv_delta=5.143`, `tv_fx=42.913`
+
+**Single extra config**  
+File: `results/trajectory_optimization/nlp/trajopt_tuning_grid_medium_oval_20260301_002153.csv`
+
+- `N=140`, `lambda_u=0.005`, `ux_min=3.0`
+- `cost=15.572 s`, `solve_time=30.66 s`
+- `tv_delta=4.995`, `tv_fx=41.108`
+
+**Final chosen config (paper-aligned, smooth/fast balance)**
+- `N=120`, `lambda_u=0.005`, `ux_min=3.0`
