@@ -237,6 +237,44 @@ To generate all circular shifts per base lap, pass `--all-shifts` to `data/make_
 
 The dataset config and defaults are captured in `data/DATASET_CONFIG.md`. The full generation plan (Fix A/Fix B) is documented in `PLAN.md`.
 
+Current saved episode schema:
+- node-aligned arrays: `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`
+- transition-aligned arrays: `dt`, `reward`, `rtg`
+- header fields are recorded in `manifest.jsonl` alongside `map_hash`, `solver_config`, `solver_config_hash`, `base_id`, and `s_offset_m`
+
+The current DT code in `dt/dataset.py` consumes this saved schema directly. Treat the saved field names as the source of truth for training and warm-start work.
+
+### Decision Transformer Training
+
+Train on a single dataset shard:
+
+```bash
+python dt/train.py \
+  --data-dir data/datasets/Oval_Track_260m_shifts \
+  --output-dir dt/checkpoints/oval_shifts_run1 \
+  --context-length 30 \
+  --batch-size 64 \
+  --num-epochs 100
+```
+
+Evaluate a checkpoint on a single dataset shard:
+
+```bash
+python dt/eval.py \
+  --checkpoint dt/checkpoints/oval_shifts_run1/checkpoint_best.pt \
+  --data-dir data/datasets/Oval_Track_260m_shifts
+```
+
+Current training limitations:
+- `dt/train.py` currently expects one `--data-dir` at a time, not the full multi-shard dataset root
+- train/validation splitting is done inside the loader and still needs explicit split-by-`base_id` hygiene
+- normalization statistics are currently computed before the train/validation split and should be moved to train-only stats
+
+Recommended current usage:
+- use the generated shard structure as-is
+- treat `data/DATASET_CONFIG.md` as the canonical description of the on-disk dataset schema
+- update the training/data-loading path before claiming final offline-RL or DT benchmark results on the full dataset
+
 ### Vehicle Simulation
 
 Simulate the vehicle dynamics with custom throttle and steering inputs (no track required):
@@ -320,9 +358,13 @@ print(f"Collocation solve time: {dc_result.solve_time:.2f}s")
 - [x] Implement direct collocation optimizer
 - [x] Create visualization tools
 - [x] Archive/freeze SCP experimental branch
+- [x] Implement IPOPT hard obstacle constraints in the production pipeline
+- [x] Build Fix A + Fix B dataset generation pipeline
+- [x] Implement Decision Transformer dataset loader, model, training, and evaluation scripts
+- [x] Implement DT warm-start integration scaffold
 - [ ] IPOPT obstacle-avoidance constraints (slack + staged solve)
-- [ ] Dataset generation pipeline
-- [ ] Decision Transformer training script
-- [ ] Warm-start integration with IPOPT solver
 - [ ] Evaluation benchmarks
+- [ ] Train/val/test split artifacts with split-by-`base_id` hygiene
+- [ ] Multi-shard DT training on the full generated dataset
+- [ ] End-to-end DT-vs-baseline warm-start benchmark
 - [ ] Multi-track generalization

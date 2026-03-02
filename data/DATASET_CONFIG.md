@@ -45,3 +45,13 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Base laps: `data/base_laps/<map_id>/*.npz`
 - Shifts: `data/datasets/<map_id>_shifts/episodes/*.npz`
 - Repairs: `data/datasets/<map_id>_repairs/episodes/*.npz`
+
+**Saved schema used by training code**
+- Node-aligned arrays (`N+1` for shifts, `H+1` for repairs):
+  - `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`
+- Transition-aligned arrays (`N` for shifts, `H` for repairs):
+  - `dt`, `reward`, `rtg`
+- Episode metadata is stored in `manifest.jsonl` with:
+  - `episode_id`, `episode_type`, `base_id`, `map_id`, `map_hash`, `solver_config`, `solver_config_hash`, `obstacles`, `s_offset_m`, `npz_path`
+
+This is the current canonical on-disk schema for the repo. The DT loader in `dt/dataset.py` reads these field names directly.

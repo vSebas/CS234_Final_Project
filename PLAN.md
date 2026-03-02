@@ -151,34 +151,38 @@ Create: `data/schema.py` and a JSON-serializable episode header + per-step array
 - `episode_id`
 - `episode_type`: one of `{shift, repair}`
 - `base_id`: identifier of the base lap used (for shift) or the nominal lap used (for repair)
-- `map_id` and `map_version_hash` (or filename hash)
+- `map_id` and `map_hash` (filename hash)
 - discretization:
-  - full laps: `N`, `ds`
-  - repair segments: `H`, `ds`
-- `s0_abs` (absolute start progress on map in meters)
+  - full laps: `N`, `ds_m`
+  - repair segments: `H`, `ds_m`
+- `s_offset_m` (absolute start progress on map in meters)
 - full obstacle list for the episode (canonical scene description):
   - recommended Frenet form: `obstacles = [{s_obs, e_obs, r_obs, margin}, ...]`
-- `solver_config_hash` (or embed the key IPOPT/optimizer settings)
-- `solver_params` (explicit, so runs are reproducible without guessing):
-  - `ux_min` (**fixed across the entire dataset**, match the production optimizer)
-  - `lambda_u` (Δu regularizer weight; allow small variation, see §2.2.1)
-  - `eps_s`, `eps_kappa`, `vehicle_radius_m` (and any other Tier-1 constants)
+- `solver_config_hash`
+- `solver_config` (explicit, so runs are reproducible without guessing)
+  - includes `ux_min`, `lambda_u`, `eps_s`, `eps_kappa`, and related optimizer settings
 
-**Per-step arrays (required):**
-- `s_abs[k]`: absolute arc-length for each step (modulo track length)
-- `X_full[k]`: full optimizer/model state (keep internal dynamics complete)
+**Saved arrays (required):**
+- `s_m[k]`: arc-length for each node of the saved trajectory
+- `X_full[k]`: full optimizer/model state at each node (keep internal dynamics complete)
   - include `dfz_long`, `dfz_lat` even if DT does not observe them
-- `U[k]`: controls `[delta, Fx]`
-- `dt[k]`: per-step time increment (`dt_k ≈ ds / sdot_k`)
-- `reward[k] = -dt[k]`
+- `U[k]`: controls `[delta, Fx]` at each node
+- `dt[k]`: per-transition time increment (`dt_k ≈ ds / sdot_k`)
+- `reward[k] = -dt[k]` for each transition
 - `rtg[k]`: return-to-go (backward cumulative sum of `reward`)
 
+Node/transition indexing convention used by the current dataset:
+- node-aligned arrays have length `N+1` for shifts and `H+1` for repairs:
+  - `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`
+- transition-aligned arrays have length `N` for shifts and `H` for repairs:
+  - `dt`, `reward`, `rtg`
+
 **Pose (required; cached for convenience + labeling):**
-- `posE[k]`, `posN[k]` (global position)
+- `pos_E[k]`, `pos_N[k]` (global position)
 - `yaw_world[k]` (global yaw)
 
 **Per-step map features (strongly recommended):**
-- `kappa[k] = kappa(s_abs[k])`
+- `kappa[k] = kappa(s_m[k])`
 - `half_width[k]`
 - `grade[k]`, `bank[k]` (store zeros for flat tracks; keeps schema stable)
 
