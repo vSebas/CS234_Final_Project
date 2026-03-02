@@ -2,7 +2,7 @@
 """
 Generate trajectory optimization datasets per PLAN.md schema.
 
-Stage A: no obstacles, non-periodic runs with randomized lateral offset (e0).
+Stage A: no obstacles, periodic laps with circular shifts.
 """
 
 import argparse
@@ -93,6 +93,9 @@ def main() -> None:
     parser.add_argument("--N", type=int, default=120)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)
+    parser.add_argument("--base-laps", type=int, default=6, help="Number of distinct base laps.")
+    parser.add_argument("--lambda-u-jitter", type=float, default=0.002, help="Uniform jitter on lambda_u.")
+    parser.add_argument("--ux-min-jitter", type=float, default=0.3, help="Uniform jitter on ux_min.")
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
     parser.add_argument("--eps-s", type=float, default=0.1)
     parser.add_argument("--eps-kappa", type=float, default=0.05)
@@ -132,7 +135,7 @@ def main() -> None:
     ds_m = world.length_m / float(args.N)
     map_hash = sha256_file(str(map_file))
 
-    solver_config = {
+    solver_base = {
         "N": int(args.N),
         "ds_m": float(ds_m),
         "lambda_u": float(args.lambda_u),
@@ -143,105 +146,131 @@ def main() -> None:
         "convergent_lap": True,
         "obstacles": "none",
     }
-    solver_config_hash = sha256_json(solver_config)
 
     manifest_f = open(manifest_path, "w", encoding="utf-8")
     t_start = time.time()
     successes = 0
 
-    # Solve once with periodic closure, then generate episodes by circular shift.
-    result = optimizer.solve(
-        N=int(args.N),
-        ds_m=float(ds_m),
-        lambda_u=float(args.lambda_u),
-        ux_min=float(args.ux_min),
-        ux_max=None,
-        track_buffer_m=float(args.track_buffer_m),
-        obstacles=None,
-        obstacle_window_m=30.0,
-        obstacle_clearance_m=0.0,
-        obstacle_use_slack=False,
-        obstacle_enforce_midpoints=False,
-        obstacle_subsamples_per_segment=1,
-        obstacle_slack_weight=1e4,
-        vehicle_radius_m=0.0,
-        eps_s=float(args.eps_s),
-        eps_kappa=float(args.eps_kappa),
-        convergent_lap=True,
-        verbose=False,
-    )
-    if not result.success:
-        raise RuntimeError("Periodic solve failed; cannot generate dataset.")
+    base_count = max(1, int(args.base_laps))
+    episodes_per_base = max(1, args.num_episodes // base_count)
+    total_target = base_count * episodes_per_base
+    if total_target < args.num_episodes:
+        total_target = args.num_episodes
 
-    s_m = result.s_m.copy()
-    X = result.X.copy()
-    U = result.U.copy()
-    t_arr = X[TrajectoryOptimizer.IDX_T, :].copy()
-    dt_base = np.diff(t_arr)
+    episode_idx = 0
+    for base_idx in range(base_count):
+        lam = max(1e-4, float(args.lambda_u + rng.uniform(-args.lambda_u_jitter, args.lambda_u_jitter)))
+        ux_min = max(0.2, float(args.ux_min + rng.uniform(-args.ux_min_jitter, args.ux_min_jitter)))
 
-    for episode_idx in range(args.num_episodes):
-        k0 = int(rng.integers(0, len(s_m)))
-        s_roll = np.roll(s_m, -k0)
-        s_offset = float(s_roll[0])
-        s_shift = np.mod(s_roll - s_roll[0], world.length_m)
+        solver_config = dict(solver_base)
+        solver_config["lambda_u"] = lam
+        solver_config["ux_min"] = ux_min
+        solver_config_hash = sha256_json(solver_config)
 
-        X_roll = np.roll(X, -k0, axis=1)
-        U_roll = np.roll(U, -k0, axis=1)
-        dt_roll = np.roll(dt_base, -k0)
-        t_new = np.concatenate([[0.0], np.cumsum(dt_roll)])
-        X_roll[TrajectoryOptimizer.IDX_T, :] = t_new
-
-        e_arr = X_roll[TrajectoryOptimizer.IDX_E, :].copy()
-        dpsi_arr = X_roll[TrajectoryOptimizer.IDX_DPSI, :].copy()
-
-        pose = compute_global_pose(world, s_shift, e_arr)
-        yaw_world = _yaw_wrap(pose["psi_cl"] + dpsi_arr)
-        track_feat = compute_track_features(world, s_shift)
-
-        reward = -dt_roll
-        rtg = compute_rtg(reward)
-
-        episode_id = f"oval_no_obs_{episode_idx:06d}"
-        npz_path = episodes_dir / f"{episode_id}.npz"
-
-        np.savez_compressed(
-            npz_path,
-            s_m=s_shift,
-            X_full=X_roll.T,
-            U=U_roll.T,
-            dt=dt_roll,
-            reward=reward,
-            rtg=rtg,
-            pos_E=pose["pos_E"],
-            pos_N=pose["pos_N"],
-            yaw_world=yaw_world,
-            kappa=track_feat["kappa"],
-            half_width=track_feat["half_width"],
-            grade=track_feat["grade"],
-            bank=track_feat["bank"],
-            s_offset_m=s_offset,
+        result = optimizer.solve(
+            N=int(args.N),
+            ds_m=float(ds_m),
+            lambda_u=lam,
+            ux_min=ux_min,
+            ux_max=None,
+            track_buffer_m=float(args.track_buffer_m),
+            obstacles=None,
+            obstacle_window_m=30.0,
+            obstacle_clearance_m=0.0,
+            obstacle_use_slack=False,
+            obstacle_enforce_midpoints=False,
+            obstacle_subsamples_per_segment=1,
+            obstacle_slack_weight=1e4,
+            vehicle_radius_m=0.0,
+            eps_s=float(args.eps_s),
+            eps_kappa=float(args.eps_kappa),
+            convergent_lap=True,
+            verbose=False,
         )
+        if not result.success:
+            print(f"Base lap {base_idx} failed; skipping.")
+            continue
 
-        header = EpisodeHeader(
-            episode_id=episode_id,
-            map_id=map_file.stem,
-            map_hash=map_hash,
-            solver_config=solver_config,
-            solver_config_hash=solver_config_hash,
-            discretization={"N": int(args.N), "ds_m": float(ds_m)},
-            obstacles=[],
-            s_offset_m=float(s_offset),
-            npz_path=str(npz_path),
-        )
-        manifest_f.write(json.dumps(header.to_dict()) + "\n")
-        successes += 1
+        base_id = f"base_{base_idx:02d}"
+        s_m = result.s_m.copy()
+        X = result.X.copy()
+        U = result.U.copy()
+        t_arr = X[TrajectoryOptimizer.IDX_T, :].copy()
+        dt_base = np.diff(t_arr)
 
-        if (episode_idx + 1) % args.save_every == 0:
-            elapsed = time.time() - t_start
-            print(
-                f"[{episode_idx + 1}/{args.num_episodes}] "
-                f"accepted={successes} elapsed={elapsed:.1f}s"
+        max_shifts = min(len(s_m), episodes_per_base)
+        k0_list = rng.choice(len(s_m), size=max_shifts, replace=False)
+
+        for k0 in k0_list:
+            if episode_idx >= args.num_episodes:
+                break
+            s_roll = np.roll(s_m, -k0)
+            s_offset = float(s_roll[0])
+            s_shift = np.mod(s_roll - s_roll[0], world.length_m)
+
+            X_roll = np.roll(X, -k0, axis=1)
+            U_roll = np.roll(U, -k0, axis=1)
+            dt_roll = np.roll(dt_base, -k0)
+            t_new = np.concatenate([[0.0], np.cumsum(dt_roll)])
+            X_roll[TrajectoryOptimizer.IDX_T, :] = t_new
+
+            e_arr = X_roll[TrajectoryOptimizer.IDX_E, :].copy()
+            dpsi_arr = X_roll[TrajectoryOptimizer.IDX_DPSI, :].copy()
+
+            pose = compute_global_pose(world, s_shift, e_arr)
+            yaw_world = _yaw_wrap(pose["psi_cl"] + dpsi_arr)
+            track_feat = compute_track_features(world, s_shift)
+
+            reward = -dt_roll
+            rtg = compute_rtg(reward)
+
+            episode_id = f"oval_no_obs_{episode_idx:06d}"
+            npz_path = episodes_dir / f"{episode_id}.npz"
+
+            np.savez_compressed(
+                npz_path,
+                s_m=s_shift,
+                X_full=X_roll.T,
+                U=U_roll.T,
+                dt=dt_roll,
+                reward=reward,
+                rtg=rtg,
+                pos_E=pose["pos_E"],
+                pos_N=pose["pos_N"],
+                yaw_world=yaw_world,
+                kappa=track_feat["kappa"],
+                half_width=track_feat["half_width"],
+                grade=track_feat["grade"],
+                bank=track_feat["bank"],
+                s_offset_m=s_offset,
             )
+
+            header = EpisodeHeader(
+                episode_id=episode_id,
+                episode_type="shift",
+                map_id=map_file.stem,
+                map_hash=map_hash,
+                base_id=base_id,
+                solver_config=solver_config,
+                solver_config_hash=solver_config_hash,
+                discretization={"N": int(args.N), "ds_m": float(ds_m)},
+                obstacles=[],
+                s_offset_m=float(s_offset),
+                npz_path=str(npz_path),
+            )
+            manifest_f.write(json.dumps(header.to_dict()) + "\n")
+            successes += 1
+            episode_idx += 1
+
+            if episode_idx % args.save_every == 0:
+                elapsed = time.time() - t_start
+                print(
+                    f"[{episode_idx}/{args.num_episodes}] "
+                    f"accepted={successes} elapsed={elapsed:.1f}s"
+                )
+
+    if episode_idx < args.num_episodes:
+        print(f"Warning: generated {episode_idx}/{args.num_episodes} episodes.")
 
     manifest_f.close()
     elapsed = time.time() - t_start

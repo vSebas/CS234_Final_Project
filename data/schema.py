@@ -35,8 +35,10 @@ def compute_rtg(reward: np.ndarray) -> np.ndarray:
 @dataclass
 class EpisodeHeader:
     episode_id: str
+    episode_type: str
     map_id: str
     map_hash: str
+    base_id: str
     solver_config: Dict[str, Any]
     solver_config_hash: str
     discretization: Dict[str, Any]

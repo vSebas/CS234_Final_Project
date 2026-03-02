@@ -129,6 +129,9 @@ class TrajectoryOptimizer:
         vehicle_radius_m: float,
         convergent_lap: bool,
         x0_mask: Tuple[bool, ...],
+        s0_offset_m: float,
+        terminal_mask: Tuple[bool, ...],
+        terminal_weight: float,
     ) -> tuple:
         return (
             int(N),
@@ -148,6 +151,9 @@ class TrajectoryOptimizer:
             float(vehicle_radius_m),
             bool(convergent_lap),
             tuple(bool(v) for v in x0_mask),
+            float(s0_offset_m),
+            tuple(bool(v) for v in terminal_mask),
+            float(terminal_weight),
             self._obstacles_key(obstacles),
         )
 
@@ -284,6 +290,10 @@ class TrajectoryOptimizer:
         eps_s: float = 0.1,
         eps_kappa: float = 0.05,
         convergent_lap: bool = True,
+        s0_offset_m: float = 0.0,
+        terminal_state: Optional[np.ndarray] = None,
+        terminal_mask: Optional[Sequence[bool]] = None,
+        terminal_weight: float = 0.0,
         verbose: bool = True
     ) -> OptimizationResult:
         """
@@ -313,6 +323,10 @@ class TrajectoryOptimizer:
             eps_s: Minimum forward progress (sdot) to avoid singularity
             eps_kappa: Minimum Frenet non-singularity margin (1 - kappa*e)
             convergent_lap: Whether start and end should match (periodic)
+            s0_offset_m: Absolute start arc-length offset for short-horizon segments
+            terminal_state: Target state at final node (for repair segments)
+            terminal_mask: Boolean mask for which state indices are anchored
+            terminal_weight: Weight on terminal anchor penalty
             verbose: Print solver output
 
         Returns:
@@ -346,6 +360,9 @@ class TrajectoryOptimizer:
             vehicle_radius_m=vehicle_radius_m,
             convergent_lap=convergent_lap,
             x0_mask=x0_mask,
+            s0_offset_m=float(s0_offset_m),
+            terminal_mask=tuple(bool(v) for v in terminal_mask) if terminal_mask else tuple(),
+            terminal_weight=float(terminal_weight) if terminal_weight else 0.0,
         )
 
         cached = self._nlp_cache.get(cache_key)
@@ -371,11 +388,11 @@ class TrajectoryOptimizer:
             fx = U[1, :]
 
             # Arc length grid + road geometry (cached, vectorized).
-            geom_key = ("geom", int(N), float(ds_m), float(self.world.length_m))
+            geom_key = ("geom", int(N), float(ds_m), float(self.world.length_m), float(s0_offset_m))
             if geom_key in self._geom_cache:
                 s_grid, k_psi_data, theta_data, phi_data, track_hw = self._geom_cache[geom_key]
             else:
-                s_grid = np.linspace(0, N * ds_m, N + 1)
+                s_grid = float(s0_offset_m) + np.linspace(0, N * ds_m, N + 1)
                 s_mod = np.mod(s_grid, self.world.length_m)
                 k_psi_data = np.array(self.world.psi_s_radpm_LUT(s_mod)).astype(float).squeeze()
                 if hasattr(self.world, "grade_rad_LUT"):
@@ -424,7 +441,7 @@ class TrajectoryOptimizer:
 
             # Precompute centerline EN/heading at nodes for obstacle constraints if needed.
             if len(obs_list) > 0:
-                cl_key = ("centerline", int(N), float(ds_m), float(self.world.length_m))
+                cl_key = ("centerline", int(N), float(ds_m), float(self.world.length_m), float(s0_offset_m))
                 if cl_key in self._geom_cache:
                     posE_cl_data, posN_cl_data, psi_cl_data = self._geom_cache[cl_key]
                 else:
@@ -444,7 +461,7 @@ class TrajectoryOptimizer:
                 # Interior checks reduce between-node obstacle penetration.
                 ns = max(1, int(obstacle_subsamples_per_segment))
                 tau_samples = np.linspace(0.0, 1.0, ns + 2)[1:-1].tolist()
-                sample_key = ("samples", int(N), float(ds_m), int(ns), float(self.world.length_m))
+                sample_key = ("samples", int(N), float(ds_m), int(ns), float(self.world.length_m), float(s0_offset_m))
                 if sample_key in self._geom_cache:
                     sample_grids = self._geom_cache[sample_key]
                 else:
@@ -479,7 +496,17 @@ class TrajectoryOptimizer:
             for sigma_tau in sigma_obs_samples:
                 slack_cost += obstacle_slack_weight * ca.sum1(ca.sum2(sigma_tau))
 
-            cost = time_cost + reg_cost + slack_cost
+            terminal_cost = 0
+            term_indices = []
+            term_param = None
+            if terminal_weight > 0.0 and terminal_mask:
+                term_indices = [i for i, v in enumerate(terminal_mask) if v]
+                if term_indices:
+                    term_param = opti.parameter(len(term_indices))
+                    for j, i in enumerate(term_indices):
+                        terminal_cost += terminal_weight * ca.sumsqr(X[i, -1] - term_param[j])
+
+            cost = time_cost + reg_cost + slack_cost + terminal_cost
 
             opti.minimize(cost)
 
@@ -628,6 +655,8 @@ class TrajectoryOptimizer:
                 "track_hw": track_hw,
                 "x0_param": x0_param,
                 "x0_indices": x0_indices,
+                "term_param": term_param,
+                "term_indices": term_indices,
                 "obs_list": obs_list,
                 "obs_east": obs_east,
                 "obs_north": obs_north,
@@ -656,6 +685,8 @@ class TrajectoryOptimizer:
             obs_e_center = cached["obs_e_center"]
             x0_param = cached.get("x0_param")
             x0_indices = cached.get("x0_indices", [])
+            term_param = cached.get("term_param")
+            term_indices = cached.get("term_indices", [])
 
         # State components (for initial guesses and logging)
         ux = X[self.IDX_UX, :]
@@ -678,6 +709,11 @@ class TrajectoryOptimizer:
                 opti.set_value(x0_param, x0_vals)
             elif x0_indices:
                 raise RuntimeError("x0 constraint indices defined but x0_param missing.")
+        if terminal_state is not None and terminal_weight > 0.0 and term_indices:
+            if term_param is None:
+                raise RuntimeError("terminal_state specified but terminal parameter is missing.")
+            term_vals = [float(terminal_state[i]) for i in term_indices]
+            opti.set_value(term_param, term_vals)
 
         if X_init is not None:
             if X_init.shape != (self.nx, N + 1):
