@@ -1,0 +1,161 @@
+[2026-03-02 00:43:39] Starting dataset build.
+[2026-03-02 00:43:39] Stage A1: build base laps
+[2026-03-02 00:43:39] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+[2026-03-02 00:44:29] Starting dataset build.
+[2026-03-02 00:44:29] Stage A1: build base laps
+[2026-03-02 00:44:29] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+[2026-03-02 01:41:16] Stage A1 complete.
+[2026-03-02 01:41:16] Stage A2: shifts for Oval_Track_260m
+[2026-03-02 01:41:16] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/make_shift_episodes.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_shifts --seed 0 --all-shifts
+[2026-03-02 01:41:22] Stage A2 complete for Oval_Track_260m.
+[2026-03-02 01:41:22] Stage B: repair segments for Oval_Track_260m (n=167)
+[2026-03-02 01:41:22] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 167 --seed 0 --H 50
+[2026-03-02 09:57:43] Starting dataset build.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for Oval_Track_260m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK1_280m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK2.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK3_300m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK4_315m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK5_330m.
+[2026-03-02 09:57:43] Stage A1: build base laps
+[2026-03-02 09:57:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+[2026-03-02 10:18:32] Starting dataset build.
+[2026-03-02 10:18:32] Stage A1: clearing partial base laps for Oval_Track_260m.
+[2026-03-02 10:18:32] Stage A1: clearing partial base laps for TRACK1_280m.
+[2026-03-02 10:18:32] Stage A1: build base laps
+[2026-03-02 10:18:32] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+[2026-03-02 10:22:17] Starting dataset build.
+[2026-03-02 10:22:17] Stage A1: build base laps
+[2026-03-02 10:22:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[2026-03-02 10:26:17] Starting dataset build.
+[2026-03-02 10:26:17] Stage A1: build base laps
+[2026-03-02 10:26:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[2026-03-02 10:29:10] Starting dataset build.
+[2026-03-02 10:29:10] Stage A1: build base laps
+[2026-03-02 10:29:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[2026-03-02 10:39:45] Starting dataset build.
+[2026-03-02 10:39:45] Stage A1: build base laps
+[2026-03-02 10:39:45] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[2026-03-02 11:33:10] Stage A1 complete.
+[2026-03-02 11:33:10] Running per-track stages in parallel (workers=6).
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK1_280m
+[2026-03-02 11:33:10] Stage A2: shifts for Oval_Track_260m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK3_300m
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK2
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK5_330m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK4_315m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:14] Stage A2 complete for Oval_Track_260m.
+[2026-03-02 11:33:14] Stage B: repair segments for Oval_Track_260m (n=84)
+[2026-03-02 11:33:14] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:17] Stage A2 complete for TRACK5_330m.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK5_330m (n=83)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:17] Stage A2 complete for TRACK1_280m.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK1_280m (n=84)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 84 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:17] Stage A2 complete for TRACK2.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK2 (n=83)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:18] Stage A2 complete for TRACK4_315m.
+[2026-03-02 11:33:18] Stage B: repair segments for TRACK4_315m (n=83)
+[2026-03-02 11:33:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:18] Stage A2 complete for TRACK3_300m.
+[2026-03-02 11:33:18] Stage B: repair segments for TRACK3_300m (n=83)
+[2026-03-02 11:33:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 14:27:04] Starting dataset build.
+[2026-03-02 14:27:04] Stage A1: base laps already present; skipping.
+[2026-03-02 14:27:04] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 14:27:04] Stage B: target accepted repairs for Oval_Track_260m (target=84)
+[2026-03-02 14:27:04] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] Starting dataset build.
+[2026-03-02 14:28:01] Stage A1: base laps already present; skipping.
+[2026-03-02 14:28:01] Running per-track stages in parallel (workers=6).
+[2026-03-02 14:28:01] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK4_315m (target=83)
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-02 14:28:01] Stage B: target accepted repairs for Oval_Track_260m (target=84)
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK1_280m (target=84)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK3_300m (target=83)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK5_330m (target=83)
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK2 (target=83)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:38:42] Starting dataset build.
+[2026-03-02 14:38:42] Stage A1: base laps already present; skipping.
+[2026-03-02 14:38:42] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 14:38:42] Stage B: target accepted repairs for Oval_Track_260m (target=84)
+[2026-03-02 14:38:42] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:43:57] Stage B complete for Oval_Track_260m. accepted=84/84
+[2026-03-02 14:43:57] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 14:43:57] Stage B: target accepted repairs for TRACK1_280m (target=84)
+[2026-03-02 14:43:57] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:50:37] Stage B complete for TRACK1_280m. accepted=84/84
+[2026-03-02 14:50:37] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 14:50:37] Stage B: target accepted repairs for TRACK2 (target=83)
+[2026-03-02 14:50:37] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:52:10] Starting dataset build.
+[2026-03-02 14:52:10] Stage A1: base laps already present; skipping.
+[2026-03-02 14:52:10] Running per-track stages in parallel (workers=3).
+[2026-03-02 14:52:10] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 14:52:10] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 14:52:10] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 14:52:10] Stage B: target accepted repairs already present for TRACK1_280m; skipping.
+[2026-03-02 14:52:10] Stage B: target accepted repairs already present for Oval_Track_260m; skipping.
+[2026-03-02 14:52:10] Stage B: target accepted repairs for TRACK2 (target=83)
+[2026-03-02 14:52:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:52:10] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-02 14:52:10] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-02 14:52:10] Stage B: target accepted repairs for TRACK3_300m (target=83)
+[2026-03-02 14:52:10] Stage B: target accepted repairs for TRACK4_315m (target=83)
+[2026-03-02 14:52:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:52:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:55:24] Stage B complete for TRACK2. accepted=83/83
+[2026-03-02 14:55:24] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-02 14:55:24] Stage B: target accepted repairs for TRACK5_330m (target=83)
+[2026-03-02 14:55:24] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 15:13:22] Starting dataset build.
+[2026-03-02 15:13:22] Stage A1: base laps already present; skipping.
+[2026-03-02 15:13:22] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 15:13:22] Stage B: target accepted repairs already present for Oval_Track_260m; skipping.
+[2026-03-02 15:13:22] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 15:13:22] Stage B: target accepted repairs already present for TRACK1_280m; skipping.
+[2026-03-02 15:13:22] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 15:13:22] Stage B: target accepted repairs already present for TRACK2; skipping.
+[2026-03-02 15:13:22] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-02 15:13:22] Stage B: target accepted repairs for TRACK3_300m (target=83)
+[2026-03-02 15:13:22] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 15:13:37] Starting dataset build.
+[2026-03-02 15:13:37] Stage A1: base laps already present; skipping.
+[2026-03-02 15:13:37] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 15:13:37] Stage B: target accepted repairs already present for Oval_Track_260m; skipping.
+[2026-03-02 15:13:37] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 15:13:37] Stage B: target accepted repairs already present for TRACK1_280m; skipping.
+[2026-03-02 15:13:37] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 15:13:37] Stage B: target accepted repairs already present for TRACK2; skipping.
+[2026-03-02 15:13:37] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-02 15:13:37] Stage B: target accepted repairs for TRACK3_300m (target=83)
+[2026-03-02 15:13:37] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 15:15:29] Stage B complete for TRACK3_300m. accepted=83/83
+[2026-03-02 15:15:30] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-02 15:15:30] Stage B: target accepted repairs for TRACK4_315m (target=83)
+[2026-03-02 15:15:30] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 15:15:48] Stage B complete for TRACK4_315m. accepted=83/83
+[2026-03-02 15:15:48] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-02 15:15:48] Stage B: target accepted repairs for TRACK5_330m (target=83)
+[2026-03-02 15:15:48] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 15:18:43] Stage B complete for TRACK5_330m. accepted=83/83
+[2026-03-02 15:18:43] Dataset build finished.
