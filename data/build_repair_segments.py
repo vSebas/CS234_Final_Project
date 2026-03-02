@@ -92,10 +92,26 @@ def main() -> None:
     parser.add_argument("--e-perturb-m", type=float, default=0.5)
     parser.add_argument("--dpsi-perturb-rad", type=float, default=0.10)
     parser.add_argument("--terminal-weight", type=float, default=5.0)
+    parser.add_argument("--obs-window-m", type=float, default=30.0)
+    parser.add_argument("--obs-subsamples", type=int, default=11)
+    parser.add_argument(
+        "--obs-enforce-midpoints",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument("--obs-init-sigma-m", type=float, default=8.0)
+    parser.add_argument("--obs-init-margin-m", type=float, default=0.5)
+    parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
     parser.add_argument("--ipopt-tol", type=float, default=1e-6)
     parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-4)
     parser.add_argument("--ipopt-max-iter", type=int, default=1000)
     parser.add_argument("--save-every", type=int, default=50)
+    parser.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Resume by appending only missing repair segments.",
+    )
     args = parser.parse_args()
 
     map_file = Path(args.map_file)
@@ -117,8 +133,10 @@ def main() -> None:
     episodes_dir = output_dir / "episodes"
     episodes_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.jsonl"
-    if manifest_path.exists():
-        manifest_path.unlink()
+    existing_count = 0
+    if args.resume and manifest_path.exists():
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            existing_count = sum(1 for line in f if line.strip())
 
     rng = np.random.default_rng(args.seed)
     base_files = sorted(base_dir.glob("*.npz"))
@@ -126,11 +144,19 @@ def main() -> None:
         raise FileNotFoundError(f"No base laps found in {base_dir}")
 
     term_mask = build_terminal_mask()
-    manifest_f = open(manifest_path, "w", encoding="utf-8")
+    manifest_f = open(manifest_path, "a", encoding="utf-8")
     t_start = time.time()
-    successes = 0
+    successes = existing_count
 
     for seg_idx in range(args.num_segments):
+        if seg_idx < existing_count:
+            continue
+        if seg_idx > 0 and seg_idx % max(1, args.save_every) == 0:
+            elapsed = time.time() - t_start
+            print(
+                f"[{seg_idx}/{args.num_segments}] repairs accepted={successes} elapsed={elapsed:.1f}s",
+                flush=True,
+            )
         base_path = rng.choice(base_files)
         base_id = base_path.stem
         data = np.load(base_path, allow_pickle=True)
@@ -152,6 +178,12 @@ def main() -> None:
                 "eps_s": float(args.eps_s),
                 "eps_kappa": float(args.eps_kappa),
                 "terminal_weight": float(args.terminal_weight),
+                "obstacle_window_m": float(args.obs_window_m),
+                "obstacle_subsamples_per_segment": int(args.obs_subsamples),
+                "obstacle_enforce_midpoints": bool(args.obs_enforce_midpoints),
+                "obstacle_init_sigma_m": float(args.obs_init_sigma_m),
+                "obstacle_init_margin_m": float(args.obs_init_margin_m),
+                "accept_min_clearance_m": float(args.accept_min_clearance_m),
             }
         )
         solver_config_hash = sha256_json(solver_config_seg) if solver_config_seg else ""
@@ -192,12 +224,15 @@ def main() -> None:
             ux_min=float(args.ux_min),
             track_buffer_m=float(args.track_buffer_m),
             obstacles=obstacles_list if obstacles_list else None,
-            obstacle_window_m=30.0,
+            obstacle_window_m=float(args.obs_window_m),
             obstacle_clearance_m=0.3 if obstacles_list else 0.0,
             obstacle_use_slack=False,
-            obstacle_enforce_midpoints=False,
-            obstacle_subsamples_per_segment=1,
+            obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+            obstacle_subsamples_per_segment=int(args.obs_subsamples),
             obstacle_slack_weight=1e4,
+            obstacle_aware_init=True,
+            obstacle_init_sigma_m=float(args.obs_init_sigma_m),
+            obstacle_init_margin_m=float(args.obs_init_margin_m),
             vehicle_radius_m=0.0,
             eps_s=float(args.eps_s),
             eps_kappa=float(args.eps_kappa),
@@ -210,6 +245,8 @@ def main() -> None:
         )
 
         if not result.success:
+            continue
+        if obstacles_list and result.min_obstacle_clearance < float(args.accept_min_clearance_m):
             continue
 
         s_abs = result.s_m.copy()
@@ -266,11 +303,11 @@ def main() -> None:
 
         if successes % args.save_every == 0:
             elapsed = time.time() - t_start
-            print(f"[{successes}/{args.num_segments}] accepted elapsed={elapsed:.1f}s")
+            print(f"[{successes}/{args.num_segments}] accepted elapsed={elapsed:.1f}s", flush=True)
 
     manifest_f.close()
     elapsed = time.time() - t_start
-    print(f"Done. accepted={successes}/{args.num_segments} elapsed={elapsed:.1f}s")
+    print(f"Done. accepted={successes}/{args.num_segments} elapsed={elapsed:.1f}s", flush=True)
 
 
 if __name__ == "__main__":

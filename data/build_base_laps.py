@@ -126,6 +126,19 @@ def write_base_lap(
         f.write(json.dumps(entry) + "\n")
 
 
+def load_manifest_ids(manifest_path: Path) -> set[str]:
+    ids: set[str] = set()
+    if not manifest_path.exists():
+        return ids
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            ids.add(json.loads(line)["base_id"])
+    return ids
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build periodic base laps.")
     parser.add_argument("--map-files", type=str, default="maps/Oval_Track_260m.mat")
@@ -146,9 +159,25 @@ def main() -> None:
     parser.add_argument("--clearance-m", type=float, default=0.3)
     parser.add_argument("--margin-m", type=float, default=0.3)
     parser.add_argument("--vehicle-radius-m", type=float, default=0.0)
+    parser.add_argument("--obs-window-m", type=float, default=30.0)
+    parser.add_argument("--obs-subsamples", type=int, default=11)
+    parser.add_argument(
+        "--obs-enforce-midpoints",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+    )
+    parser.add_argument("--obs-init-sigma-m", type=float, default=8.0)
+    parser.add_argument("--obs-init-margin-m", type=float, default=0.5)
+    parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
     parser.add_argument("--ipopt-tol", type=float, default=1e-6)
     parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-4)
     parser.add_argument("--ipopt-max-iter", type=int, default=1000)
+    parser.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Resume by keeping existing accepted base laps and appending missing ones.",
+    )
     args = parser.parse_args()
 
     map_files = [Path(p.strip()) for p in args.map_files.split(",") if p.strip()]
@@ -172,8 +201,7 @@ def main() -> None:
         base_dir = Path(args.output_dir) / map_id
         base_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = base_dir / "manifest.jsonl"
-        if manifest_path.exists():
-            manifest_path.unlink()
+        existing_ids = load_manifest_ids(manifest_path) if args.resume else set()
 
         solver_base = {
             "N": int(args.N),
@@ -190,6 +218,10 @@ def main() -> None:
 
         for idx in range(args.base_laps):
             base_id = f"noobs_{idx:02d}"
+            if args.resume and base_id in existing_ids and (base_dir / f"{base_id}.npz").exists():
+                print(f"[{map_id}] base lap {base_id} already present; skipping.", flush=True)
+                continue
+            print(f"[{map_id}] solving base lap {base_id} ({idx + 1}/{args.base_laps})", flush=True)
             result = optimizer.solve(
                 N=int(args.N),
                 ds_m=ds_m,
@@ -211,9 +243,23 @@ def main() -> None:
                 print(f"[{map_id}] base lap {base_id} failed; skipping.")
                 continue
             write_base_lap(base_dir, base_id, map_id, map_hash, solver_base, [], result)
+            existing_ids.add(base_id)
+            print(f"[{map_id}] base lap {base_id} accepted.", flush=True)
 
-        for idx in range(args.obstacle_laps):
+        idx = 0
+        attempts = 0
+        max_attempts = max(args.obstacle_laps * 20, 100)
+        while idx < args.obstacle_laps and attempts < max_attempts:
             base_id = f"obs_{idx:02d}"
+            if args.resume and base_id in existing_ids and (base_dir / f"{base_id}.npz").exists():
+                print(f"[{map_id}] obstacle lap {base_id} already present; skipping.", flush=True)
+                idx += 1
+                continue
+            attempts += 1
+            print(
+                f"[{map_id}] solving obstacle lap {base_id} ({idx + 1}/{args.obstacle_laps})",
+                flush=True,
+            )
             n_obs = int(rng.integers(args.min_obstacles, args.max_obstacles + 1))
             obs = sample_obstacles(
                 world=world,
@@ -245,22 +291,34 @@ def main() -> None:
                 ux_min=float(args.ux_min),
                 track_buffer_m=float(args.track_buffer_m),
                 obstacles=obs,
-                obstacle_window_m=30.0,
+                obstacle_window_m=float(args.obs_window_m),
                 obstacle_clearance_m=float(args.clearance_m),
                 obstacle_use_slack=False,
-                obstacle_enforce_midpoints=False,
-                obstacle_subsamples_per_segment=1,
+                obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+                obstacle_subsamples_per_segment=int(args.obs_subsamples),
                 obstacle_slack_weight=1e4,
+                obstacle_aware_init=True,
+                obstacle_init_sigma_m=float(args.obs_init_sigma_m),
+                obstacle_init_margin_m=float(args.obs_init_margin_m),
                 vehicle_radius_m=float(args.vehicle_radius_m),
                 eps_s=float(args.eps_s),
                 eps_kappa=float(args.eps_kappa),
                 convergent_lap=True,
                 verbose=False,
             )
-            if not result.success or result.min_obstacle_clearance < -1e-3:
+            if not result.success or result.min_obstacle_clearance < float(args.accept_min_clearance_m):
                 print(f"[{map_id}] obstacle lap {base_id} failed or collided; skipping.")
                 continue
             write_base_lap(base_dir, base_id, map_id, map_hash, solver_config, obs, result)
+            existing_ids.add(base_id)
+            print(f"[{map_id}] obstacle lap {base_id} accepted.", flush=True)
+            idx += 1
+
+        if idx < args.obstacle_laps:
+            print(
+                f"[{map_id}] warning: only generated {idx}/{args.obstacle_laps} obstacle base laps after {attempts} attempts.",
+                flush=True,
+            )
 
 
 if __name__ == "__main__":

@@ -13,8 +13,8 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Orchestrate all steps:
   - `data/build_dataset.py`
 
-**Defaults (paper-aligned Tier 1)**
-- `N = 200`, `ds_m = track_length / N`
+**Defaults (current dataset run)**
+- `N = 120`, `ds_m = track_length / N`
 - `lambda_u = 0.005`
 - `ux_min = 0.5`
 - `track_buffer_m = 0.0`
@@ -38,7 +38,7 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Perturbations: `e0` ±0.5 m, `dpsi0` ±0.10 rad
 - Terminal anchor: `terminal_weight = 5.0` on `(ux, uy, r, e, dpsi)`
 - Mixed with/without obstacles (50/50 recommended)
-- Total repairs: `N_rep = 1000` (split evenly across 6 tracks → ~166–167 each)
+- Total repairs: `N_rep = 500` for the current run (split evenly across 6 tracks → ~83–84 each)
 
 **Outputs**
 - Base laps: `data/base_laps/<map_id>/*.npz`

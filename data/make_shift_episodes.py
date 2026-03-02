@@ -8,7 +8,7 @@ import json
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict
 
 import numpy as np
 
@@ -67,6 +67,12 @@ def main() -> None:
     )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--save-every", type=int, default=50)
+    parser.add_argument(
+        "--resume",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Resume by appending only missing shift episodes.",
+    )
     args = parser.parse_args()
 
     map_file = Path(args.map_file)
@@ -82,18 +88,20 @@ def main() -> None:
     episodes_dir = output_dir / "episodes"
     episodes_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.jsonl"
-    if manifest_path.exists():
-        manifest_path.unlink()
+    existing_count = 0
+    if args.resume and manifest_path.exists():
+        with open(manifest_path, "r", encoding="utf-8") as f:
+            existing_count = sum(1 for line in f if line.strip())
 
     rng = np.random.default_rng(args.seed)
     base_files = sorted(base_dir.glob("*.npz"))
     if not base_files:
         raise FileNotFoundError(f"No base laps found in {base_dir}")
 
-    manifest_f = open(manifest_path, "w", encoding="utf-8")
+    manifest_f = open(manifest_path, "a", encoding="utf-8")
     t_start = time.time()
-    episode_idx = 0
-    successes = 0
+    episode_idx = existing_count
+    successes = existing_count
 
     def _emit_shift(base_id: str, solver_config: dict, solver_config_hash: str, obstacles, k0: int, s_m, X, U, dt_base):
         nonlocal episode_idx, successes
@@ -159,10 +167,12 @@ def main() -> None:
             elapsed = time.time() - t_start
             print(
                 f"[{episode_idx}{'' if args.all_shifts else f'/{args.num_episodes}'}] "
-                f"accepted={successes} elapsed={elapsed:.1f}s"
+                f"accepted={successes} elapsed={elapsed:.1f}s",
+                flush=True,
             )
 
     if args.all_shifts:
+        slot_idx = 0
         for base_path in base_files:
             base_id = base_path.stem
             data = np.load(base_path, allow_pickle=True)
@@ -178,7 +188,11 @@ def main() -> None:
             solver_config_hash = sha256_json(solver_config) if solver_config else ""
 
             for k0 in range(len(s_m)):
+                if slot_idx < existing_count:
+                    slot_idx += 1
+                    continue
                 _emit_shift(base_id, solver_config, solver_config_hash, obstacles, k0, s_m, X, U, dt_base)
+                slot_idx += 1
     else:
         while episode_idx < args.num_episodes:
             base_path = rng.choice(base_files)
@@ -202,77 +216,13 @@ def main() -> None:
                 if episode_idx >= args.num_episodes:
                     break
                 _emit_shift(base_id, solver_config, solver_config_hash, obstacles, k0, s_m, X, U, dt_base)
-            s_roll = np.roll(s_m, -k0)
-            s_offset = float(s_roll[0])
-            s_shift = np.mod(s_roll - s_roll[0], world.length_m)
-
-            X_roll = np.roll(X, -k0, axis=1)
-            U_roll = np.roll(U, -k0, axis=1)
-            dt_roll = np.roll(dt_base, -k0)
-            t_new = np.concatenate([[0.0], np.cumsum(dt_roll)])
-            X_roll[TrajectoryOptimizer.IDX_T, :] = t_new
-
-            e_arr = X_roll[TrajectoryOptimizer.IDX_E, :].copy()
-            dpsi_arr = X_roll[TrajectoryOptimizer.IDX_DPSI, :].copy()
-
-            pose = compute_global_pose(world, s_shift, e_arr)
-            yaw_world = _yaw_wrap(pose["psi_cl"] + dpsi_arr)
-            track_feat = compute_track_features(world, s_shift)
-
-            reward = -dt_roll
-            rtg = compute_rtg(reward)
-
-            episode_id = f"{map_file.stem}_{episode_idx:06d}"
-            npz_path = episodes_dir / f"{episode_id}.npz"
-
-            np.savez_compressed(
-                npz_path,
-                s_m=s_shift,
-                X_full=X_roll.T,
-                U=U_roll.T,
-                dt=dt_roll,
-                reward=reward,
-                rtg=rtg,
-                pos_E=pose["pos_E"],
-                pos_N=pose["pos_N"],
-                yaw_world=yaw_world,
-                kappa=track_feat["kappa"],
-                half_width=track_feat["half_width"],
-                grade=track_feat["grade"],
-                bank=track_feat["bank"],
-                s_offset_m=s_offset,
-            )
-
-            header = EpisodeHeader(
-                episode_id=episode_id,
-                episode_type="shift",
-                map_id=map_file.stem,
-                map_hash=map_hash,
-                base_id=base_id,
-                solver_config=solver_config,
-                solver_config_hash=solver_config_hash,
-                discretization={"N": int(len(s_shift) - 1), "ds_m": float(s_m[1] - s_m[0])},
-            obstacles=list(obstacles) if isinstance(obstacles, (list, tuple)) else [],
-                s_offset_m=float(s_offset),
-                npz_path=str(npz_path),
-            )
-            manifest_f.write(json.dumps(header.to_dict()) + "\n")
-            successes += 1
-            episode_idx += 1
-
-            if episode_idx % args.save_every == 0:
-                elapsed = time.time() - t_start
-                print(
-                    f"[{episode_idx}/{args.num_episodes}] "
-                    f"accepted={successes} elapsed={elapsed:.1f}s"
-                )
 
     manifest_f.close()
     elapsed = time.time() - t_start
     if args.all_shifts:
-        print(f"Done. accepted={successes} elapsed={elapsed:.1f}s")
+        print(f"Done. accepted={successes} elapsed={elapsed:.1f}s", flush=True)
     else:
-        print(f"Done. accepted={successes}/{args.num_episodes} elapsed={elapsed:.1f}s")
+        print(f"Done. accepted={successes}/{args.num_episodes} elapsed={elapsed:.1f}s", flush=True)
 
 
 if __name__ == "__main__":

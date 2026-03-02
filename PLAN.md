@@ -2,6 +2,12 @@
 
 This plan is written against the current repo state (IPOPT direct-collocation is the production optimizer; SCP is archived).
 
+Pinned cleanup:
+- Remove the redundant obstacle `margin` vs `clearance` split. Keep a single obstacle inflation / clearance parameter across map generation, optimizer constraints, dataset generation, and docs.
+- Store or recover the final effective obstacle radius explicitly in dataset metadata, so the enforced obstacle size does not need to be reconstructed indirectly from `radius + margin + clearance (+ vehicle radius)`.
+- Remove obstacle slack support if we keep the current hard-constrained formulation. It is disabled in the active dataset/demo pipeline and currently adds inactive code paths in the optimizer and scripts.
+- Add a postprocessing step to compute and cache constraints-to-go fields from the saved trajectories, map context, and obstacle metadata once the base dataset is finished.
+
 ---
 
 ## 0) Reality check: what exists right now
