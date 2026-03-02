@@ -295,21 +295,34 @@ Obstacle sampling should reuse your existing `run_trajopt_batch_eval.py` distrib
 
 **Acceptance:** keep only accepted trajectories with dense post-check min clearance `>= -1e-3`.
 
-### 2.5 Splits and use of 5 tracks
+**Current dataset defaults (implemented):**
+- obstacle count: `min_obstacles=1`, `max_obstacles=4`
+- radius `r ~ Uniform(0.8, 1.5)` m
+- margin `m = 0.3` m
+- clearance `c = 0.3` m
+- shift generation: `--all-shifts` produces `N+1` shifts (k0=0..N), including one duplicate due to periodic closure
 
-You said you have **5 tracks**.
+### 2.5 Splits and use of 6 tracks
+
+We currently have **6 tracks**:
+- `Oval_Track_260m`
+- `TRACK1_280m`
+- `TRACK2`
+- `TRACK3_300m`
+- `TRACK4_315m`
+- `TRACK5_330m`
 
 - If you mainly want a strong *training* dataset now (no generalization claim):
-  - use all 5 tracks in train
+  - use all 6 tracks in train
   - split val/test by `base_id` and obstacle scenario seed
 
 - If you want honest “unseen track” testing (recommended even during development):
-  - Train/Val: 4 tracks
+  - Train/Val: 5 tracks
   - Test: 1 held-out track
   - Ensure no base laps from the test track appear in train.
 
-**Do you need more than 5 tracks?**
-- If the 5 tracks are reasonably diverse (different curvature/width profiles): **no** for the first trainable baseline.
+**Do you need more than 6 tracks?**
+- If the 6 tracks are reasonably diverse (different curvature/width profiles): **no** for the first trainable baseline.
 - If they’re all “oval-like”: generate ~5–10 more using `create_tracks.py` seeds. This helps DT not overfit a single geometry family, but it’s not required to start training.
 
 ### 2.6 Concrete counts to hit the trainable baseline (example)
@@ -328,7 +341,7 @@ A workable plan with 5 tracks:
   - `(6+8) * 5 * N^2 = 14 * 5 * 14,400 = 1,008,000` timesteps
 
 Then add repair segments as a small augmentation:
-- `N_rep = 500–1500` segments total (across all tracks)
+- `N_rep = 1000` segments total (across all tracks; ~166–167 per track)
 - each contributes `H` steps → `25k–75k` extra steps
 
 This hits the baseline without needing thousands of full-lap non-periodic solves.

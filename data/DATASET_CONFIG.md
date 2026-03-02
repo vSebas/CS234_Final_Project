@@ -38,6 +38,7 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Perturbations: `e0` ±0.5 m, `dpsi0` ±0.10 rad
 - Terminal anchor: `terminal_weight = 5.0` on `(ux, uy, r, e, dpsi)`
 - Mixed with/without obstacles (50/50 recommended)
+- Total repairs: `N_rep = 1000` (split evenly across 6 tracks → ~166–167 each)
 
 **Outputs**
 - Base laps: `data/base_laps/<map_id>/*.npz`
