@@ -1,0 +1,45 @@
+[2026-03-02 10:29:10] Starting dataset build.
+[2026-03-02 10:29:10] Stage A1: build base laps
+[2026-03-02 10:29:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[Oval_Track_260m] base lap noobs_00 already present; skipping.
+[Oval_Track_260m] base lap noobs_01 already present; skipping.
+[Oval_Track_260m] base lap noobs_02 already present; skipping.
+[Oval_Track_260m] base lap noobs_03 already present; skipping.
+[Oval_Track_260m] base lap noobs_04 already present; skipping.
+[Oval_Track_260m] base lap noobs_05 already present; skipping.
+[Oval_Track_260m] solving obstacle lap obs_00 (1/8)
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m] obstacle lap obs_00 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_00 (1/8)
+[Oval_Track_260m] obstacle lap obs_00 accepted.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+[Oval_Track_260m] obstacle lap obs_01 failed or collided; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)

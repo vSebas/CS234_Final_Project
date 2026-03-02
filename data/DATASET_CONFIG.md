@@ -34,9 +34,10 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
   - clearance: `0.3 m`
 
 **Fix B (repair segments)**
-- Horizon: `H = 50`
-- Perturbations: `e0` ±0.5 m, `dpsi0` ±0.10 rad
+- Horizon: `H = 20`
+- Perturbations: `e0` ±1.0 m, `dpsi0` ±0.10 rad
 - Terminal anchor: `terminal_weight = 5.0` on `(ux, uy, r, e, dpsi)`
+- Conservative IPOPT defaults: `tol = 1e-5`, `acceptable_tol = 1e-3`, `max_iter = 100`
 - Mixed with/without obstacles (50/50 recommended)
 - Total repairs: `N_rep = 500` for the current run (split evenly across 6 tracks → ~83–84 each)
 

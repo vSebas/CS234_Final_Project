@@ -1,0 +1,25 @@
+[2026-03-02 10:18:32] Starting dataset build.
+[2026-03-02 10:18:32] Stage A1: clearing partial base laps for Oval_Track_260m.
+[2026-03-02 10:18:32] Stage A1: clearing partial base laps for TRACK1_280m.
+[2026-03-02 10:18:32] Stage A1: build base laps
+[2026-03-02 10:18:32] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+[Oval_Track_260m] solving base lap noobs_00 (1/6)
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m] base lap noobs_00 accepted.
+[Oval_Track_260m] solving base lap noobs_01 (2/6)
+[Oval_Track_260m] base lap noobs_01 accepted.
+[Oval_Track_260m] solving base lap noobs_02 (3/6)
+[Oval_Track_260m] base lap noobs_02 accepted.
+[Oval_Track_260m] solving base lap noobs_03 (4/6)
+[Oval_Track_260m] base lap noobs_03 accepted.
+[Oval_Track_260m] solving base lap noobs_04 (5/6)
+[Oval_Track_260m] base lap noobs_04 accepted.
+[Oval_Track_260m] solving base lap noobs_05 (6/6)
+[Oval_Track_260m] base lap noobs_05 accepted.
+[Oval_Track_260m] solving obstacle lap obs_00 (1/8)

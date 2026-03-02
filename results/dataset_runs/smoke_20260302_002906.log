@@ -1,0 +1,1 @@
+/home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120

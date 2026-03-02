@@ -9,7 +9,7 @@ import os
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 import numpy as np
 
@@ -76,20 +76,76 @@ def build_terminal_mask() -> List[bool]:
     return mask
 
 
+def build_initial_masked_state(x_state: np.ndarray) -> List[float | None]:
+    masked = [None] * len(x_state)
+    for idx in (
+        TrajectoryOptimizer.IDX_UX,
+        TrajectoryOptimizer.IDX_UY,
+        TrajectoryOptimizer.IDX_R,
+        TrajectoryOptimizer.IDX_E,
+        TrajectoryOptimizer.IDX_DPSI,
+    ):
+        masked[idx] = float(x_state[idx])
+    return masked
+
+
+def load_existing_repairs(manifest_path: Path) -> Tuple[int, int]:
+    accepted = 0
+    next_episode_idx = 0
+    if not manifest_path.exists():
+        return accepted, next_episode_idx
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            accepted += 1
+            row = json.loads(line)
+            episode_id = str(row.get("episode_id", ""))
+            try:
+                suffix = int(episode_id.rsplit("_", 1)[-1])
+            except (ValueError, IndexError):
+                continue
+            next_episode_idx = max(next_episode_idx, suffix + 1)
+    return accepted, next_episode_idx
+
+
+def load_repair_state(state_path: Path) -> Tuple[int, dict | None]:
+    if not state_path.exists():
+        return 0, None
+    with open(state_path, "r", encoding="utf-8") as f:
+        row = json.load(f)
+    attempts = int(row.get("attempts", 0))
+    rng_state = row.get("rng_state")
+    return attempts, rng_state
+
+
+def save_repair_state(state_path: Path, attempts: int, rng: np.random.Generator) -> None:
+    with open(state_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "attempts": int(attempts),
+                "rng_state": rng.bit_generator.state,
+            },
+            f,
+        )
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate repair segments (Fix B).")
     parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--output-dir", type=str, default="data/datasets/repair_segments")
-    parser.add_argument("--num-segments", type=int, default=200)
+    parser.add_argument("--num-segments", type=int, default=200, help="Target number of accepted repair segments.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--H", type=int, default=50)
+    parser.add_argument("--H", type=int, default=20)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
     parser.add_argument("--eps-s", type=float, default=0.1)
     parser.add_argument("--eps-kappa", type=float, default=0.05)
-    parser.add_argument("--e-perturb-m", type=float, default=0.5)
+    parser.add_argument("--e-perturb-m", type=float, default=1.0)
     parser.add_argument("--dpsi-perturb-rad", type=float, default=0.10)
     parser.add_argument("--terminal-weight", type=float, default=5.0)
     parser.add_argument("--obs-window-m", type=float, default=30.0)
@@ -102,15 +158,21 @@ def main() -> None:
     parser.add_argument("--obs-init-sigma-m", type=float, default=8.0)
     parser.add_argument("--obs-init-margin-m", type=float, default=0.5)
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
-    parser.add_argument("--ipopt-tol", type=float, default=1e-6)
-    parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-4)
-    parser.add_argument("--ipopt-max-iter", type=int, default=1000)
-    parser.add_argument("--save-every", type=int, default=50)
+    parser.add_argument("--ipopt-tol", type=float, default=1e-5)
+    parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-3)
+    parser.add_argument("--ipopt-max-iter", type=int, default=100)
+    parser.add_argument("--save-every", type=int, default=10)
+    parser.add_argument(
+        "--max-attempts",
+        type=int,
+        default=None,
+        help="Maximum solve attempts. Defaults to 5x target repairs.",
+    )
     parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=True,
-        help="Resume by appending only missing repair segments.",
+        help="Resume by appending only missing accepted repair segments toward the target.",
     )
     args = parser.parse_args()
 
@@ -133,12 +195,18 @@ def main() -> None:
     episodes_dir = output_dir / "episodes"
     episodes_dir.mkdir(parents=True, exist_ok=True)
     manifest_path = output_dir / "manifest.jsonl"
+    state_path = output_dir / "repair_state.json"
     existing_count = 0
-    if args.resume and manifest_path.exists():
-        with open(manifest_path, "r", encoding="utf-8") as f:
-            existing_count = sum(1 for line in f if line.strip())
+    next_episode_idx = 0
+    if args.resume:
+        existing_count, next_episode_idx = load_existing_repairs(manifest_path)
 
     rng = np.random.default_rng(args.seed)
+    attempts = 0
+    if args.resume:
+        attempts, rng_state = load_repair_state(state_path)
+        if rng_state is not None:
+            rng.bit_generator.state = rng_state
     base_files = sorted(base_dir.glob("*.npz"))
     if not base_files:
         raise FileNotFoundError(f"No base laps found in {base_dir}")
@@ -147,14 +215,19 @@ def main() -> None:
     manifest_f = open(manifest_path, "a", encoding="utf-8")
     t_start = time.time()
     successes = existing_count
+    if successes >= args.num_segments:
+        manifest_f.close()
+        print(f"Done. accepted={successes}/{args.num_segments} attempts={attempts} elapsed=0.0s", flush=True)
+        return
 
-    for seg_idx in range(args.num_segments):
-        if seg_idx < existing_count:
-            continue
-        if seg_idx > 0 and seg_idx % max(1, args.save_every) == 0:
+    max_attempts = args.max_attempts if args.max_attempts is not None else max(args.num_segments * 5, args.num_segments)
+
+    while successes < args.num_segments and attempts < max_attempts:
+        attempts += 1
+        if attempts > 1 and attempts % max(1, args.save_every) == 0:
             elapsed = time.time() - t_start
             print(
-                f"[{seg_idx}/{args.num_segments}] repairs accepted={successes} elapsed={elapsed:.1f}s",
+                f"[attempt {attempts}/{max_attempts}] repairs accepted={successes}/{args.num_segments} elapsed={elapsed:.1f}s",
                 flush=True,
             )
         base_path = rng.choice(base_files)
@@ -214,10 +287,12 @@ def main() -> None:
 
         term_state = X_seg[:, -1].copy()
 
+        x0_masked = build_initial_masked_state(x0)
+
         result = optimizer.solve(
             N=int(args.H),
             ds_m=float(s_m[1] - s_m[0]),
-            x0=x0,
+            x0=x0_masked,
             X_init=X_init,
             U_init=U_seg,
             lambda_u=float(args.lambda_u),
@@ -245,8 +320,10 @@ def main() -> None:
         )
 
         if not result.success:
+            save_repair_state(state_path, attempts, rng)
             continue
         if obstacles_list and result.min_obstacle_clearance < float(args.accept_min_clearance_m):
+            save_repair_state(state_path, attempts, rng)
             continue
 
         s_abs = result.s_m.copy()
@@ -264,7 +341,7 @@ def main() -> None:
         reward = -dt
         rtg = compute_rtg(reward)
 
-        episode_id = f"{map_file.stem}_repair_{seg_idx:06d}"
+        episode_id = f"{map_file.stem}_repair_{next_episode_idx:06d}"
         npz_path = episodes_dir / f"{episode_id}.npz"
 
         np.savez_compressed(
@@ -299,15 +376,24 @@ def main() -> None:
             npz_path=str(npz_path),
         )
         manifest_f.write(json.dumps(header.to_dict()) + "\n")
+        manifest_f.flush()
         successes += 1
+        next_episode_idx += 1
+        save_repair_state(state_path, attempts, rng)
 
         if successes % args.save_every == 0:
             elapsed = time.time() - t_start
-            print(f"[{successes}/{args.num_segments}] accepted elapsed={elapsed:.1f}s", flush=True)
+            print(
+                f"[accepted {successes}/{args.num_segments}] attempts={attempts}/{max_attempts} elapsed={elapsed:.1f}s",
+                flush=True,
+            )
 
     manifest_f.close()
     elapsed = time.time() - t_start
-    print(f"Done. accepted={successes}/{args.num_segments} elapsed={elapsed:.1f}s", flush=True)
+    print(
+        f"Done. accepted={successes}/{args.num_segments} attempts={attempts}/{max_attempts} elapsed={elapsed:.1f}s",
+        flush=True,
+    )
 
 
 if __name__ == "__main__":

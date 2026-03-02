@@ -1,0 +1,75 @@
+[2026-03-02 00:44:29] Starting dataset build.
+[2026-03-02 00:44:29] Stage A1: build base laps
+[2026-03-02 00:44:29] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m] obstacle lap obs_00 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_02 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_03 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_04 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_05 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_06 failed or collided; skipping.
+[Oval_Track_260m] obstacle lap obs_07 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_00 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_01 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_02 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_03 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_04 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_05 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_06 failed or collided; skipping.
+[TRACK1_280m] obstacle lap obs_07 failed or collided; skipping.
+[TRACK2] obstacle lap obs_00 failed or collided; skipping.
+[TRACK2] obstacle lap obs_02 failed or collided; skipping.
+[TRACK2] obstacle lap obs_03 failed or collided; skipping.
+[TRACK2] obstacle lap obs_05 failed or collided; skipping.
+[TRACK2] obstacle lap obs_06 failed or collided; skipping.
+[TRACK2] obstacle lap obs_07 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_01 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_02 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_03 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_04 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_05 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_06 failed or collided; skipping.
+[TRACK3_300m] obstacle lap obs_07 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_00 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_01 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_02 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_03 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_04 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_05 failed or collided; skipping.
+[TRACK4_315m] obstacle lap obs_06 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_01 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_02 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_03 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_04 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_05 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_06 failed or collided; skipping.
+[TRACK5_330m] obstacle lap obs_07 failed or collided; skipping.
+[2026-03-02 01:41:16] Stage A1 complete.
+[2026-03-02 01:41:16] Stage A2: shifts for Oval_Track_260m
+[2026-03-02 01:41:16] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/make_shift_episodes.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_shifts --seed 0 --all-shifts
+[50] accepted=50 elapsed=0.4s
+[100] accepted=100 elapsed=0.6s
+[150] accepted=150 elapsed=0.7s
+[200] accepted=200 elapsed=0.9s
+[250] accepted=250 elapsed=1.0s
+[300] accepted=300 elapsed=1.2s
+[350] accepted=350 elapsed=1.3s
+[400] accepted=400 elapsed=1.5s
+[450] accepted=450 elapsed=1.6s
+[500] accepted=500 elapsed=1.7s
+[550] accepted=550 elapsed=1.9s
+[600] accepted=600 elapsed=2.0s
+[650] accepted=650 elapsed=2.2s
+[700] accepted=700 elapsed=2.3s
+[750] accepted=750 elapsed=2.5s
+[800] accepted=800 elapsed=2.6s
+Done. accepted=847 elapsed=2.7s
+[2026-03-02 01:41:22] Stage A2 complete for Oval_Track_260m.
+[2026-03-02 01:41:22] Stage B: repair segments for Oval_Track_260m (n=167)
+[2026-03-02 01:41:22] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 167 --seed 0 --H 50

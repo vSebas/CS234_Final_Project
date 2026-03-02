@@ -1,0 +1,25 @@
+CasADi - 2026-03-02 00:36:17 WARNING("KeyboardInterruptException") [.../casadi/interfaces/ipopt/ipopt_nlp.cpp:132]
+/home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
+Traceback (most recent call last):
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 102, in <module>
+    main()
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 40, in main
+    run(
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 14, in run
+    subprocess.check_call(cmd)
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 408, in check_call
+    retcode = call(*popenargs, **kwargs)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 391, in call
+    return p.wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 2053, in _wait
+    (pid, sts) = self._try_wait(0)
+                 ^^^^^^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 2011, in _try_wait
+    (pid, sts) = os.waitpid(self.pid, wait_flags)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt

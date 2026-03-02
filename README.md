@@ -229,7 +229,7 @@ python data/build_dataset.py \
   --shift-episodes 1000 \
   --repair-segments 1000 \
   --N 200 \
-  --H 50 \
+  --H 20 \
   --seed 0
 ```
 

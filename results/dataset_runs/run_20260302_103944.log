@@ -1,0 +1,433 @@
+[2026-03-02 10:39:45] Starting dataset build.
+[2026-03-02 10:39:45] Stage A1: build base laps
+[2026-03-02 10:39:45] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120 --resume
+[Oval_Track_260m] base lap noobs_00 already present; skipping.
+[Oval_Track_260m] base lap noobs_01 already present; skipping.
+[Oval_Track_260m] base lap noobs_02 already present; skipping.
+[Oval_Track_260m] base lap noobs_03 already present; skipping.
+[Oval_Track_260m] base lap noobs_04 already present; skipping.
+[Oval_Track_260m] base lap noobs_05 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_00 already present; skipping.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/8)
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m] obstacle lap obs_01 accepted.
+[Oval_Track_260m] solving obstacle lap obs_02 (3/8)
+[Oval_Track_260m] obstacle lap obs_02 accepted.
+[Oval_Track_260m] solving obstacle lap obs_03 (4/8)
+[Oval_Track_260m] obstacle lap obs_03 accepted.
+[Oval_Track_260m] solving obstacle lap obs_04 (5/8)
+[Oval_Track_260m] obstacle lap obs_04 accepted.
+[Oval_Track_260m] solving obstacle lap obs_05 (6/8)
+[Oval_Track_260m] obstacle lap obs_05 accepted.
+[Oval_Track_260m] solving obstacle lap obs_06 (7/8)
+[Oval_Track_260m] obstacle lap obs_06 accepted.
+[Oval_Track_260m] solving obstacle lap obs_07 (8/8)
+[Oval_Track_260m] obstacle lap obs_07 accepted.
+[TRACK1_280m] solving base lap noobs_00 (1/6)
+[TRACK1_280m] base lap noobs_00 accepted.
+[TRACK1_280m] solving base lap noobs_01 (2/6)
+[TRACK1_280m] base lap noobs_01 accepted.
+[TRACK1_280m] solving base lap noobs_02 (3/6)
+[TRACK1_280m] base lap noobs_02 accepted.
+[TRACK1_280m] solving base lap noobs_03 (4/6)
+[TRACK1_280m] base lap noobs_03 accepted.
+[TRACK1_280m] solving base lap noobs_04 (5/6)
+[TRACK1_280m] base lap noobs_04 accepted.
+[TRACK1_280m] solving base lap noobs_05 (6/6)
+[TRACK1_280m] base lap noobs_05 accepted.
+[TRACK1_280m] solving obstacle lap obs_00 (1/8)
+[TRACK1_280m] obstacle lap obs_00 accepted.
+[TRACK1_280m] solving obstacle lap obs_01 (2/8)
+[TRACK1_280m] obstacle lap obs_01 accepted.
+[TRACK1_280m] solving obstacle lap obs_02 (3/8)
+[TRACK1_280m] obstacle lap obs_02 accepted.
+[TRACK1_280m] solving obstacle lap obs_03 (4/8)
+[TRACK1_280m] obstacle lap obs_03 accepted.
+[TRACK1_280m] solving obstacle lap obs_04 (5/8)
+[TRACK1_280m] obstacle lap obs_04 accepted.
+[TRACK1_280m] solving obstacle lap obs_05 (6/8)
+[TRACK1_280m] obstacle lap obs_05 accepted.
+[TRACK1_280m] solving obstacle lap obs_06 (7/8)
+[TRACK1_280m] obstacle lap obs_06 accepted.
+[TRACK1_280m] solving obstacle lap obs_07 (8/8)
+[TRACK1_280m] obstacle lap obs_07 accepted.
+[TRACK2] solving base lap noobs_00 (1/6)
+[TRACK2] base lap noobs_00 accepted.
+[TRACK2] solving base lap noobs_01 (2/6)
+[TRACK2] base lap noobs_01 accepted.
+[TRACK2] solving base lap noobs_02 (3/6)
+[TRACK2] base lap noobs_02 accepted.
+[TRACK2] solving base lap noobs_03 (4/6)
+[TRACK2] base lap noobs_03 accepted.
+[TRACK2] solving base lap noobs_04 (5/6)
+[TRACK2] base lap noobs_04 accepted.
+[TRACK2] solving base lap noobs_05 (6/6)
+[TRACK2] base lap noobs_05 accepted.
+[TRACK2] solving obstacle lap obs_00 (1/8)
+[TRACK2] obstacle lap obs_00 accepted.
+[TRACK2] solving obstacle lap obs_01 (2/8)
+[TRACK2] obstacle lap obs_01 accepted.
+[TRACK2] solving obstacle lap obs_02 (3/8)
+[TRACK2] obstacle lap obs_02 accepted.
+[TRACK2] solving obstacle lap obs_03 (4/8)
+[TRACK2] obstacle lap obs_03 accepted.
+[TRACK2] solving obstacle lap obs_04 (5/8)
+[TRACK2] obstacle lap obs_04 accepted.
+[TRACK2] solving obstacle lap obs_05 (6/8)
+[TRACK2] obstacle lap obs_05 accepted.
+[TRACK2] solving obstacle lap obs_06 (7/8)
+[TRACK2] obstacle lap obs_06 accepted.
+[TRACK2] solving obstacle lap obs_07 (8/8)
+[TRACK2] obstacle lap obs_07 accepted.
+[TRACK3_300m] solving base lap noobs_00 (1/6)
+[TRACK3_300m] base lap noobs_00 accepted.
+[TRACK3_300m] solving base lap noobs_01 (2/6)
+[TRACK3_300m] base lap noobs_01 accepted.
+[TRACK3_300m] solving base lap noobs_02 (3/6)
+[TRACK3_300m] base lap noobs_02 accepted.
+[TRACK3_300m] solving base lap noobs_03 (4/6)
+[TRACK3_300m] base lap noobs_03 accepted.
+[TRACK3_300m] solving base lap noobs_04 (5/6)
+[TRACK3_300m] base lap noobs_04 accepted.
+[TRACK3_300m] solving base lap noobs_05 (6/6)
+[TRACK3_300m] base lap noobs_05 accepted.
+[TRACK3_300m] solving obstacle lap obs_00 (1/8)
+[TRACK3_300m] obstacle lap obs_00 accepted.
+[TRACK3_300m] solving obstacle lap obs_01 (2/8)
+[TRACK3_300m] obstacle lap obs_01 accepted.
+[TRACK3_300m] solving obstacle lap obs_02 (3/8)
+[TRACK3_300m] obstacle lap obs_02 accepted.
+[TRACK3_300m] solving obstacle lap obs_03 (4/8)
+[TRACK3_300m] obstacle lap obs_03 accepted.
+[TRACK3_300m] solving obstacle lap obs_04 (5/8)
+[TRACK3_300m] obstacle lap obs_04 accepted.
+[TRACK3_300m] solving obstacle lap obs_05 (6/8)
+[TRACK3_300m] obstacle lap obs_05 accepted.
+[TRACK3_300m] solving obstacle lap obs_06 (7/8)
+[TRACK3_300m] obstacle lap obs_06 accepted.
+[TRACK3_300m] solving obstacle lap obs_07 (8/8)
+[TRACK3_300m] obstacle lap obs_07 accepted.
+[TRACK4_315m] solving base lap noobs_00 (1/6)
+[TRACK4_315m] base lap noobs_00 accepted.
+[TRACK4_315m] solving base lap noobs_01 (2/6)
+[TRACK4_315m] base lap noobs_01 accepted.
+[TRACK4_315m] solving base lap noobs_02 (3/6)
+[TRACK4_315m] base lap noobs_02 accepted.
+[TRACK4_315m] solving base lap noobs_03 (4/6)
+[TRACK4_315m] base lap noobs_03 accepted.
+[TRACK4_315m] solving base lap noobs_04 (5/6)
+[TRACK4_315m] base lap noobs_04 accepted.
+[TRACK4_315m] solving base lap noobs_05 (6/6)
+[TRACK4_315m] base lap noobs_05 accepted.
+[TRACK4_315m] solving obstacle lap obs_00 (1/8)
+[TRACK4_315m] obstacle lap obs_00 accepted.
+[TRACK4_315m] solving obstacle lap obs_01 (2/8)
+[TRACK4_315m] obstacle lap obs_01 accepted.
+[TRACK4_315m] solving obstacle lap obs_02 (3/8)
+[TRACK4_315m] obstacle lap obs_02 accepted.
+[TRACK4_315m] solving obstacle lap obs_03 (4/8)
+[TRACK4_315m] obstacle lap obs_03 accepted.
+[TRACK4_315m] solving obstacle lap obs_04 (5/8)
+[TRACK4_315m] obstacle lap obs_04 accepted.
+[TRACK4_315m] solving obstacle lap obs_05 (6/8)
+[TRACK4_315m] obstacle lap obs_05 accepted.
+[TRACK4_315m] solving obstacle lap obs_06 (7/8)
+[TRACK4_315m] obstacle lap obs_06 accepted.
+[TRACK4_315m] solving obstacle lap obs_07 (8/8)
+[TRACK4_315m] obstacle lap obs_07 accepted.
+[TRACK5_330m] solving base lap noobs_00 (1/6)
+[TRACK5_330m] base lap noobs_00 accepted.
+[TRACK5_330m] solving base lap noobs_01 (2/6)
+[TRACK5_330m] base lap noobs_01 accepted.
+[TRACK5_330m] solving base lap noobs_02 (3/6)
+[TRACK5_330m] base lap noobs_02 accepted.
+[TRACK5_330m] solving base lap noobs_03 (4/6)
+[TRACK5_330m] base lap noobs_03 accepted.
+[TRACK5_330m] solving base lap noobs_04 (5/6)
+[TRACK5_330m] base lap noobs_04 accepted.
+[TRACK5_330m] solving base lap noobs_05 (6/6)
+[TRACK5_330m] base lap noobs_05 accepted.
+[TRACK5_330m] solving obstacle lap obs_00 (1/8)
+[TRACK5_330m] obstacle lap obs_00 accepted.
+[TRACK5_330m] solving obstacle lap obs_01 (2/8)
+[TRACK5_330m] obstacle lap obs_01 accepted.
+[TRACK5_330m] solving obstacle lap obs_02 (3/8)
+[TRACK5_330m] obstacle lap obs_02 accepted.
+[TRACK5_330m] solving obstacle lap obs_03 (4/8)
+[TRACK5_330m] obstacle lap obs_03 accepted.
+[TRACK5_330m] solving obstacle lap obs_04 (5/8)
+[TRACK5_330m] obstacle lap obs_04 accepted.
+[TRACK5_330m] solving obstacle lap obs_05 (6/8)
+[TRACK5_330m] obstacle lap obs_05 accepted.
+[TRACK5_330m] solving obstacle lap obs_06 (7/8)
+[TRACK5_330m] obstacle lap obs_06 accepted.
+[TRACK5_330m] solving obstacle lap obs_07 (8/8)
+[TRACK5_330m] obstacle lap obs_07 accepted.
+[2026-03-02 11:33:10] Stage A1 complete.
+[2026-03-02 11:33:10] Running per-track stages in parallel (workers=6).
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK1_280m
+[2026-03-02 11:33:10] Stage A2: shifts for Oval_Track_260m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK2
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK3_300m
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK5_330m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_shifts --seed 0 --all-shifts --resume
+[2026-03-02 11:33:10] Stage A2: shifts for TRACK4_315m
+[2026-03-02 11:33:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_shifts --seed 0 --all-shifts --resume
+[850] accepted=850 elapsed=0.1s
+[50] accepted=50 elapsed=0.2s
+[50] accepted=50 elapsed=0.2s
+[50] accepted=50 elapsed=0.2s
+[50] accepted=50 elapsed=0.2s
+[900] accepted=900 elapsed=0.2s
+[50] accepted=50 elapsed=0.2s
+[100] accepted=100 elapsed=0.4s
+[100] accepted=100 elapsed=0.4s
+[950] accepted=950 elapsed=0.4s
+[100] accepted=100 elapsed=0.4s
+[100] accepted=100 elapsed=0.4s
+[100] accepted=100 elapsed=0.4s
+[150] accepted=150 elapsed=0.6s
+[150] accepted=150 elapsed=0.6s
+[1000] accepted=1000 elapsed=0.5s
+[150] accepted=150 elapsed=0.6s
+[150] accepted=150 elapsed=0.6s
+[150] accepted=150 elapsed=0.5s
+[200] accepted=200 elapsed=0.7s
+[200] accepted=200 elapsed=0.8s
+[200] accepted=200 elapsed=0.8s
+[200] accepted=200 elapsed=0.8s
+[1050] accepted=1050 elapsed=0.8s
+[200] accepted=200 elapsed=0.7s
+[250] accepted=250 elapsed=0.9s
+[250] accepted=250 elapsed=0.9s
+[250] accepted=250 elapsed=0.9s
+[1100] accepted=1100 elapsed=0.9s
+[250] accepted=250 elapsed=1.0s
+[250] accepted=250 elapsed=1.1s
+[300] accepted=300 elapsed=1.1s
+[300] accepted=300 elapsed=1.1s
+[300] accepted=300 elapsed=1.0s
+[1150] accepted=1150 elapsed=1.1s
+[350] accepted=350 elapsed=1.2s
+[300] accepted=300 elapsed=1.2s
+[300] accepted=300 elapsed=1.3s
+[350] accepted=350 elapsed=1.3s
+[350] accepted=350 elapsed=1.2s
+[1200] accepted=1200 elapsed=1.3s
+[400] accepted=400 elapsed=1.4s
+[350] accepted=350 elapsed=1.4s
+[400] accepted=400 elapsed=1.4s
+[350] accepted=350 elapsed=1.5s
+[1250] accepted=1250 elapsed=1.4s
+[400] accepted=400 elapsed=1.5s
+[450] accepted=450 elapsed=1.5s
+[450] accepted=450 elapsed=1.6s
+[400] accepted=400 elapsed=1.6s
+[1300] accepted=1300 elapsed=1.6s
+[400] accepted=400 elapsed=1.7s
+[450] accepted=450 elapsed=1.7s
+[500] accepted=500 elapsed=1.7s
+[500] accepted=500 elapsed=1.8s
+[450] accepted=450 elapsed=1.8s
+[1350] accepted=1350 elapsed=1.8s
+[500] accepted=500 elapsed=1.9s
+[450] accepted=450 elapsed=1.9s
+[500] accepted=500 elapsed=2.0s
+[550] accepted=550 elapsed=1.9s
+[1400] accepted=1400 elapsed=2.0s
+[550] accepted=550 elapsed=2.0s
+[550] accepted=550 elapsed=2.1s
+[550] accepted=550 elapsed=2.1s
+[600] accepted=600 elapsed=2.1s
+[1450] accepted=1450 elapsed=2.1s
+[500] accepted=500 elapsed=2.1s
+[600] accepted=600 elapsed=2.2s
+[600] accepted=600 elapsed=2.3s
+[600] accepted=600 elapsed=2.3s
+[1500] accepted=1500 elapsed=2.3s
+[650] accepted=650 elapsed=2.4s
+[650] accepted=650 elapsed=2.3s
+[550] accepted=550 elapsed=2.4s
+[650] accepted=650 elapsed=2.4s
+[650] accepted=650 elapsed=2.5s
+[700] accepted=700 elapsed=2.5s
+[1550] accepted=1550 elapsed=2.5s
+[700] accepted=700 elapsed=2.5s
+[600] accepted=600 elapsed=2.6s
+[700] accepted=700 elapsed=2.6s
+[1600] accepted=1600 elapsed=2.7s
+[650] accepted=650 elapsed=2.7s
+[750] accepted=750 elapsed=2.7s
+[700] accepted=700 elapsed=2.7s
+[750] accepted=750 elapsed=2.7s
+[750] accepted=750 elapsed=2.8s
+[1650] accepted=1650 elapsed=2.9s
+[800] accepted=800 elapsed=2.9s
+[700] accepted=700 elapsed=2.9s
+[750] accepted=750 elapsed=3.0s
+[800] accepted=800 elapsed=2.9s
+[800] accepted=800 elapsed=3.0s
+[850] accepted=850 elapsed=3.1s
+[750] accepted=750 elapsed=3.1s
+Done. accepted=1694 elapsed=3.1s
+[800] accepted=800 elapsed=3.1s
+[850] accepted=850 elapsed=3.0s
+[850] accepted=850 elapsed=3.1s
+[2026-03-02 11:33:14] Stage A2 complete for Oval_Track_260m.
+[2026-03-02 11:33:14] Stage B: repair segments for Oval_Track_260m (n=84)
+[2026-03-02 11:33:14] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 50 --save-every 10 --resume
+[900] accepted=900 elapsed=3.2s
+[800] accepted=800 elapsed=3.2s
+[900] accepted=900 elapsed=3.3s
+[850] accepted=850 elapsed=3.4s
+[900] accepted=900 elapsed=3.4s
+[950] accepted=950 elapsed=3.6s
+[850] accepted=850 elapsed=3.6s
+[900] accepted=900 elapsed=3.6s
+[950] accepted=950 elapsed=3.6s
+[950] accepted=950 elapsed=3.7s
+[1000] accepted=1000 elapsed=3.7s
+[900] accepted=900 elapsed=3.8s
+[950] accepted=950 elapsed=3.8s
+[1000] accepted=1000 elapsed=3.7s
+[1000] accepted=1000 elapsed=3.9s
+[1050] accepted=1050 elapsed=3.9s
+[1000] accepted=1000 elapsed=4.0s
+[950] accepted=950 elapsed=4.0s
+[1050] accepted=1050 elapsed=3.9s
+[1050] accepted=1050 elapsed=4.0s
+[1100] accepted=1100 elapsed=4.1s
+[1050] accepted=1050 elapsed=4.1s
+[1000] accepted=1000 elapsed=4.2s
+[1100] accepted=1100 elapsed=4.2s
+[1150] accepted=1150 elapsed=4.2s
+[1100] accepted=1100 elapsed=4.2s
+[1100] accepted=1100 elapsed=4.3s
+[1150] accepted=1150 elapsed=4.4s
+[1200] accepted=1200 elapsed=4.4s
+[1050] accepted=1050 elapsed=4.4s
+[1150] accepted=1150 elapsed=4.4s
+[1150] accepted=1150 elapsed=4.5s
+[1200] accepted=1200 elapsed=4.6s
+[1250] accepted=1250 elapsed=4.6s
+[1100] accepted=1100 elapsed=4.7s
+[1200] accepted=1200 elapsed=4.7s
+[1200] accepted=1200 elapsed=4.6s
+[1250] accepted=1250 elapsed=4.8s
+[1300] accepted=1300 elapsed=4.8s
+[1150] accepted=1150 elapsed=4.8s
+[1250] accepted=1250 elapsed=4.9s
+[1250] accepted=1250 elapsed=4.8s
+[1300] accepted=1300 elapsed=4.9s
+[1350] accepted=1350 elapsed=5.0s
+[1200] accepted=1200 elapsed=5.0s
+[1300] accepted=1300 elapsed=5.0s
+[1300] accepted=1300 elapsed=5.0s
+[1400] accepted=1400 elapsed=5.1s
+[1350] accepted=1350 elapsed=5.2s
+[1250] accepted=1250 elapsed=5.2s
+[1350] accepted=1350 elapsed=5.2s
+[1450] accepted=1450 elapsed=5.3s
+[1300] accepted=1300 elapsed=5.3s
+[1350] accepted=1350 elapsed=5.3s
+[1400] accepted=1400 elapsed=5.4s
+[1400] accepted=1400 elapsed=5.4s
+[1350] accepted=1350 elapsed=5.7s
+[1400] accepted=1400 elapsed=5.6s
+[1500] accepted=1500 elapsed=5.7s
+[1450] accepted=1450 elapsed=5.7s
+[1450] accepted=1450 elapsed=5.7s
+[1400] accepted=1400 elapsed=5.8s
+[1550] accepted=1550 elapsed=5.9s
+[1500] accepted=1500 elapsed=5.9s
+[1450] accepted=1450 elapsed=5.8s
+[1500] accepted=1500 elapsed=5.9s
+[1600] accepted=1600 elapsed=6.0s
+[1450] accepted=1450 elapsed=6.0s
+[1550] accepted=1550 elapsed=6.1s
+[1500] accepted=1500 elapsed=6.0s
+[1550] accepted=1550 elapsed=6.1s
+[1650] accepted=1650 elapsed=6.2s
+[1600] accepted=1600 elapsed=6.2s
+[1550] accepted=1550 elapsed=6.1s
+[1600] accepted=1600 elapsed=6.2s
+[1500] accepted=1500 elapsed=6.2s
+Done. accepted=1694 elapsed=6.4s
+[1600] accepted=1600 elapsed=6.3s
+[1650] accepted=1650 elapsed=6.4s
+[1650] accepted=1650 elapsed=6.4s
+[1550] accepted=1550 elapsed=6.4s
+[2026-03-02 11:33:17] Stage A2 complete for TRACK5_330m.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK5_330m (n=83)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+Done. accepted=1694 elapsed=6.6s
+Done. accepted=1694 elapsed=6.6s
+[1650] accepted=1650 elapsed=6.6s
+[1600] accepted=1600 elapsed=6.7s
+[2026-03-02 11:33:17] Stage A2 complete for TRACK1_280m.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK1_280m (n=84)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 84 --seed 0 --H 50 --save-every 10 --resume
+[2026-03-02 11:33:17] Stage A2 complete for TRACK2.
+[2026-03-02 11:33:17] Stage B: repair segments for TRACK2 (n=83)
+[2026-03-02 11:33:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+Done. accepted=1694 elapsed=6.9s
+[1650] accepted=1650 elapsed=7.1s
+[2026-03-02 11:33:18] Stage A2 complete for TRACK4_315m.
+[2026-03-02 11:33:18] Stage B: repair segments for TRACK4_315m (n=83)
+[2026-03-02 11:33:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+Done. accepted=1694 elapsed=7.4s
+[2026-03-02 11:33:18] Stage A2 complete for TRACK3_300m.
+[2026-03-02 11:33:18] Stage B: repair segments for TRACK3_300m (n=83)
+[2026-03-02 11:33:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 50 --save-every 10 --resume
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+

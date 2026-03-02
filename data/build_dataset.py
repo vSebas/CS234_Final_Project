@@ -52,7 +52,7 @@ def main() -> None:
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--N", type=int, default=200)
-    parser.add_argument("--H", type=int, default=50)
+    parser.add_argument("--H", type=int, default=20)
     parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
@@ -155,9 +155,9 @@ def main() -> None:
         repairs_manifest = repairs_dir / "manifest.jsonl"
         repairs_done = _manifest_lines(repairs_manifest)
         if args.resume and repairs_done >= nseg and nseg > 0:
-            log(f"Stage B: repairs already present for {stem}; skipping.", progress_file)
+            log(f"Stage B: target accepted repairs already present for {stem}; skipping.", progress_file)
         else:
-            log(f"Stage B: repair segments for {stem} (n={nseg})", progress_file)
+            log(f"Stage B: target accepted repairs for {stem} (target={nseg})", progress_file)
             run(
                 [
                     sys.executable,
@@ -181,7 +181,11 @@ def main() -> None:
                 ],
                 progress_file,
             )
-            log(f"Stage B complete for {stem}.", progress_file)
+            repairs_done_after = _manifest_lines(repairs_manifest)
+            log(
+                f"Stage B complete for {stem}. accepted={repairs_done_after}/{nseg}",
+                progress_file,
+            )
 
     if args.parallel:
         max_workers = min(args.max_workers, len(map_files))

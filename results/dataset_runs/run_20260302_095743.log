@@ -1,0 +1,9 @@
+[2026-03-02 09:57:43] Starting dataset build.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for Oval_Track_260m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK1_280m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK2.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK3_300m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK4_315m.
+[2026-03-02 09:57:43] Stage A1: clearing partial base laps for TRACK5_330m.
+[2026-03-02 09:57:43] Stage A1: build base laps
+[2026-03-02 09:57:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_base_laps.py --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat --base-laps 6 --obstacle-laps 8 --seed 0 --N 120
