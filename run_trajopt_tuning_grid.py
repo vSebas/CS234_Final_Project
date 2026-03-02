@@ -8,8 +8,6 @@ Outputs:
 - JSON with ranked summary + best config
 """
 
-from __future__ import annotations
-
 import argparse
 import csv
 import json
@@ -17,7 +15,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from itertools import product
 from pathlib import Path
-from typing import Iterable
+
 
 import numpy as np
 

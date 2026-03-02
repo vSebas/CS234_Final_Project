@@ -80,6 +80,76 @@ class TrajectoryOptimizer:
         # Problem dimensions (unified model)
         self.nx = 8  # State dimension
         self.nu = 2  # Control dimension
+        self._geom_cache = {}
+        self._nlp_cache = {}
+
+    @staticmethod
+    def _normalize_obstacles(obstacles):
+        obs_list: List[ObstacleCircle] = []
+        for obs in obstacles or []:
+            if isinstance(obs, ObstacleCircle):
+                obs_list.append(obs)
+            else:
+                obs_list.append(ObstacleCircle(**obs))
+        return obs_list
+
+    @staticmethod
+    def _obstacles_key(obs_list: List[ObstacleCircle]) -> tuple:
+        key = []
+        for obs in obs_list:
+            key.append(
+                (
+                    float(obs.s_m) if obs.s_m is not None else None,
+                    float(obs.e_m) if obs.e_m is not None else None,
+                    float(obs.east_m) if obs.east_m is not None else None,
+                    float(obs.north_m) if obs.north_m is not None else None,
+                    float(obs.radius_m),
+                    float(obs.margin_m),
+                )
+            )
+        return tuple(key)
+
+    def _make_nlp_cache_key(
+        self,
+        N: int,
+        ds_m: float,
+        lambda_u: float,
+        ux_min: float,
+        ux_max,
+        track_buffer_m: float,
+        eps_s: float,
+        eps_kappa: float,
+        obstacles: List[ObstacleCircle],
+        obstacle_window_m: float,
+        obstacle_clearance_m: float,
+        obstacle_use_slack: bool,
+        obstacle_enforce_midpoints: bool,
+        obstacle_subsamples_per_segment: int,
+        obstacle_slack_weight: float,
+        vehicle_radius_m: float,
+        convergent_lap: bool,
+        x0_mask: Tuple[bool, ...],
+    ) -> tuple:
+        return (
+            int(N),
+            float(ds_m),
+            float(lambda_u),
+            float(ux_min),
+            None if ux_max is None else float(ux_max),
+            float(track_buffer_m),
+            float(eps_s),
+            float(eps_kappa),
+            float(obstacle_window_m),
+            float(obstacle_clearance_m),
+            bool(obstacle_use_slack),
+            bool(obstacle_enforce_midpoints),
+            int(obstacle_subsamples_per_segment),
+            float(obstacle_slack_weight),
+            float(vehicle_radius_m),
+            bool(convergent_lap),
+            tuple(bool(v) for v in x0_mask),
+            self._obstacles_key(obstacles),
+        )
 
     def _get_road_geometry(self, s):
         """
@@ -250,13 +320,344 @@ class TrajectoryOptimizer:
         """
         t_start = time.time()
         p = self.vehicle.params
-        opti = ca.Opti()
+        # Normalize obstacle input early for cache key.
+        obs_list = self._normalize_obstacles(obstacles)
 
-        # Decision variables
-        X = opti.variable(self.nx, N + 1)  # States at each node
-        U = opti.variable(self.nu, N + 1)  # Controls at each node
+        x0_mask = tuple(False for _ in range(self.nx))
+        if x0 is not None:
+            x0_mask = tuple(v is not None for v in x0)
 
-        # State components
+        cache_key = self._make_nlp_cache_key(
+            N=N,
+            ds_m=ds_m,
+            lambda_u=lambda_u,
+            ux_min=ux_min,
+            ux_max=ux_max,
+            track_buffer_m=track_buffer_m,
+            eps_s=eps_s,
+            eps_kappa=eps_kappa,
+            obstacles=obs_list,
+            obstacle_window_m=obstacle_window_m,
+            obstacle_clearance_m=obstacle_clearance_m,
+            obstacle_use_slack=obstacle_use_slack,
+            obstacle_enforce_midpoints=obstacle_enforce_midpoints,
+            obstacle_subsamples_per_segment=obstacle_subsamples_per_segment,
+            obstacle_slack_weight=obstacle_slack_weight,
+            vehicle_radius_m=vehicle_radius_m,
+            convergent_lap=convergent_lap,
+            x0_mask=x0_mask,
+        )
+
+        cached = self._nlp_cache.get(cache_key)
+        if cached is None:
+            opti = ca.Opti()
+
+            # Decision variables
+            X = opti.variable(self.nx, N + 1)  # States at each node
+            U = opti.variable(self.nu, N + 1)  # Controls at each node
+
+            # State components
+            ux = X[self.IDX_UX, :]
+            uy = X[self.IDX_UY, :]
+            r = X[self.IDX_R, :]
+            dfz_long = X[self.IDX_DFZ_LONG, :]
+            dfz_lat = X[self.IDX_DFZ_LAT, :]
+            t = X[self.IDX_T, :]
+            e = X[self.IDX_E, :]
+            dpsi = X[self.IDX_DPSI, :]
+
+            # Control components
+            delta = U[0, :]
+            fx = U[1, :]
+
+            # Arc length grid + road geometry (cached, vectorized).
+            geom_key = ("geom", int(N), float(ds_m), float(self.world.length_m))
+            if geom_key in self._geom_cache:
+                s_grid, k_psi_data, theta_data, phi_data, track_hw = self._geom_cache[geom_key]
+            else:
+                s_grid = np.linspace(0, N * ds_m, N + 1)
+                s_mod = np.mod(s_grid, self.world.length_m)
+                k_psi_data = np.array(self.world.psi_s_radpm_LUT(s_mod)).astype(float).squeeze()
+                if hasattr(self.world, "grade_rad_LUT"):
+                    theta_data = np.array(self.world.grade_rad_LUT(s_mod)).astype(float).squeeze()
+                else:
+                    theta_data = np.zeros(N + 1)
+                if hasattr(self.world, "bank_rad_LUT"):
+                    phi_data = np.array(self.world.bank_rad_LUT(s_mod)).astype(float).squeeze()
+                else:
+                    phi_data = np.zeros(N + 1)
+                track_width = np.array(self.world.track_width_m_LUT(s_mod)).astype(float).squeeze()
+                track_hw = 0.5 * track_width
+                self._geom_cache[geom_key] = (s_grid, k_psi_data, theta_data, phi_data, track_hw)
+
+            obs_east = np.zeros(len(obs_list))
+            obs_north = np.zeros(len(obs_list))
+            obs_r_tilde = np.zeros(len(obs_list))
+            obs_s_center = np.zeros(len(obs_list))
+            obs_e_center = np.zeros(len(obs_list))
+
+            for j, obs in enumerate(obs_list):
+                if obs.east_m is not None and obs.north_m is not None:
+                    east_m = float(obs.east_m)
+                    north_m = float(obs.north_m)
+                elif obs.s_m is not None and obs.e_m is not None:
+                    east_m, north_m = self._frenet_to_en(float(obs.s_m), float(obs.e_m))
+                else:
+                    raise ValueError(
+                        "Each obstacle needs either (east_m, north_m) or (s_m, e_m)."
+                    )
+
+                obs_east[j] = east_m
+                obs_north[j] = north_m
+                obs_r_tilde[j] = float(obs.radius_m + obs.margin_m)
+                obs_s_center[j] = (
+                    float(obs.s_m)
+                    if obs.s_m is not None
+                    else self._nearest_centerline_s(east_m, north_m)
+                )
+                if obs.e_m is not None:
+                    obs_e_center[j] = float(obs.e_m)
+                else:
+                    obs_e_center[j] = self._estimate_obstacle_e_from_en(
+                        east_m, north_m, obs_s_center[j]
+                    )
+
+            # Precompute centerline EN/heading at nodes for obstacle constraints if needed.
+            if len(obs_list) > 0:
+                cl_key = ("centerline", int(N), float(ds_m), float(self.world.length_m))
+                if cl_key in self._geom_cache:
+                    posE_cl_data, posN_cl_data, psi_cl_data = self._geom_cache[cl_key]
+                else:
+                    s_mod = np.mod(s_grid, self.world.length_m)
+                    posE_cl_data = np.array(self.world.posE_m_interp_fcn(s_mod)).astype(float).squeeze()
+                    posN_cl_data = np.array(self.world.posN_m_interp_fcn(s_mod)).astype(float).squeeze()
+                    psi_cl_data = np.array(self.world.psi_rad_interp_fcn(s_mod)).astype(float).squeeze()
+                    self._geom_cache[cl_key] = (posE_cl_data, posN_cl_data, psi_cl_data)
+            else:
+                posE_cl_data = None
+                posN_cl_data = None
+                psi_cl_data = None
+
+            tau_samples = []
+            sample_grids = []
+            if len(obs_list) > 0 and obstacle_enforce_midpoints:
+                # Interior checks reduce between-node obstacle penetration.
+                ns = max(1, int(obstacle_subsamples_per_segment))
+                tau_samples = np.linspace(0.0, 1.0, ns + 2)[1:-1].tolist()
+                sample_key = ("samples", int(N), float(ds_m), int(ns), float(self.world.length_m))
+                if sample_key in self._geom_cache:
+                    sample_grids = self._geom_cache[sample_key]
+                else:
+                    for tau in tau_samples:
+                        s_tau = s_grid[:-1] + tau * ds_m
+                        s_tau_mod = np.mod(s_tau, self.world.length_m)
+                        posE_tau = np.array(self.world.posE_m_interp_fcn(s_tau_mod)).astype(float).squeeze()
+                        posN_tau = np.array(self.world.posN_m_interp_fcn(s_tau_mod)).astype(float).squeeze()
+                        psi_tau = np.array(self.world.psi_rad_interp_fcn(s_tau_mod)).astype(float).squeeze()
+                        sample_grids.append((tau, s_tau, posE_tau, posN_tau, psi_tau))
+                    self._geom_cache[sample_key] = sample_grids
+
+            sigma_obs = None
+            sigma_obs_samples = []
+            if len(obs_list) > 0 and obstacle_use_slack:
+                sigma_obs = opti.variable(N + 1, len(obs_list))
+                opti.subject_to(ca.vec(sigma_obs) >= 0)
+                for _ in sample_grids:
+                    sigma_tau = opti.variable(N, len(obs_list))
+                    opti.subject_to(ca.vec(sigma_tau) >= 0)
+                    sigma_obs_samples.append(sigma_tau)
+
+            # === Objective (Tier 1) ===
+            time_cost = t[-1]
+            reg_cost = 0
+            for k in range(N):
+                reg_cost += lambda_u * ca.sumsqr(U[:, k + 1] - U[:, k])
+
+            slack_cost = 0
+            if sigma_obs is not None:
+                slack_cost = obstacle_slack_weight * ca.sum1(ca.sum2(sigma_obs))
+            for sigma_tau in sigma_obs_samples:
+                slack_cost += obstacle_slack_weight * ca.sum1(ca.sum2(sigma_tau))
+
+            cost = time_cost + reg_cost + slack_cost
+
+            opti.minimize(cost)
+
+            # === Dynamics constraints (trapezoidal collocation) ===
+            for k in range(N):
+                x_k = X[:, k]
+                x_kp1 = X[:, k + 1]
+                u_k = U[:, k]
+                u_kp1 = U[:, k + 1]
+
+                # Road geometry at this segment
+                k_psi_k = k_psi_data[k]
+                k_psi_kp1 = k_psi_data[k + 1]
+                theta_k = theta_data[k]
+                theta_kp1 = theta_data[k + 1]
+                phi_k = phi_data[k]
+                phi_kp1 = phi_data[k + 1]
+
+                # State derivatives using unified model
+                dx_dt_k, s_dot_k = self.vehicle.dynamics_dt_path_vec(
+                    x_k, u_k, k_psi_k, theta_k, phi_k
+                )
+                dx_dt_kp1, s_dot_kp1 = self.vehicle.dynamics_dt_path_vec(
+                    x_kp1, u_kp1, k_psi_kp1, theta_kp1, phi_kp1
+                )
+
+                # Convert to spatial derivatives: dx/ds = (dx/dt) / (ds/dt)
+                dx_ds_k = dx_dt_k / s_dot_k
+                dx_ds_kp1 = dx_dt_kp1 / s_dot_kp1
+
+                # Trapezoidal integration: x_{k+1} = x_k + ds/2 * (f_k + f_{k+1})
+                opti.subject_to(x_kp1 == x_k + ds_m / 2 * (dx_ds_k + dx_ds_kp1))
+
+            # === State constraints ===
+            for k in range(N + 1):
+                # Minimum forward speed (avoid singularity)
+                opti.subject_to(ux[k] >= ux_min)
+
+                # Maximum speed (if specified)
+                if ux_max is not None:
+                    opti.subject_to(ux[k] <= ux_max)
+
+                # Frenet non-singularity and forward progress
+                one_minus_kappa_e = 1 - k_psi_data[k] * e[k]
+                # CasADi rejects constant-only constraints; skip this at zero-curvature nodes.
+                if abs(float(k_psi_data[k])) > 1e-12:
+                    opti.subject_to(one_minus_kappa_e >= eps_kappa)
+                s_dot_k = (ux[k] * ca.cos(dpsi[k]) - uy[k] * ca.sin(dpsi[k])) / one_minus_kappa_e
+                opti.subject_to(s_dot_k >= eps_s)
+
+                # Track bounds (with buffer)
+                opti.subject_to(e[k] >= -track_hw[k] + track_buffer_m)
+                opti.subject_to(e[k] <= track_hw[k] - track_buffer_m)
+
+            # === Control constraints ===
+            for k in range(N + 1):
+                opti.subject_to(delta[k] >= -p.max_delta_rad)
+                opti.subject_to(delta[k] <= p.max_delta_rad)
+                opti.subject_to(fx[k] >= p.min_fx_kn)
+                opti.subject_to(fx[k] <= p.max_fx_kn)
+
+            # === Obstacle constraints (hard by default; optional slack) ===
+            if len(obs_list) > 0:
+                for k in range(N + 1):
+                    posE_k = posE_cl_data[k] - e[k] * np.sin(psi_cl_data[k])
+                    posN_k = posN_cl_data[k] + e[k] * np.cos(psi_cl_data[k])
+                    for j in range(len(obs_list)):
+                        if abs(
+                            self._wrap_s_dist(
+                                float(s_grid[k]),
+                                float(obs_s_center[j]),
+                                float(self.world.length_m),
+                            )
+                        ) <= obstacle_window_m:
+                            dx = posE_k - obs_east[j]
+                            dy = posN_k - obs_north[j]
+                            required_radius = (
+                                obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
+                            )
+                            g_kj = dx * dx + dy * dy - required_radius ** 2
+                            if sigma_obs is not None:
+                                opti.subject_to(g_kj + sigma_obs[k, j] >= 0)
+                            else:
+                                opti.subject_to(g_kj >= 0)
+                for idx, (tau, s_tau, posE_tau, posN_tau, psi_tau) in enumerate(sample_grids):
+                    sigma_tau = sigma_obs_samples[idx] if idx < len(sigma_obs_samples) else None
+                    for k in range(N):
+                        e_tau = (1.0 - tau) * e[k] + tau * e[k + 1]
+                        posE_tau_k = posE_tau[k] - e_tau * np.sin(psi_tau[k])
+                        posN_tau_k = posN_tau[k] + e_tau * np.cos(psi_tau[k])
+                        for j in range(len(obs_list)):
+                            if abs(
+                                self._wrap_s_dist(
+                                    float(s_tau[k]),
+                                    float(obs_s_center[j]),
+                                    float(self.world.length_m),
+                                )
+                            ) <= obstacle_window_m:
+                                dx_mid = posE_tau_k - obs_east[j]
+                                dy_mid = posN_tau_k - obs_north[j]
+                                required_radius = (
+                                    obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
+                                )
+                                g_mid = dx_mid * dx_mid + dy_mid * dy_mid - required_radius ** 2
+                                if sigma_tau is not None:
+                                    opti.subject_to(g_mid + sigma_tau[k, j] >= 0)
+                                else:
+                                    opti.subject_to(g_mid >= 0)
+
+            # === Boundary conditions ===
+            # Time starts at zero
+            opti.subject_to(t[0] == 0)
+
+            x0_param = None
+            x0_indices = []
+            if convergent_lap:
+                # Periodic boundary conditions (start = end for closed track)
+                opti.subject_to(ux[0] == ux[N])
+                opti.subject_to(uy[0] == uy[N])
+                opti.subject_to(r[0] == r[N])
+                opti.subject_to(dfz_long[0] == dfz_long[N])
+                opti.subject_to(dfz_lat[0] == dfz_lat[N])
+                opti.subject_to(e[0] == e[N])
+                opti.subject_to(dpsi[0] == dpsi[N])
+                opti.subject_to(delta[0] == delta[N])
+                opti.subject_to(fx[0] == fx[N])
+            else:
+                # Fixed initial state (parameterized to allow caching)
+                x0_indices = [i for i, v in enumerate(x0_mask) if v]
+                if x0_indices:
+                    x0_param = opti.parameter(len(x0_indices))
+                    for j, i in enumerate(x0_indices):
+                        opti.subject_to(X[i, 0] == x0_param[j])
+
+            cached = {
+                "opti": opti,
+                "X": X,
+                "U": U,
+                "cost": cost,
+                "sigma_obs": sigma_obs,
+                "sigma_obs_samples": sigma_obs_samples,
+                "s_grid": s_grid,
+                "k_psi_data": k_psi_data,
+                "theta_data": theta_data,
+                "phi_data": phi_data,
+                "track_hw": track_hw,
+                "x0_param": x0_param,
+                "x0_indices": x0_indices,
+                "obs_list": obs_list,
+                "obs_east": obs_east,
+                "obs_north": obs_north,
+                "obs_r_tilde": obs_r_tilde,
+                "obs_s_center": obs_s_center,
+                "obs_e_center": obs_e_center,
+            }
+            self._nlp_cache[cache_key] = cached
+        else:
+            opti = cached["opti"]
+            X = cached["X"]
+            U = cached["U"]
+            cost = cached["cost"]
+            sigma_obs = cached["sigma_obs"]
+            sigma_obs_samples = cached["sigma_obs_samples"]
+            s_grid = cached["s_grid"]
+            k_psi_data = cached["k_psi_data"]
+            theta_data = cached["theta_data"]
+            phi_data = cached["phi_data"]
+            track_hw = cached["track_hw"]
+            obs_list = cached["obs_list"]
+            obs_east = cached["obs_east"]
+            obs_north = cached["obs_north"]
+            obs_r_tilde = cached["obs_r_tilde"]
+            obs_s_center = cached["obs_s_center"]
+            obs_e_center = cached["obs_e_center"]
+            x0_param = cached.get("x0_param")
+            x0_indices = cached.get("x0_indices", [])
+
+        # State components (for initial guesses and logging)
         ux = X[self.IDX_UX, :]
         uy = X[self.IDX_UY, :]
         r = X[self.IDX_R, :]
@@ -270,224 +671,14 @@ class TrajectoryOptimizer:
         delta = U[0, :]
         fx = U[1, :]
 
-        # Arc length grid
-        s_grid = np.linspace(0, N * ds_m, N + 1)
-
-        # Precompute road geometry at each node
-        k_psi_data = np.zeros(N + 1)
-        theta_data = np.zeros(N + 1)
-        phi_data = np.zeros(N + 1)
-        track_hw = np.zeros(N + 1)
-
-        for k in range(N + 1):
-            k_psi_data[k], theta_data[k], phi_data[k] = self._get_road_geometry(s_grid[k])
-            track_hw[k] = self._get_track_half_width(s_grid[k])
-
-        # Precompute centerline EN/heading at nodes for obstacle constraints.
-        posE_cl_data = np.zeros(N + 1)
-        posN_cl_data = np.zeros(N + 1)
-        psi_cl_data = np.zeros(N + 1)
-        for k in range(N + 1):
-            s_mod = s_grid[k] % self.world.length_m
-            posE_cl_data[k] = float(self.world.posE_m_interp_fcn(s_mod))
-            posN_cl_data[k] = float(self.world.posN_m_interp_fcn(s_mod))
-            psi_cl_data[k] = float(self.world.psi_rad_interp_fcn(s_mod))
-        tau_samples = []
-        if obstacle_enforce_midpoints:
-            # Interior checks reduce between-node obstacle penetration.
-            ns = max(1, int(obstacle_subsamples_per_segment))
-            tau_samples = np.linspace(0.0, 1.0, ns + 2)[1:-1].tolist()
-
-        sample_grids = []
-        for tau in tau_samples:
-            s_tau = s_grid[:-1] + tau * ds_m
-            posE_tau = np.zeros(N)
-            posN_tau = np.zeros(N)
-            psi_tau = np.zeros(N)
-            for k in range(N):
-                s_tau_mod = s_tau[k] % self.world.length_m
-                posE_tau[k] = float(self.world.posE_m_interp_fcn(s_tau_mod))
-                posN_tau[k] = float(self.world.posN_m_interp_fcn(s_tau_mod))
-                psi_tau[k] = float(self.world.psi_rad_interp_fcn(s_tau_mod))
-            sample_grids.append((tau, s_tau, posE_tau, posN_tau, psi_tau))
-
-        # Normalize obstacle input.
-        obs_list: List[ObstacleCircle] = []
-        for obs in obstacles or []:
-            if isinstance(obs, ObstacleCircle):
-                obs_list.append(obs)
-            else:
-                obs_list.append(ObstacleCircle(**obs))
-
-        obs_east = np.zeros(len(obs_list))
-        obs_north = np.zeros(len(obs_list))
-        obs_r_tilde = np.zeros(len(obs_list))
-        obs_s_center = np.zeros(len(obs_list))
-        obs_e_center = np.zeros(len(obs_list))
-
-        for j, obs in enumerate(obs_list):
-            if obs.east_m is not None and obs.north_m is not None:
-                east_m = float(obs.east_m)
-                north_m = float(obs.north_m)
-            elif obs.s_m is not None and obs.e_m is not None:
-                east_m, north_m = self._frenet_to_en(float(obs.s_m), float(obs.e_m))
-            else:
-                raise ValueError(
-                    "Each obstacle needs either (east_m, north_m) or (s_m, e_m)."
-                )
-
-            obs_east[j] = east_m
-            obs_north[j] = north_m
-            obs_r_tilde[j] = float(obs.radius_m + obs.margin_m)
-            obs_s_center[j] = float(obs.s_m) if obs.s_m is not None else self._nearest_centerline_s(east_m, north_m)
-            if obs.e_m is not None:
-                obs_e_center[j] = float(obs.e_m)
-            else:
-                obs_e_center[j] = self._estimate_obstacle_e_from_en(east_m, north_m, obs_s_center[j])
-
-        sigma_obs = None
-        sigma_obs_samples = []
-        if len(obs_list) > 0 and obstacle_use_slack:
-            sigma_obs = opti.variable(N + 1, len(obs_list))
-            opti.subject_to(ca.vec(sigma_obs) >= 0)
-            for _ in sample_grids:
-                sigma_tau = opti.variable(N, len(obs_list))
-                opti.subject_to(ca.vec(sigma_tau) >= 0)
-                sigma_obs_samples.append(sigma_tau)
-
-        # === Objective (Tier 1) ===
-        time_cost = t[-1]
-        reg_cost = 0
-        for k in range(N):
-            reg_cost += lambda_u * ca.sumsqr(U[:, k + 1] - U[:, k])
-
-        slack_cost = 0
-        if sigma_obs is not None:
-            slack_cost = obstacle_slack_weight * ca.sum1(ca.sum2(sigma_obs))
-        for sigma_tau in sigma_obs_samples:
-            slack_cost += obstacle_slack_weight * ca.sum1(ca.sum2(sigma_tau))
-
-        cost = time_cost + reg_cost + slack_cost
-
-        opti.minimize(cost)
-
-        # === Dynamics constraints (trapezoidal collocation) ===
-        for k in range(N):
-            x_k = X[:, k]
-            x_kp1 = X[:, k + 1]
-            u_k = U[:, k]
-            u_kp1 = U[:, k + 1]
-
-            # Road geometry at this segment
-            k_psi_k = k_psi_data[k]
-            k_psi_kp1 = k_psi_data[k + 1]
-            theta_k = theta_data[k]
-            theta_kp1 = theta_data[k + 1]
-            phi_k = phi_data[k]
-            phi_kp1 = phi_data[k + 1]
-
-            # State derivatives using unified model
-            dx_dt_k, s_dot_k = self.vehicle.dynamics_dt_path_vec(
-                x_k, u_k, k_psi_k, theta_k, phi_k
-            )
-            dx_dt_kp1, s_dot_kp1 = self.vehicle.dynamics_dt_path_vec(
-                x_kp1, u_kp1, k_psi_kp1, theta_kp1, phi_kp1
-            )
-
-            # Convert to spatial derivatives: dx/ds = (dx/dt) / (ds/dt)
-            dx_ds_k = dx_dt_k / s_dot_k
-            dx_ds_kp1 = dx_dt_kp1 / s_dot_kp1
-
-            # Trapezoidal integration: x_{k+1} = x_k + ds/2 * (f_k + f_{k+1})
-            opti.subject_to(x_kp1 == x_k + ds_m / 2 * (dx_ds_k + dx_ds_kp1))
-
-        # === State constraints ===
-        for k in range(N + 1):
-            # Minimum forward speed (avoid singularity)
-            opti.subject_to(ux[k] >= ux_min)
-
-            # Maximum speed (if specified)
-            if ux_max is not None:
-                opti.subject_to(ux[k] <= ux_max)
-
-            # Frenet non-singularity and forward progress
-            one_minus_kappa_e = 1 - k_psi_data[k] * e[k]
-            # CasADi rejects constant-only constraints; skip this at zero-curvature nodes.
-            if abs(float(k_psi_data[k])) > 1e-12:
-                opti.subject_to(one_minus_kappa_e >= eps_kappa)
-            s_dot_k = (ux[k] * ca.cos(dpsi[k]) - uy[k] * ca.sin(dpsi[k])) / one_minus_kappa_e
-            opti.subject_to(s_dot_k >= eps_s)
-
-            # Track bounds (with buffer)
-            opti.subject_to(e[k] >= -track_hw[k] + track_buffer_m)
-            opti.subject_to(e[k] <= track_hw[k] - track_buffer_m)
-
-            # Heading error bounds
-            opti.subject_to(dpsi[k] >= -np.pi/3)
-            opti.subject_to(dpsi[k] <= np.pi/3)
-
-        # === Control constraints ===
-        for k in range(N + 1):
-            opti.subject_to(delta[k] >= -p.max_delta_rad)
-            opti.subject_to(delta[k] <= p.max_delta_rad)
-            opti.subject_to(fx[k] >= p.min_fx_kn)
-            opti.subject_to(fx[k] <= p.max_fx_kn)
-
-        # === Obstacle constraints (hard by default; optional slack) ===
-        if len(obs_list) > 0:
-            for k in range(N + 1):
-                posE_k = posE_cl_data[k] - e[k] * np.sin(psi_cl_data[k])
-                posN_k = posN_cl_data[k] + e[k] * np.cos(psi_cl_data[k])
-                for j in range(len(obs_list)):
-                    if abs(self._wrap_s_dist(float(s_grid[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
-                        dx = posE_k - obs_east[j]
-                        dy = posN_k - obs_north[j]
-                        required_radius = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
-                        g_kj = dx * dx + dy * dy - required_radius ** 2
-                        if sigma_obs is not None:
-                            opti.subject_to(g_kj + sigma_obs[k, j] >= 0)
-                        else:
-                            opti.subject_to(g_kj >= 0)
-            for idx, (tau, s_tau, posE_tau, posN_tau, psi_tau) in enumerate(sample_grids):
-                sigma_tau = sigma_obs_samples[idx] if idx < len(sigma_obs_samples) else None
-                for k in range(N):
-                    e_tau = (1.0 - tau) * e[k] + tau * e[k + 1]
-                    posE_tau_k = posE_tau[k] - e_tau * np.sin(psi_tau[k])
-                    posN_tau_k = posN_tau[k] + e_tau * np.cos(psi_tau[k])
-                    for j in range(len(obs_list)):
-                        if abs(self._wrap_s_dist(float(s_tau[k]), float(obs_s_center[j]), float(self.world.length_m))) <= obstacle_window_m:
-                            dx_mid = posE_tau_k - obs_east[j]
-                            dy_mid = posN_tau_k - obs_north[j]
-                            required_radius = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
-                            g_mid = dx_mid * dx_mid + dy_mid * dy_mid - required_radius ** 2
-                            if sigma_tau is not None:
-                                opti.subject_to(g_mid + sigma_tau[k, j] >= 0)
-                            else:
-                                opti.subject_to(g_mid >= 0)
-
-        # === Boundary conditions ===
-        # Time starts at zero
-        opti.subject_to(t[0] == 0)
-
-        if convergent_lap:
-            # Periodic boundary conditions (start = end for closed track)
-            opti.subject_to(ux[0] == ux[N])
-            opti.subject_to(uy[0] == uy[N])
-            opti.subject_to(r[0] == r[N])
-            opti.subject_to(dfz_long[0] == dfz_long[N])
-            opti.subject_to(dfz_lat[0] == dfz_lat[N])
-            opti.subject_to(e[0] == e[N])
-            opti.subject_to(dpsi[0] == dpsi[N])
-            opti.subject_to(delta[0] == delta[N])
-            opti.subject_to(fx[0] == fx[N])
-        else:
-            # Fixed initial state
-            if x0 is not None:
-                for i in range(self.nx):
-                    if x0[i] is not None:
-                        opti.subject_to(X[i, 0] == x0[i])
-
         # === Initial guess ===
+        if x0 is not None and not convergent_lap:
+            if x0_indices and x0_param is not None:
+                x0_vals = [float(x0[i]) for i in x0_indices]
+                opti.set_value(x0_param, x0_vals)
+            elif x0_indices:
+                raise RuntimeError("x0 constraint indices defined but x0_param missing.")
+
         if X_init is not None:
             if X_init.shape != (self.nx, N + 1):
                 raise ValueError(f"X_init must have shape {(self.nx, N + 1)}, got {X_init.shape}")

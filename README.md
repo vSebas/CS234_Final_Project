@@ -107,7 +107,7 @@ Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
 - Current demo/production configuration solves a **full lap** with periodic boundary conditions.
 - Obstacle overlap visualization bug was fixed by unifying `world.map_match_vectorized` with optimizer Frenet-to-ENU convention.
 - SCP is not the active production path.
-- Detailed plan: `plan_obstacle_avoidance_ipopt.md`.
+- Detailed plan: `PLAN.md`.
 
 ---
 
@@ -211,6 +211,16 @@ python run_trajopt_batch_eval.py --num-scenarios 20 --seed 42
 Batch outputs are written to `results/trajectory_optimization/`:
 - `trajopt_batch_eval_<timestamp>.json` (summary)
 - `trajopt_batch_eval_<timestamp>.csv` (per-scenario details)
+
+### Dataset Generation (Stage A, No Obstacles)
+
+Generate a no-obstacle dataset using a periodic lap and circular shifts:
+
+```bash
+python data/generate_dataset.py --num-episodes 1000
+```
+
+The dataset config is captured in `data/DATASET_CONFIG.md`.
 
 ### Vehicle Simulation
 

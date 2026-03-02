@@ -148,12 +148,18 @@ def parse_args():
     parser.add_argument("--accept-min-clearance-m", type=float, default=None, help="Acceptance gate min dense clearance [m].")
     parser.add_argument("--accept-max-slack", type=float, default=None, help="Acceptance gate max obstacle slack.")
     parser.add_argument("--obs-window-m", type=float, default=None, help="Along-track obstacle activation window [m].")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default="results/trajectory_optimization/nlp",
+        help="Directory to write logs and plots.",
+    )
     return parser.parse_args()
 
 
 def run_demo(args):
-    output_dir = project_root / "results" / "trajectory_optimization" / "nlp"
-    output_dir.mkdir(exist_ok=True)
+    output_dir = project_root / args.output_dir
+    output_dir.mkdir(parents=True, exist_ok=True)
     log_file = output_dir / "run_trajopt_demo_output.log"
 
     with open(log_file, "w", encoding="utf-8") as lf:
@@ -201,8 +207,9 @@ def run_demo(args):
             print(f"\n3. Loaded obstacles from map: {len(obstacles)}")
             optimizer = TrajectoryOptimizer(vehicle, world)
 
-            # Paper-aligned default discretization (N=260 -> ds=1 m on the 260 m oval).
-            N = int(args.n if args.n is not None else os.environ.get("N", "260"))
+            # Default discretization tuned for faster solves on the oval (N=120).
+            # See docs/OPTIMIZER_CONFIG.md for the selected defaults.
+            N = int(args.n if args.n is not None else os.environ.get("N", "120"))
             ds_m = world.length_m / N
             obstacle_subsamples = int(args.obs_subsamples if args.obs_subsamples is not None else os.environ.get("OBS_SUBSAMPLES", "7"))
             obstacle_enforce_midpoints = (
@@ -217,7 +224,7 @@ def run_demo(args):
             )
             obstacle_slack_weight = float(args.obs_slack_weight if args.obs_slack_weight is not None else os.environ.get("OBS_SLACK_WEIGHT", "1e4"))
             track_buffer_m = float(args.track_buffer_m if args.track_buffer_m is not None else os.environ.get("TRACK_BUFFER_M", "0.0"))
-            lambda_u = float(args.lambda_u if args.lambda_u is not None else os.environ.get("LAMBDA_U", "0.001"))
+            lambda_u = float(args.lambda_u if args.lambda_u is not None else os.environ.get("LAMBDA_U", "0.005"))
             base_clearance_m = float(args.obstacle_clearance_m if args.obstacle_clearance_m is not None else os.environ.get("OBSTACLE_CLEARANCE_M", "0.0"))
             obstacle_aware_init = os.environ.get("OBSTACLE_AWARE_INIT", "1") != "0"
             obstacle_init_sigma_m = float(os.environ.get("OBSTACLE_INIT_SIGMA_M", "8.0"))

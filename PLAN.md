@@ -116,242 +116,258 @@ Expose new hyperparameters in config:
 
 ## 2) Dataset generation pipeline (needed before DT)
 
-### 2.1 Define a canonical scenario schema (versioned)
+**Goal:** generate a *large* and *diverse* offline dataset without paying for 1000+ expensive full-lap non‑periodic IPOPT solves. We do this with two complementary episode types:
 
-Create: `data/schema.py` and a JSON-serializable scenario dict:
+- **Fix A — “circular shifts / start-state sampling” (cheap, high volume):**
+  solve a small library of **periodic** optimal laps, then create many episodes by **rotating** the trajectory start index.
+- **Fix B — short-horizon “repair” optimizations (moderate cost, off-manifold variety):**
+  perturb the start state (e.g., random `e0`, `dpsi0`), then solve a **short segment** OCP that rejoins a nominal lap.
 
-- Track/map:
-  - map file name + hash (or full track parameters if generated)
-- Discretization:
-  - `N`, `ds`, obstacle checking settings
-- Obstacles (variable count): list of `{s, e, radius, margin}` (Frenet recommended)
-- Solver config:
-  - IPOPT options, Tier-1 weights/buffers, acceptance thresholds
-- Random seed
+This avoids the failure mode you observed: **random `e0` + non‑periodic full lap is a much harder boundary-value problem and can be 10× slower** than periodic lap closure.
 
-Store each solved trajectory with a **future-proof contract**: keep one canonical “episode header” plus per-step arrays. DT can use a reduced observation, but we preserve the full internal model state for replay, labeling (e.g., constraints-to-go), and exact warm-start rollouts.
+---
+
+### 2.1 Canonical scenario + trajectory schema (versioned)
+
+Create: `data/schema.py`
+
+Store each dataset item as an **episode**:
+\[
+\tau = (P_{\text{episode}},\; \{P_k, X_k, U_k, dt_k, rtg_k\}_{k=0}^{T})
+\]
+where `P_episode` is the canonical scenario definition (map + obstacles + discretization), and `P_k` is any per-step derived view (e.g., “M nearest obstacles ahead”).
 
 **Episode header (canonical, required):**
 - `episode_id`
-- `map_id` **and** a `map_version_hash` (or filename hash) so geometry is reproducible
-- discretization: `N`, `ds`, and either `s_grid` (preferred) or `(s0, L)`
-- full obstacle list for the episode (canonical scene description):
-  - recommended Frenet form: `obstacles = [{s_obs, e_obs, r_obs, margin}, ...]`
-- `solver_config_hash` (or embed the key IPOPT/optimizer settings)
+- `episode_type`: `"shift"` or `"repair"`
+- `map_id` **and** `map_version_hash` (hash of the `.mat` / map params used)
+- discretization:
+  - `ds`
+  - `T` (number of steps in this episode; `T=N` for full-lap episodes; `T=H` for repair segments)
+  - `s0_abs_m` (absolute arc-length start along centerline, in `[0, L)`)
+  - optional: `k0` (start index in the source periodic lap, for traceability)
+- obstacles (canonical scene description):
+  - `obstacles = [{s_obs_m, e_obs_m, r_obs_m, margin_m}, ...]` (Frenet form recommended)
+  - for no-obstacle episodes: empty list
 
 **Per-step arrays (required):**
-- `s_m[k]`: arc length at node (length `N+1`)
-- `X_full[k]`: **full optimizer/model state** (keep internal dynamics complete)
-  - include weight-transfer states even if DT does not observe them: `dfz_long`, `dfz_lat`
-  - include path states `e`, `dpsi`, and vehicle states `ux, uy, r`
-  - include time either as `t[k]` or (preferred) just store `dt[k]`
+- `s_abs_m[k]` (absolute arc-length at each step; wrap with `mod L`)
+- `X_full[k]`: full model/optimizer state (keep internal dynamics complete)
+  - include `dfz_long`, `dfz_lat` even if DT does not observe them
+  - include `ux, uy, r, e, dpsi`
 - `U[k]`: controls `[delta, Fx]`
-- `dt[k]`: per-step time increment (e.g., `dt_k ≈ ds / sdot_k`)
-- `reward[k]`: store `reward = -dt` (minimum-time)
-- `rtg[k]`: return-to-go (backward cumulative sum of `reward`)
+- `dt[k]`: per-step time increment (store explicitly)
+- `reward[k] = -dt[k]` (minimum-time reward)
+- `rtg[k]`: return-to-go (backward cumulative sum of reward)
 
-**Global pose (required; cached but treated as part of the contract):**
-- `pos_E[k]`, `pos_N[k]`: world-frame position at the node (ENU)
-- `yaw_world[k]`: world yaw at the node
-  - compute as `yaw_world[k] = psi_centerline(s_k) + dpsi[k]` (then wrap to \((-\pi,\pi]\))
+**Global pose cache (required; you explicitly asked to pin this):**
+- `posE_m[k]`, `posN_m[k]` (ENU)
+- `yaw_world_rad[k] = psi_centerline(s_abs_k) + dpsi_k`
 
-Rationale: global pose can be derived from `(s,e,dpsi)` and the map, but storing it makes training/evaluation/labeling stable even if map code evolves.
+These are derivable from `(map_id, s_abs, e, dpsi)` but saving them avoids future recomputation and makes debugging/plots cheap.
 
 **Per-step map features (strongly recommended, cheap insurance):**
-- `kappa[k] = kappa(s_k)` (track curvature at the node)
-- `half_width[k]` (or equivalent bounds data)
+- `kappa[k] = kappa(s_abs_k)` (track curvature)
+- `half_width[k]` (or equivalent bounds)
 - `grade[k]`, `bank[k]` (store zeros for flat tracks; keeps schema stable)
 
-**Optional cached fields (derived; do not treat as canonical):**
-- `s_dot[k]`, `one_minus_kappa_e[k]` (handy for fast validity/CtG labeling)
-- `obs_feat[k, M, feat_dim]`: the “M nearest obstacles ahead” padded feature tensor used by DT (can be recomputed from `obstacles` + `s_grid`)
-
-**Important distinction (implementation):**
-- The **optimizer and rollout model** operate on `X_full`.
-- The **DT observation** can be a subset, e.g. `[ux, uy, r, e, dpsi, pos_E, pos_N, yaw_world] + track + obstacle features`. You do *not* need to feed `dfz_long/dfz_lat` to DT, but you should still **store them** and propagate them internally during rollout.
-
-Write one “manifest” file per dataset shard:
-- `data/datasets/<name>/manifest.jsonl`
-
-### 2.2 Generate data (accepted solutions only) — concrete staged procedure
-
-Create: `data/generate_dataset.py`
-
-Use two stages:
-- **Stage A:** no obstacles (pipeline sanity + “base raceline” + start-state definition)
-- **Stage B:** randomized obstacles (actual training dataset)
-
-Both stages should use the same acceptance-gated retry schedule style as `run_trajopt_demo.py` / `run_trajopt_batch_eval.py`, because it’s already proven to be reliable in `results/trajectory_optimization/`.
-
-#### 2.2.1 Stage A — no obstacles (define start + generate base laps)
-
-Goal: validate the Tier-1 optimizer, dataset writing, and pose computations before adding obstacles.
-
-**Map choice**
-- Use the map that is already stable in your logs: `maps/Oval_Track_260m.mat` (or the current default map used in your demos).
-
-**Discretization**
-- Start with the values that are already working:
-  - `N = 120`
-  - `ds = world.length_m / N` (do *not* hardcode)
-- Track buffer: `track_buffer_m = 0.0` (increase later if needed).
-
-**Start definition**
-- The trajectory is parameterized by `s` and solved with periodic closure (`convergent_lap=True`).
-- Define node `k=0` as **the start line** at:
-  - `s_m[0] = 0.0`
-  - `t[0] = 0.0` (already constrained in the optimizer)
-- The solver chooses `X_full[:,0]` (subject to periodic closure), but the dataset start is always the node at `s=0`.
-
-**Procedure**
-1) Sample a seed and build a scenario with **no obstacles**.
-2) Solve once with `convergent_lap=True`.
-3) Compute and save:
-   - `pos_E,pos_N = world.map_match_vectorized(s_m, e)` for each node
-   - `yaw_world = psi_centerline(s_m) + dpsi`
-4) Save the trajectory as a single episode.
-
-**Optional (useful) augmentation without changing physics**
-- Because the solution is periodic, you can create *additional episodes* by circularly shifting the node index:
-  - roll `s_m, X_full, U, dt, kappa, half_width, pos_E, pos_N, yaw_world` by a random shift
-  - then re-wrap `s_m` to be monotone in `[0, L]` by subtracting `s_m[0]` modulo `L` (store `s_offset` in the episode header if you do this)
-- This is optional; it’s mostly a way to create more diverse *starting contexts* from one periodic lap. The real diversity comes from obstacles and/or multiple maps.
-
-Stage A “done” when:
-- you can write/read episodes reliably,
-- pose/yaw fields look correct in plots,
-- the optimizer solves deterministically and passes acceptance checks.
-
-#### 2.2.2 Stage B — randomized obstacles (actual training dataset)
-
-Goal: generate a large set of **accepted**, obstacle-avoiding minimum-time trajectories.
-
-**Obstacle count**
-- Use a curriculum (start easy, then hard):
-  - B1: `n_obs ~ Uniform{1,2}`
-  - B2: `n_obs ~ Uniform{3,6}`  (this matches what you already evaluate in `run_trajopt_batch_eval.py`)
-  - (optional later) B3: `n_obs ~ Uniform{4,8}`
-
-**Obstacle size + margin**
-Start with the ranges that already appear stable in your batch eval sampler:
-- radius `r ~ Uniform(1.2, 1.8)` meters
-- margin `m ~ Uniform(0.6, 0.9)` meters
-- required radius (Tier-1): `R_safe = r + m + R_vehicle` (include footprint)
-
-**Obstacle placement (Frenet; consistent with current sampler)**
-For each obstacle (repeat until you have `n_obs`, cap attempts to avoid infinite loops):
-1) Sample along-track location:
-   - `s_obs ~ Uniform(0, L)`
-   - enforce a minimum along-track separation so obstacles aren’t stacked:
-     - `min_ds = 0.12 * L / max(1, n_obs)`  
-     - reject any new obstacle with `|wrap_s_dist(s_obs, s_prev)| < min_ds`
-2) Sample lateral offset:
-   - `hw = track_width(s_obs)/2`
-   - `e_limit = hw - track_buffer_m - (r + m + R_vehicle) - edge_buffer`
-   - use `edge_buffer = 0.4 m` (current batch eval uses this)
-   - require `e_limit > 0.4 m`, else resample
-   - `e_obs ~ Uniform(-e_limit, e_limit)`
-
-**Scenario prefilter (cheap, avoids obvious infeasible setups)**
-- Reject an obstacle if `(r + m + R_vehicle) >= (hw - track_buffer_m - 0.4)` at its `s_obs`.
-- Optionally reject obstacle pairs that overlap in world-frame distance if they’re too close (not required if you enforce `min_ds`, but it’s a helpful extra check).
-
-**Acceptance gates (keep only clean trajectories)**
-- `result.success == True`
-- `max_obstacle_slack == 0` (if using slack; Tier-1 default is no slack)
-- dense min clearance `>= -1e-3` m (your current “practical epsilon”)
-
-**Dense post-check (do not trust node-only constraints)**
-- For each segment `[k,k+1]`, sample `S` interior points (e.g., `S=7`, which you already use in results).
-- Convert each `(s,e)` sample to world position and check distance to every obstacle.
-- Record `min_obstacle_clearance` and reject if below threshold.
-
-#### 2.2.3 Retry schedule (proven by your results)
-
-For each sampled obstacle scenario, attempt a small schedule of “increasing robustness” configs until one is accepted.
-
-Start from what is already working in `run_trajopt_batch_eval.py`:
-
-- Attempt 1: baseline
-  - `N=120`, `subsamples=7`, `obstacle_clearance_m=0.0`
-- Attempt 2: higher N
-  - `N=160`, `subsamples=7`, `obstacle_clearance_m=0.0`
-- Attempt 3: more subsamples
-  - `N=160`, `subsamples=11`, `obstacle_clearance_m=0.0`
-- Attempt 4: more conservative
-  - `N=180`, `subsamples=13`, `obstacle_clearance_m=0.10`
-
-Notes:
-- In Tier-1, “subsamples” should apply to **post-check** (and any obstacle-aware initializer), not to extra constraints inside the NLP.
-- Keep `obstacle_aware_init=True` (your current initializer already biases `e(s)` away from obstacles and helps convergence).
-
-Always log:
-- sampled obstacles (canonical list)
-- which attempt was accepted
-- solve iterations/time, final lap time
-- min clearance after dense check
-
-#### 2.2.4 Splits
-
-Split by scenario seed (not by individual trajectories) so evaluation is honest:
-- train/val/test = 80/10/10 or similar
-- if multi-map later: split by `(map_id, seed)` and reserve held-out maps for test.
+**Optional cached DT features (derived; not canonical):**
+- `obs_feat[k, M, feat_dim]`: padded “M nearest obstacles ahead” tensor
+- `one_minus_kappa_e[k]`, `s_dot[k]` (fast validity/CtG labeling)
 
 ---
 
-### 2.3 Add a deterministic “baseline initializer” (for comparisons)
+### 2.2 Stage 0 — Readiness gate (before generating lots of data)
 
-Create a baseline warm-start generator that does **not** use DT:
-- e.g., constant `ux`, `e=0`, `dpsi=0`, mild `F_x`, and steering from curvature.
+Use your existing evaluation harness (`run_trajopt_demo.py`, `run_trajopt_batch_eval.py`) to confirm the optimizer is in a “dataset-ready” regime.
 
-You will compare DT warm-start against this baseline.
+Minimum gates:
+- no-obstacle periodic solves: near-100% accepted
+- obstacle scenarios (curriculum count): stable accepted rate with dense post-check enabled
+- median IPOPT iterations/time are not exploding (save logs + CSV/JSON like you already do in `results/trajectory_optimization/`)
+
+If these gates fail, fix optimizer config first (init, weights, bounds, obstacle margins) before generating data.
 
 ---
 
-### 2.4 Dataset sizing targets (how many samples)
+### 2.3 Stage A — No-obstacle “base lap library” (few solves → many episodes) (Fix A)
 
-Decision Transformers train on **sequence windows** (context length \(K\)), so the relevant scale is **total timesteps** (not just number of laps).
+**A1) Solve periodic, no-obstacle base laps (expensive step, done rarely)**
 
-Assume a typical lap discretization of \(N\approx 200\text{–}400\) steps (given your `ds`). Targets below refer to **accepted** trajectories only.
+For each map:
+- `convergent_lap=True`
+- obstacles: none
+- Tier 1 objective (min time + Δu)
+- start with your proven discretization (e.g., `N=120` on the medium oval) then adjust if needed.
 
-- **Stage A — pipeline / POC (single oval map):** produce 1–10 obstacle-free laps (plus optional circular-shift augmentation for sanity). This stage is not about scale.
-- **Stage B — generalize across obstacle layouts (same map):** ~3k–10k accepted trajectories (≈1–3M timesteps)
-- **Stage C — multi-map generalization:** ~20k–60k trajectories total across maps (≈5–20M timesteps), depending on map diversity
+Generate `B` base laps per map:
+- quick start: `B=5`
+- stronger coverage: `B=20`
 
-Operationally: keep generating until you hit a **timesteps budget** per split (train/val/test), not an attempted-solve count.
+To avoid having 20 identical solutions, vary one knob slightly per solve:
+- `lambda_u ∈ {0.002, 0.005, 0.01}` (or a small random jitter around your baseline)
+- optionally: small changes in `ux_min`
 
-### 2.5 Reward + Return-to-Go (RTG): include it in the dataset
+Store each base lap as a canonical full-lap trajectory episode (with `episode_type="base"` optionally, not used for training directly unless you want).
 
-Even though obstacle avoidance is enforced by constraints + acceptance filtering, DT needs a conditioning signal. Use **time** as the reward source:
+**A2) Create many no-obstacle episodes by “circular shift / start-state sampling” (cheap step)**
 
-- Store per-step time increments:
+Given a periodic lap with arrays `X[0..N]`, `U[0..N]`, `dt[0..N-1]`:
+
+1) sample random `k0 ∈ [0, N-1]`
+2) rotate (wrap) the sequence start:
+   - `X_ep[k] = X[(k0 + k) mod N]`
+   - `U_ep[k] = U[(k0 + k) mod N]`
+   - `dt_ep[k] = dt[(k0 + k) mod N]`
+3) set `s0_abs_m = s_grid[k0]`, and `s_abs_m[k] = (s0_abs_m + k*ds) mod L`
+4) recompute `reward=-dt` and `rtg` (don’t “rotate” RTG; recompute cleanly)
+
+This gives you a distribution of `e0` and speeds across the lap **without solving new NLPs**.
+
+**A3) No-obstacle episode targets**
+To produce ~1k no-obstacle training episodes cheaply:
+- solve `B=10` base laps total
+- sample `100` shifts from each → `1000` episodes
+
+---
+
+### 2.4 Stage A+ — No-obstacle “repair segments” (off-manifold variety) (Fix B)
+
+Fix A yields “on-raceline” variety. Fix B teaches recovery from off-raceline initial states.
+
+**B0) Choose a nominal segment**
+- sample `(base_lap_id, k0)`
+- define absolute start `s0_abs_m = s_grid[k0]`
+- take nominal terminal target from the base lap at horizon `H`:
+  - `kT = (k0 + H) mod N`
+  - `x_target_obs = X_base_obs[kT]` (DT-observation subset)
+
+**B1) Perturb the initial state (controlled, feasible)**
+Start from the nominal state `x_nom0 = X_base[:, k0]` and perturb:
+- `e0 += Uniform(-0.5, 0.5) m` (clamp within track bounds minus margin)
+- `dpsi0 += Uniform(-0.10, 0.10) rad`
+- optional (small): `uy0 += Uniform(-0.5, 0.5) m/s`, `r0 += Uniform(-0.2, 0.2) rad/s`
+Keep `ux0` unchanged (or very lightly perturbed) to avoid infeasibility.
+
+**B2) Solve a short-horizon segment OCP (moderate cost)**
+- horizon: `H = 60` steps (>= 2× your DT context `K=30`; adjust if you change K)
+- `convergent_lap=False` (segment, not periodic)
+- enforce initial condition: `X[:,0] = x0_pert` (maskable constraint)
+- **add a terminal “rejoin” penalty** so the segment doesn’t drift:
   \[
-  dt_k \approx \frac{\Delta s}{\dot s_k}
+  J \;=\; t_H \;+\; \lambda_u\sum\|u_{k+1}-u_k\|^2 \;+\; w_T\|x_{obs,H}-x_{target\_obs}\|^2
   \]
-- Define per-step reward:
-  \[
-  r_k = -dt_k
-  \]
-- Compute return-to-go (RTG) offline (backward cumulative sum):
-  \[
-  RTG_k = \sum_{j=k}^{N-1} r_j = -(t_N - t_k)
-  \]
+  Choose `w_T` so the segment ends near the nominal manifold (start with `w_T` ~ 10–100 after normalization).
 
-Implementation detail: during dataset build, compute `dt`, `reward`, and `rtg` arrays and save them alongside `X` and `U` in each trajectory file (NPZ/HDF5). This keeps training code simple and avoids recomputation bugs.
+**B3) Implementation requirement: absolute s-offset support**
+To solve a segment starting at arbitrary `s0_abs_m`, the optimizer must evaluate map quantities at:
+- `s_abs_m[k] = (s0_abs_m + k*ds) mod L`
 
-### 2.6 Track map strategy (do we need more maps?)
+So add a `s0_offset_m` (parameter) to the optimizer’s geometry lookup path (curvature, centerline pose, bounds). This is also needed for obstacle Δs computations to be consistent.
 
-- **To finish the project (DT warm-start works on the oval):** one map is enough. Randomize obstacle layouts aggressively.
-- **To claim generalization:** add more maps.
+**B4) Mix ratio**
+A good default mix per split:
+- **80%** shift episodes (Fix A)
+- **20%** repair episodes (Fix B)
 
-Recommended progression:
-- **Stage A/B:** 1 map + randomized obstacles (ship the full pipeline)
-- **Stage C:** add **5–10 additional tracks** with diverse curvature/width; reserve **1–2 held-out test maps** never used in training
+---
 
-Splitting rule:
-- split by `(map_id, scenario_seed)` so val/test are honest
-- if multi-map, ensure **test maps are unseen** (strongest generalization check)
+### 2.5 Stage B — Obstacle dataset (periodic obstacle laps + shifts + repairs)
 
+Obstacle data is where you pay for solves again. Use caching + warm-start + curriculum to keep it sane.
+
+**C1) Obstacle sampling (curriculum)**
+Reuse the obstacle sampling distributions you already exercised in `run_trajopt_batch_eval.py`:
+
+- obstacle count:
+  - start: `n_obs ∈ {1,2}`
+  - then: `n_obs ∈ {3,4,5,6}`
+- radius: `r_obs_m ~ Uniform(1.2, 1.8)`
+- margin: `margin_m ~ Uniform(0.6, 0.9)`
+- longitudinal placement:
+  - sample `s_obs_m` uniformly in `[0, L)` with a minimum spacing `Δs_min` (use your existing spacing logic)
+- lateral placement:
+  - sample within safe bounds: `e_obs ∈ [e_min + buffer, e_max - buffer]`
+  - where `buffer = r_obs + margin + 0.4m` (conservative)
+
+**C2) Solve periodic full-lap obstacle OCPs (expensive step)**
+- `convergent_lap=True`
+- warm-start from the nearest no-obstacle base lap solution on the same map
+- keep node-only obstacle constraints in the NLP + dense post-check + retries
+
+**Speed infrastructure (recommended)**
+- Use a fixed maximum obstacle slots `Jmax` (e.g., 6) and pad unused obstacles so the NLP structure is constant.
+- Cache NLPs by `(map_id/hash, N, ds, Jmax, convergent_lap, x0_mask)`.
+
+**C3) Multiply each accepted obstacle lap into many episodes (Fix A)**
+For each accepted obstacle lap:
+- generate `Kshift=5..20` shifted episodes (cheap)
+- each episode keeps the same obstacle list but starts at a different `s0_abs_m`
+
+**C4) Obstacle repair segments (Fix B variant)**
+As in Stage A+, but:
+- start from a shifted obstacle lap state
+- perturb `e0`, `dpsi0` modestly
+- solve a short horizon segment with the same obstacle set
+- add terminal rejoin penalty toward the nominal obstacle-avoiding lap segment
+
+This teaches corrective behavior near obstacles without full-lap non-periodic costs.
+
+---
+
+### 2.6 Dataset sizing targets (shift + repair)
+
+Targets below refer to **accepted episodes**. Let `N≈120` for full laps and `H≈60` for segments.
+
+**Stage A (no obstacles, single map):**
+- 10 periodic base laps
+- 800 shift episodes + 200 repair episodes  → ~1k episodes total
+
+**Stage B (obstacles, single map, curriculum):**
+- 50–200 accepted periodic obstacle laps (depending on acceptance rate)
+- per obstacle lap: 10 shift episodes (typical) → 500–2k obstacle episodes
+- add 10–20% repair segments for recovery diversity
+
+**Stage C (multi-map):**
+- generate 5–10 additional tracks (see below)
+- hold out 1–2 maps entirely for test
+- scale obstacle episodes until you hit a total timesteps budget (e.g., 1–3M to start, 5–20M for strong generalization)
+
+---
+
+### 2.7 Track map strategy (including “new race tracks”)
+
+To finish the project on the oval, one map is enough. To claim generalization, add more tracks.
+
+**Sources already in the repo:**
+- `maps/MAP1.mat`, `maps/Medium_Oval_Map_260m.mat`
+- `maps/reference/racetrack-database-master.zip`
+- `maps/reference/Procedural_race_track_Isaac_lab-main.zip`
+- `maps/reference/procedural-tracks-master.zip`
+
+**Recommended approach:**
+1) Keep Stage A/B on the oval to stabilize the pipeline.
+2) Add ~10 procedural tracks (different seeds) and export to your `.mat` format.
+3) Split by `map_id` so test maps are unseen during training.
+
+---
+
+### 2.8 Concrete code to add/modify for dataset generation
+
+**Must add (data scripts):**
+- `data/build_base_laps.py` (solve and store periodic no-obstacle base laps)
+- `data/make_shift_episodes.py` (turn base laps / obstacle laps into many shifted episodes)
+- `data/repair_segments.py` (generate short-horizon repair episodes)
+- `data/write_shards.py` (NPZ/HDF5 shards + `manifest.jsonl`)
+
+**Must modify (optimizer support for segments):**
+- `planning/optimizer.py`
+  - accept a `s0_offset_m` parameter to evaluate map geometry at `s_abs_m[k]`
+  - support segment mode with `H` and terminal penalty target
+  - keep `x0` constraint parameterized (so caching remains valid across random `x0`)
+
+**One manifest per dataset shard:**
+- `data/datasets/<name>/manifest.jsonl` with paths + counts + hashes
 
 ## 3) Decision Transformer design for this repo
 
@@ -570,7 +586,10 @@ Plot:
 
 ### Must add
 - `data/schema.py`
-- `data/generate_dataset.py`
+- `data/build_base_laps.py`
+- `data/make_shift_episodes.py`
+- `data/repair_segments.py`
+- `data/write_shards.py`
 - `data/datasets/<name>/...`
 - `dt/` (or `models_dt/`): DT model + trainer
   - `dt/model.py`

@@ -11,8 +11,6 @@ Supported tracks:
 - TRACK5_350m: Isaac-style (reference-faithful)
 """
 
-from __future__ import annotations
-
 import argparse
 from pathlib import Path
 

@@ -119,6 +119,38 @@ results/trajectory_optimization/nlp
 
 ---
 
+## 5.1) Dataset Generator Defaults (`data/generate_dataset.py`)
+
+Stage A (no obstacles) uses **periodic full-lap** solves and generates dataset
+episodes by circularly shifting the lap start.
+
+- `N = 120`
+- `ds_m = track_length / N`
+- `lambda_u = 0.005`
+- `ux_min = 0.5` (avoid zero-speed singularities)
+- `convergent_lap = True` (periodic full lap)
+- Episode diversity: **circular shifts** of the same solved lap
+
+The exact settings are recorded in `data/DATASET_CONFIG.md`.
+
+## 5.2) Dataset Generation Constraints & Findings
+
+**Random lateral offsets (`e0`) + non-periodic runs are not used.**
+They are significantly slower and conflict with periodic closure.
+
+Observed (Oval_Track_260m, N=120, no obstacles):
+- Periodic lap solve: ~22–27 s
+- Non-periodic + random `e0`: ~200 s per episode
+
+Attempted IPOPT loosening:
+- `tol=1e-4`, `acceptable_tol=1e-3`, `max_iter=500` → still ~180 s
+- `tol=1e-3`, `acceptable_tol=1e-2`, `max_iter=200` → failed acceptance
+
+Conclusion: for Stage A, periodic solves + circular shifts are the only
+practical approach at 1k scale.
+
+---
+
 ## 6) Track Dependence Summary
 
 **Likely to change with track**
@@ -172,3 +204,18 @@ File: `results/trajectory_optimization/nlp/trajopt_tuning_grid_medium_oval_20260
 
 **Final chosen config (paper-aligned, smooth/fast balance)**
 - `N=120`, `lambda_u=0.005`, `ux_min=3.0`
+
+---
+
+## 9) Speedup Options (Summary)
+
+**Already implemented**
+- Skip midpoint/sample-grid work when obstacles are absent.
+- Vectorized track geometry lookups.
+- NLP caching for repeated solves with the same configuration.
+
+**Still available**
+- IPOPT `hessian_approximation = limited-memory`
+- Relax tolerances for dataset mode (validate acceptance)
+- Faster linear solver if available (MA57 / Pardiso)
+- Parallelize dataset generation (multiple processes)
