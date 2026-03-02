@@ -1,0 +1,85 @@
+[2026-03-02 14:28:01] Starting dataset build.
+[2026-03-02 14:28:01] Stage A1: base laps already present; skipping.
+[2026-03-02 14:28:01] Running per-track stages in parallel (workers=6).
+[2026-03-02 14:28:01] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK4_315m (target=83)
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-02 14:28:01] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-02 14:28:01] Stage B: target accepted repairs for Oval_Track_260m (target=84)
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK1_280m (target=84)
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK3_300m (target=83)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 84 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK5_330m (target=83)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] Stage B: target accepted repairs for TRACK2 (target=83)
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-02 14:28:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[attempt 20/420] repairs accepted=9/84 elapsed=12.9s
+[accepted 10/84] attempts=21/420 elapsed=22.2s
+[attempt 10/415] repairs accepted=8/83 elapsed=32.3s
+[attempt 10/415] repairs accepted=7/83 elapsed=35.0s
+[attempt 10/415] repairs accepted=7/83 elapsed=35.8s
+[attempt 10/415] repairs accepted=8/83 elapsed=37.7s
+[attempt 10/420] repairs accepted=4/84 elapsed=38.6s
+[accepted 10/83] attempts=11/415 elapsed=42.2s
+[accepted 10/83] attempts=12/415 elapsed=51.9s
+[accepted 10/83] attempts=13/415 elapsed=53.4s
+[accepted 10/83] attempts=13/415 elapsed=56.6s
+[attempt 30/420] repairs accepted=14/84 elapsed=61.8s
+[accepted 10/84] attempts=18/420 elapsed=77.7s
+[attempt 20/415] repairs accepted=16/83 elapsed=78.4s
+[attempt 20/415] repairs accepted=16/83 elapsed=78.7s
+[attempt 20/415] repairs accepted=13/83 elapsed=79.5s
+[attempt 20/420] repairs accepted=11/84 elapsed=81.7s
+[attempt 20/415] repairs accepted=13/83 elapsed=86.4s
+[accepted 20/83] attempts=25/415 elapsed=108.7s
+[accepted 20/84] attempts=39/420 elapsed=111.3s
+[attempt 40/420] repairs accepted=20/84 elapsed=111.3s
+[accepted 20/83] attempts=27/415 elapsed=118.3s
