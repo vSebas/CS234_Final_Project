@@ -212,15 +212,30 @@ Batch outputs are written to `results/trajectory_optimization/`:
 - `trajopt_batch_eval_<timestamp>.json` (summary)
 - `trajopt_batch_eval_<timestamp>.csv` (per-scenario details)
 
-### Dataset Generation (Stage A, No Obstacles)
+### Dataset Generation
 
-Generate a no-obstacle dataset using a periodic lap and circular shifts:
+Quick Stage A (no obstacles, periodic lap + circular shifts):
 
 ```bash
 python data/generate_dataset.py --num-episodes 1000
 ```
 
-The dataset config is captured in `data/DATASET_CONFIG.md`.
+Full Fix A + Fix B pipeline (base laps + shifts + repair segments):
+```bash
+python data/build_dataset.py \
+  --map-files maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK2.mat,maps/TRACK3_300m.mat,maps/TRACK4_315m.mat,maps/TRACK5_330m.mat \
+  --base-laps 6 \
+  --obstacle-laps 8 \
+  --shift-episodes 1000 \
+  --repair-segments 1000 \
+  --N 200 \
+  --H 50 \
+  --seed 0
+```
+
+To generate all circular shifts per base lap, pass `--all-shifts` to `data/make_shift_episodes.py`. This produces `N+1` shifts (k0=0..N), including one duplicate due to periodic closure.
+
+The dataset config and defaults are captured in `data/DATASET_CONFIG.md`. The full generation plan (Fix A/Fix B) is documented in `PLAN.md`.
 
 ### Vehicle Simulation
 

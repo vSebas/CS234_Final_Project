@@ -14,7 +14,7 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
   - `data/build_dataset.py`
 
 **Defaults (paper-aligned Tier 1)**
-- `N = 120`, `ds_m = track_length / N`
+- `N = 200`, `ds_m = track_length / N`
 - `lambda_u = 0.005`
 - `ux_min = 0.5`
 - `track_buffer_m = 0.0`
@@ -26,6 +26,12 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
   - no-obstacle: `B_no = 6`
   - obstacle: `B_obs = 8`
 - Shift episodes per base lap: up to `N` unique shifts
+- `--all-shifts` behavior: generates `N+1` shifts (k0=0..N) so the final episode ends exactly at the start node; this includes one duplicate shift due to periodic closure.
+- Obstacle sampling defaults:
+  - count: `min_obstacles=1`, `max_obstacles=4`
+  - radius: `0.8–1.5 m`
+  - margin: `0.3 m`
+  - clearance: `0.3 m`
 
 **Fix B (repair segments)**
 - Horizon: `H = 50`

@@ -60,6 +60,11 @@ def main() -> None:
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--output-dir", type=str, default="data/datasets/shift_episodes")
     parser.add_argument("--num-episodes", type=int, default=1000)
+    parser.add_argument(
+        "--all-shifts",
+        action="store_true",
+        help="Generate all unique shifts for every base lap (k0=0..N).",
+    )
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--save-every", type=int, default=50)
     args = parser.parse_args()
@@ -90,27 +95,113 @@ def main() -> None:
     episode_idx = 0
     successes = 0
 
-    while episode_idx < args.num_episodes:
-        base_path = rng.choice(base_files)
-        base_id = base_path.stem
-        data = np.load(base_path, allow_pickle=True)
-        s_m = data["s_m"].astype(float)
-        X = data["X_full"].astype(float).T
-        U = data["U"].astype(float).T
-        dt_base = data["dt"].astype(float)
-        obstacles = data.get("obstacles", [])
-        if isinstance(obstacles, np.ndarray):
-            obstacles = obstacles.tolist()
-        solver_config = data.get("solver_config", {})
-        solver_config = solver_config.item() if isinstance(solver_config, np.ndarray) else solver_config
-        solver_config_hash = sha256_json(solver_config) if solver_config else ""
+    def _emit_shift(base_id: str, solver_config: dict, solver_config_hash: str, obstacles, k0: int, s_m, X, U, dt_base):
+        nonlocal episode_idx, successes
+        s_roll = np.roll(s_m, -k0)
+        s_offset = float(s_roll[0])
+        s_shift = np.mod(s_roll - s_roll[0], world.length_m)
 
-        max_shifts = min(len(s_m), args.num_episodes - episode_idx)
-        k0_list = rng.choice(len(s_m), size=max_shifts, replace=False)
+        X_roll = np.roll(X, -k0, axis=1)
+        U_roll = np.roll(U, -k0, axis=1)
+        dt_roll = np.roll(dt_base, -k0)
+        t_new = np.concatenate([[0.0], np.cumsum(dt_roll)])
+        X_roll[TrajectoryOptimizer.IDX_T, :] = t_new
 
-        for k0 in k0_list:
-            if episode_idx >= args.num_episodes:
-                break
+        e_arr = X_roll[TrajectoryOptimizer.IDX_E, :].copy()
+        dpsi_arr = X_roll[TrajectoryOptimizer.IDX_DPSI, :].copy()
+
+        pose = compute_global_pose(world, s_shift, e_arr)
+        yaw_world = _yaw_wrap(pose["psi_cl"] + dpsi_arr)
+        track_feat = compute_track_features(world, s_shift)
+
+        reward = -dt_roll
+        rtg = compute_rtg(reward)
+
+        episode_id = f"{map_file.stem}_{episode_idx:06d}"
+        npz_path = episodes_dir / f"{episode_id}.npz"
+
+        np.savez_compressed(
+            npz_path,
+            s_m=s_shift,
+            X_full=X_roll.T,
+            U=U_roll.T,
+            dt=dt_roll,
+            reward=reward,
+            rtg=rtg,
+            pos_E=pose["pos_E"],
+            pos_N=pose["pos_N"],
+            yaw_world=yaw_world,
+            kappa=track_feat["kappa"],
+            half_width=track_feat["half_width"],
+            grade=track_feat["grade"],
+            bank=track_feat["bank"],
+            s_offset_m=s_offset,
+        )
+
+        header = EpisodeHeader(
+            episode_id=episode_id,
+            episode_type="shift",
+            map_id=map_file.stem,
+            map_hash=map_hash,
+            base_id=base_id,
+            solver_config=solver_config,
+            solver_config_hash=solver_config_hash,
+            discretization={"N": int(len(s_shift) - 1), "ds_m": float(s_m[1] - s_m[0])},
+            obstacles=list(obstacles) if isinstance(obstacles, (list, tuple)) else [],
+            s_offset_m=float(s_offset),
+            npz_path=str(npz_path),
+        )
+        manifest_f.write(json.dumps(header.to_dict()) + "\n")
+        successes += 1
+        episode_idx += 1
+
+        if episode_idx % args.save_every == 0:
+            elapsed = time.time() - t_start
+            print(
+                f"[{episode_idx}{'' if args.all_shifts else f'/{args.num_episodes}'}] "
+                f"accepted={successes} elapsed={elapsed:.1f}s"
+            )
+
+    if args.all_shifts:
+        for base_path in base_files:
+            base_id = base_path.stem
+            data = np.load(base_path, allow_pickle=True)
+            s_m = data["s_m"].astype(float)
+            X = data["X_full"].astype(float).T
+            U = data["U"].astype(float).T
+            dt_base = data["dt"].astype(float)
+            obstacles = data.get("obstacles", [])
+            if isinstance(obstacles, np.ndarray):
+                obstacles = obstacles.tolist()
+            solver_config = data.get("solver_config", {})
+            solver_config = solver_config.item() if isinstance(solver_config, np.ndarray) else solver_config
+            solver_config_hash = sha256_json(solver_config) if solver_config else ""
+
+            for k0 in range(len(s_m)):
+                _emit_shift(base_id, solver_config, solver_config_hash, obstacles, k0, s_m, X, U, dt_base)
+    else:
+        while episode_idx < args.num_episodes:
+            base_path = rng.choice(base_files)
+            base_id = base_path.stem
+            data = np.load(base_path, allow_pickle=True)
+            s_m = data["s_m"].astype(float)
+            X = data["X_full"].astype(float).T
+            U = data["U"].astype(float).T
+            dt_base = data["dt"].astype(float)
+            obstacles = data.get("obstacles", [])
+            if isinstance(obstacles, np.ndarray):
+                obstacles = obstacles.tolist()
+            solver_config = data.get("solver_config", {})
+            solver_config = solver_config.item() if isinstance(solver_config, np.ndarray) else solver_config
+            solver_config_hash = sha256_json(solver_config) if solver_config else ""
+
+            max_shifts = min(len(s_m), args.num_episodes - episode_idx)
+            k0_list = rng.choice(len(s_m), size=max_shifts, replace=False)
+
+            for k0 in k0_list:
+                if episode_idx >= args.num_episodes:
+                    break
+                _emit_shift(base_id, solver_config, solver_config_hash, obstacles, k0, s_m, X, U, dt_base)
             s_roll = np.roll(s_m, -k0)
             s_offset = float(s_roll[0])
             s_shift = np.mod(s_roll - s_roll[0], world.length_m)
@@ -178,7 +269,10 @@ def main() -> None:
 
     manifest_f.close()
     elapsed = time.time() - t_start
-    print(f"Done. accepted={successes}/{args.num_episodes} elapsed={elapsed:.1f}s")
+    if args.all_shifts:
+        print(f"Done. accepted={successes} elapsed={elapsed:.1f}s")
+    else:
+        print(f"Done. accepted={successes}/{args.num_episodes} elapsed={elapsed:.1f}s")
 
 
 if __name__ == "__main__":

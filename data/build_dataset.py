@@ -20,11 +20,16 @@ def main() -> None:
     parser.add_argument("--base-laps", type=int, default=6)
     parser.add_argument("--obstacle-laps", type=int, default=8)
     parser.add_argument("--shift-episodes", type=int, default=1000)
+    parser.add_argument(
+        "--all-shifts",
+        action="store_true",
+        help="Generate all unique shifts per base lap (k0=0..N).",
+    )
     parser.add_argument("--repair-segments", type=int, default=200)
     parser.add_argument("--output-root", type=str, default="data/datasets")
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--N", type=int, default=120)
+    parser.add_argument("--N", type=int, default=200)
     parser.add_argument("--H", type=int, default=50)
     args = parser.parse_args()
 
@@ -49,24 +54,30 @@ def main() -> None:
         ]
     )
 
-    for map_file in map_files:
+    base_rep = args.repair_segments // max(1, len(map_files))
+    rem = args.repair_segments - base_rep * max(1, len(map_files))
+
+    for idx, map_file in enumerate(map_files):
         stem = Path(map_file).stem
-        run(
-            [
-                sys.executable,
-                "data/make_shift_episodes.py",
-                "--map-file",
-                map_file,
-                "--base-laps-dir",
-                args.base_laps_dir,
-                "--output-dir",
-                str(output_root / f"{stem}_shifts"),
-                "--num-episodes",
-                str(args.shift_episodes),
-                "--seed",
-                str(args.seed),
-            ]
-        )
+        shift_cmd = [
+            sys.executable,
+            "data/make_shift_episodes.py",
+            "--map-file",
+            map_file,
+            "--base-laps-dir",
+            args.base_laps_dir,
+            "--output-dir",
+            str(output_root / f"{stem}_shifts"),
+            "--seed",
+            str(args.seed),
+        ]
+        if args.all_shifts:
+            shift_cmd.append("--all-shifts")
+        else:
+            shift_cmd.extend(["--num-episodes", str(args.shift_episodes)])
+        run(shift_cmd)
+
+        nseg = base_rep + (1 if idx < rem else 0)
         run(
             [
                 sys.executable,
@@ -78,7 +89,7 @@ def main() -> None:
                 "--output-dir",
                 str(output_root / f"{stem}_repairs"),
                 "--num-segments",
-                str(args.repair_segments),
+                str(nseg),
                 "--seed",
                 str(args.seed),
                 "--H",

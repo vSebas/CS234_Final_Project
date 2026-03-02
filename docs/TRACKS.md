@@ -11,13 +11,13 @@ Columns:
 | Track | Length (m) | Width min (m) | Width max (m) | Width mean (m) | Min radius (m) | Obstacles | N obs |
 |---|---:|---:|---:|---:|---:|---|---:|
 | `Oval_Track_260m.mat` | 260.00 | 6.00 | 6.00 | 6.00 | 18.00 | no | 0 |
-| `Oval_Track_260m_Obstacles.mat` | 260.00 | 6.00 | 6.00 | 6.00 | 18.00 | yes | 5 |
+| `Oval_Track_260m_Obstacles.mat` | 260.00 | 6.00 | 6.00 | 6.00 | 18.00 | yes | 4 |
 | `TRACK1_280m.mat` | 280.00 | 6.00 | 6.00 | 6.00 | 12.00 | no | 0 |
-| `TRACK1_280m_Obstacles.mat` | 280.00 | 6.00 | 6.00 | 6.00 | 12.00 | yes | 5 |
+| `TRACK1_280m_Obstacles.mat` | 280.00 | 6.00 | 6.00 | 6.00 | 12.00 | yes | 4 |
 | `TRACK2.mat` | 248.52 | 6.00 | 6.00 | 6.00 | 8.14 | no | 0 |
 | `TRACK3_300m.mat` | 300.00 | 6.00 | 6.00 | 6.00 | 3.21 | no | 0 |
-| `TRACK3_300m_Obstacles.mat` | 300.00 | 6.00 | 6.00 | 6.00 | 3.21 | yes | 5 |
-| `TRACK4_330m.mat` | 330.00 | 6.00 | 6.00 | 6.00 | 6.53 | no | 0 |
-| `TRACK4_330m_Obstacles.mat` | 330.00 | 6.00 | 6.00 | 6.00 | 6.53 | yes | 5 |
-| `TRACK5_350m.mat` | 350.00 | 5.20 | 8.17 | 6.00 | 2.68 | no | 0 |
-| `TRACK5_350m_Obstacles.mat` | 350.00 | 5.20 | 8.17 | 6.00 | 2.68 | yes | 6 |
+| `TRACK3_300m_Obstacles.mat` | 300.00 | 6.00 | 6.00 | 6.00 | 3.21 | yes | 4 |
+| `TRACK4_315m.mat` | 315.00 | 6.00 | 6.00 | 6.00 | 6.23 | no | 0 |
+| `TRACK4_315m_Obstacles.mat` | 315.00 | 6.00 | 6.00 | 6.00 | 6.23 | yes | 4 |
+| `TRACK5_330m.mat` | 332.60 | 6.00 | 6.00 | 6.00 | 5.47 | no | 0 |
+| `TRACK5_330m_Obstacles.mat` | 332.60 | 6.00 | 6.00 | 6.00 | 5.47 | yes | 4 |

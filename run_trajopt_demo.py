@@ -211,11 +211,11 @@ def run_demo(args):
             # See docs/OPTIMIZER_CONFIG.md for the selected defaults.
             N = int(args.n if args.n is not None else os.environ.get("N", "120"))
             ds_m = world.length_m / N
-            obstacle_subsamples = int(args.obs_subsamples if args.obs_subsamples is not None else os.environ.get("OBS_SUBSAMPLES", "7"))
+            obstacle_subsamples = int(args.obs_subsamples if args.obs_subsamples is not None else os.environ.get("OBS_SUBSAMPLES", "11"))
             obstacle_enforce_midpoints = (
                 args.obs_enforce_midpoints
                 if args.obs_enforce_midpoints is not None
-                else (os.environ.get("OBS_ENFORCE_MIDPOINTS", "0") == "1")
+                else (os.environ.get("OBS_ENFORCE_MIDPOINTS", "1") == "1")
             )
             obstacle_use_slack = (
                 args.obs_use_slack
@@ -225,10 +225,10 @@ def run_demo(args):
             obstacle_slack_weight = float(args.obs_slack_weight if args.obs_slack_weight is not None else os.environ.get("OBS_SLACK_WEIGHT", "1e4"))
             track_buffer_m = float(args.track_buffer_m if args.track_buffer_m is not None else os.environ.get("TRACK_BUFFER_M", "0.0"))
             lambda_u = float(args.lambda_u if args.lambda_u is not None else os.environ.get("LAMBDA_U", "0.005"))
-            base_clearance_m = float(args.obstacle_clearance_m if args.obstacle_clearance_m is not None else os.environ.get("OBSTACLE_CLEARANCE_M", "0.0"))
+            base_clearance_m = float(args.obstacle_clearance_m if args.obstacle_clearance_m is not None else os.environ.get("OBSTACLE_CLEARANCE_M", "0.3"))
             obstacle_aware_init = os.environ.get("OBSTACLE_AWARE_INIT", "1") != "0"
             obstacle_init_sigma_m = float(os.environ.get("OBSTACLE_INIT_SIGMA_M", "8.0"))
-            obstacle_init_margin_m = float(os.environ.get("OBSTACLE_INIT_MARGIN_M", "0.3"))
+            obstacle_init_margin_m = float(os.environ.get("OBSTACLE_INIT_MARGIN_M", "0.5"))
             vehicle_radius_m = float(args.vehicle_radius_m if args.vehicle_radius_m is not None else os.environ.get("VEHICLE_RADIUS_M", "0.0"))
             eps_s = float(args.eps_s if args.eps_s is not None else os.environ.get("EPS_S", "0.1"))
             eps_kappa = float(args.eps_kappa if args.eps_kappa is not None else os.environ.get("EPS_KAPPA", "0.05"))
@@ -251,7 +251,7 @@ def run_demo(args):
             acceptance_min_clearance_m = float(
                 args.accept_min_clearance_m
                 if args.accept_min_clearance_m is not None
-                else os.environ.get("ACCEPT_MIN_CLEARANCE_M", "-0.001")
+                else os.environ.get("ACCEPT_MIN_CLEARANCE_M", "-0.005")
             )
             acceptance_max_slack = float(
                 args.accept_max_slack

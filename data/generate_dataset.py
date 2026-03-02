@@ -90,7 +90,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=str, default="data/datasets/oval_no_obstacles_1k")
     parser.add_argument("--num-episodes", type=int, default=1000)
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--N", type=int, default=120)
+    parser.add_argument("--N", type=int, default=200)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)
     parser.add_argument("--base-laps", type=int, default=6, help="Number of distinct base laps.")
