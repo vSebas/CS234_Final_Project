@@ -8,7 +8,7 @@ Based on PLAN.md Section 5:
 
 Usage:
     python experiments/eval_warmstart.py \
-        --checkpoint dt/checkpoints/checkpoint_best.pt \
+        --checkpoint dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt \
         --map-file maps/Oval_Track_260m.mat \
         --num-scenarios 50 \
         --seed 42

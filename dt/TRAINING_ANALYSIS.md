@@ -434,3 +434,40 @@ Interpretation:
 3. With `lambda_x = 0.0`, the final checkpoint is now better than baseline on the small no-obstacle benchmark.
 4. Obstacle-conditioned warm starts remain clearly worse than baseline across the evaluated shortlist.
 5. The project bottleneck has narrowed: the next work should focus on obstacle robustness and off-manifold recovery, not more generic training cleanup.
+
+## Immediate Next Steps
+
+The current recommended program is:
+
+1. **Checkpoint selection by downstream benchmark**
+   - treat warm-start benchmark performance as the checkpoint-selection rule
+   - feasibility first, then median IPOPT iterations or solve time
+   - in practice, this is already being used informally through the checkpoint shortlist comparisons
+2. **Weighted repair sampling**
+   - implement weighted repair sampling in DT training so repair episodes, especially obstacle-conditioned repairs, have more influence than they do under uniform sampling
+   - this is the next concrete coding step
+3. **Rollout / wrapper diagnostics**
+   - add diagnostics such as projection count, fallback count, and projection magnitude
+   - use them to distinguish a poor DT prediction from wrapper-induced distortion
+4. **Expand the benchmark set**
+   - keep the benchmark deterministic
+   - grow beyond the current `3` no-obstacle + `3` one-obstacle cases once the next training change is in place
+5. **Harder data interventions if needed**
+   - if weighted repairs are still not enough, then move on to harder repair data:
+     - targeted near-obstacle repairs
+     - lower-clearance starts
+     - possibly longer-horizon repairs for a subset
+
+### Next concrete experiment
+
+The next concrete experiment should target obstacle robustness directly while keeping the current nominal gains:
+
+1. Implement weighted repair sampling.
+2. Retrain with the same action-only setup:
+   - keep `lambda_x = 0.0`
+   - keep the same dataset
+   - change only the training mixture / sampling emphasis first
+3. Re-run the same fixed benchmark sets:
+   - `3` no-obstacle scenarios
+   - `3` one-obstacle scenarios
+4. Compare against the current `full_run_lambda0` checkpoint shortlist so the effect of repair weighting is isolated.
