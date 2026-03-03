@@ -1,0 +1,47 @@
+{
+  "dt_warmstart": {
+    "n_scenarios": 3,
+    "success_rate": 1.0,
+    "n_success": 3,
+    "n_failed": 0,
+    "solve_time_mean": 59.364373366038,
+    "solve_time_std": 1.0273176179549248,
+    "solve_time_median": 59.228801250457764,
+    "iterations_mean": 390.0,
+    "iterations_std": 0.0,
+    "iterations_median": 390.0,
+    "lap_time_mean": 16.392355895267197,
+    "lap_time_std": 0.0,
+    "warmstart_time_mean": 1.328078031539917,
+    "warmstart_acceptance_rate": 1.0,
+    "total_time_mean": 60.69245139757792
+  },
+  "baseline_retry": {
+    "n_scenarios": 3,
+    "success_rate": 1.0,
+    "n_success": 3,
+    "n_failed": 0,
+    "solve_time_mean": 47.213877280553184,
+    "solve_time_std": 5.4826454715683965,
+    "solve_time_median": 44.1762216091156,
+    "iterations_mean": 267.0,
+    "iterations_std": 0.0,
+    "iterations_median": 267.0,
+    "lap_time_mean": 15.598643634464773,
+    "lap_time_std": 0.0
+  },
+  "baseline": {
+    "n_scenarios": 3,
+    "success_rate": 1.0,
+    "n_success": 3,
+    "n_failed": 0,
+    "solve_time_mean": 47.213877280553184,
+    "solve_time_std": 5.4826454715683965,
+    "solve_time_median": 44.1762216091156,
+    "iterations_mean": 267.0,
+    "iterations_std": 0.0,
+    "iterations_median": 267.0,
+    "lap_time_mean": 15.598643634464773,
+    "lap_time_std": 0.0
+  }
+}

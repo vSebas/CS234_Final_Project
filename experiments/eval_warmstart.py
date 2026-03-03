@@ -17,7 +17,6 @@ Usage:
 import argparse
 import csv
 import json
-import os
 import sys
 import time
 from dataclasses import asdict, dataclass
@@ -72,6 +71,8 @@ class EvalConfig:
     num_scenarios: int = 50
     seed: int = 42
     output_dir: str = "results/warmstarts/eval"
+    dataset_root: str = "data/datasets"
+    target_lap_time_s: Optional[float] = None
 
     # Optimizer settings
     N: int = 120
@@ -91,6 +92,51 @@ class EvalConfig:
 
     # Retry settings
     max_retries: int = 3
+
+
+def infer_track_target_lap_time_s(map_file: str, dataset_root: str) -> Optional[float]:
+    """
+    Estimate a track-specific target lap time from the generated dataset.
+
+    Prefer no-obstacle shift episodes for the same map. Fall back to all shift
+    episodes for the map if no no-obstacle subset is present.
+    """
+    map_id = Path(map_file).stem
+    manifest_path = Path(dataset_root) / f"{map_id}_shifts" / "manifest.jsonl"
+    if not manifest_path.exists():
+        return None
+
+    nominal_times: List[float] = []
+    fallback_times: List[float] = []
+
+    with open(manifest_path, "r") as f:
+        for line in f:
+            rec = json.loads(line)
+            npz_path = Path(rec["npz_path"])
+            if not npz_path.is_absolute():
+                npz_path = Path(".") / npz_path
+            if not npz_path.exists():
+                continue
+
+            with np.load(npz_path, allow_pickle=False) as data:
+                rtg = np.asarray(data["rtg"]).reshape(-1)
+                if rtg.size == 0:
+                    continue
+                lap_time_s = float(-rtg[0])
+
+            fallback_times.append(lap_time_s)
+
+            base_id = str(rec.get("base_id", ""))
+            obstacles = rec.get("obstacles", [])
+            is_nominal = base_id.startswith("noobs_") or len(obstacles) == 0
+            if is_nominal:
+                nominal_times.append(lap_time_s)
+
+    if nominal_times:
+        return float(np.median(np.asarray(nominal_times, dtype=float)))
+    if fallback_times:
+        return float(np.median(np.asarray(fallback_times, dtype=float)))
+    return None
 
 
 def sample_obstacles(
@@ -205,6 +251,7 @@ def run_dt_warmstart_solve(
         N=config.N,
         ds_m=ds_m,
         x0=x0,
+        target_lap_time=config.target_lap_time_s,
         obstacles=obstacles,
         obstacle_clearance_m=config.obstacle_clearance,
         vehicle_radius_m=0.0,
@@ -436,6 +483,13 @@ def main():
     parser.add_argument("--num-scenarios", type=int, default=50)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output-dir", type=str, default="results/warmstarts/eval")
+    parser.add_argument("--dataset-root", type=str, default="data/datasets")
+    parser.add_argument(
+        "--target-lap-time",
+        type=float,
+        default=None,
+        help="Explicit DT target lap time in seconds. If omitted, use a per-track dataset-calibrated target.",
+    )
     parser.add_argument("--N", type=int, default=120)
     parser.add_argument("--min-obstacles", type=int, default=0)
     parser.add_argument("--max-obstacles", type=int, default=4)
@@ -448,6 +502,8 @@ def main():
         num_scenarios=args.num_scenarios,
         seed=args.seed,
         output_dir=args.output_dir,
+        dataset_root=args.dataset_root,
+        target_lap_time_s=args.target_lap_time,
         N=args.N,
         min_obstacles=args.min_obstacles,
         max_obstacles=args.max_obstacles,
@@ -465,6 +521,17 @@ def main():
     print(f"Scenarios: {config.num_scenarios}")
     print(f"Obstacles: {config.min_obstacles}-{config.max_obstacles}")
     print(f"DT checkpoint: {config.checkpoint_path or 'None (baseline only)'}")
+    print()
+
+    if config.target_lap_time_s is None:
+        config.target_lap_time_s = infer_track_target_lap_time_s(
+            config.map_file,
+            config.dataset_root,
+        )
+    if config.target_lap_time_s is not None:
+        print(f"DT target lap time: {config.target_lap_time_s:.3f}s")
+    else:
+        print("DT target lap time: default heuristic (dataset-calibrated target unavailable)")
     print()
 
     # Load world and vehicle

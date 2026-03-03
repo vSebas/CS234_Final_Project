@@ -132,6 +132,138 @@ Interpretation:
 
 This is only one scenario, so it is not enough for a final claim, but it is not an encouraging first comparison.
 
+## Follow-Up Fixed Benchmark Sets
+
+To check whether the first negative result was an outlier, two small fixed benchmark sets were run with:
+- `dt/checkpoints/full_run1/checkpoint_best.pt`
+- map: `maps/Oval_Track_260m.mat`
+- seed: `42`
+- `3` scenarios each
+
+### Obstacle scenarios (`1` obstacle each)
+
+Outputs:
+- `results/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346.csv`
+- `results/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346_summary.json`
+
+Summary:
+
+| Method | Success | Solve Time | IPOPT Iterations | Lap Time |
+|-------|---------|-----------:|-----------------:|---------:|
+| baseline | 3/3 | 35.58 +/- 2.92 s | 174.3 +/- 14.3 | 15.73 s |
+| baseline_retry | 3/3 | 35.58 +/- 2.92 s | 174.3 +/- 14.3 | 15.73 s |
+| dt_warmstart | 3/3 | 54.17 +/- 2.86 s | 372.0 +/- 27.6 | 15.86 s |
+
+Warm-start-specific details:
+- warm-start inference time: `1.392 s`
+- warm-start acceptance: `100%`
+- total DT time including inference: `55.56 s`
+
+Interpretation:
+- the first negative comparison was not a fluke
+- on this obstacle set, DT warm-start remains consistently slower and requires far more IPOPT iterations
+
+### No-obstacle scenarios (`0` obstacles)
+
+Outputs:
+- `results/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040.csv`
+- `results/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040_summary.json`
+
+Summary:
+
+| Method | Success | Solve Time | IPOPT Iterations | Lap Time |
+|-------|---------|-----------:|-----------------:|---------:|
+| baseline | 3/3 | 41.23 +/- 0.46 s | 267.0 +/- 0.0 | 15.60 s |
+| baseline_retry | 3/3 | 41.23 +/- 0.46 s | 267.0 +/- 0.0 | 15.60 s |
+| dt_warmstart | 3/3 | 64.83 +/- 0.08 s | 475.0 +/- 0.0 | 15.66 s |
+
+Warm-start-specific details:
+- warm-start inference time: `1.137 s`
+- warm-start acceptance: `100%`
+- total DT time including inference: `65.96 s`
+
+Interpretation:
+- the DT warm-start is also worse than baseline even without obstacles
+- that means the current issue is not limited to obstacle-conditioning quality
+- the learned warm-start policy is currently a poor optimizer initializer in the nominal racing case as well
+
+## RTG Conditioning Audit and Rerun
+
+An audit of the DT inference path found that the previous evaluation runs were using an unrealistic default RTG target at warm-start inference time.
+
+### What was wrong
+
+The old evaluator path did not pass an explicit `target_lap_time` into the warm-starter. That meant `planning/dt_warmstart.py` fell back to a heuristic based on:
+- track length
+- initial speed `x0[0]`
+
+For the Oval track evaluation setup:
+- `track_length ≈ 260 m`
+- `x0[0] = ux_min + 5.0 = 8.0 m/s`
+- heuristic target was therefore about `-29.25 s`
+
+That was far outside the actual training-data RTG range:
+- shift episodes: roughly `-22.33` to `-15.52`
+- repair episodes: roughly `-5.76` to `-2.05`
+
+So the DT was being asked to behave more aggressively than anything it had seen during training.
+
+### Fix
+
+`experiments/eval_warmstart.py` was updated to infer a per-track target lap time from the generated shift dataset and pass it explicitly into `generate_warmstart()`.
+
+For `Oval_Track_260m`, the calibrated per-track target is:
+- `15.517 s`
+
+### Rerun results with RTG fix
+
+The same fixed `3`-scenario benchmark sets were rerun after the RTG calibration change.
+
+#### No-obstacle scenarios (`0` obstacles) with RTG fix
+
+Outputs:
+- `results/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308.csv`
+- `results/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308_summary.json`
+
+Summary:
+
+| Method | Success | Solve Time | IPOPT Iterations | Lap Time |
+|-------|---------|-----------:|-----------------:|---------:|
+| baseline | 3/3 | 47.21 +/- 5.48 s | 267.0 +/- 0.0 | 15.60 s |
+| baseline_retry | 3/3 | 47.21 +/- 5.48 s | 267.0 +/- 0.0 | 15.60 s |
+| dt_warmstart | 3/3 | 59.36 +/- 1.03 s | 390.0 +/- 0.0 | 16.39 s |
+
+Compared to the pre-fix no-obstacle run:
+- DT solve time improved from `64.83 s` to `59.36 s`
+- DT iterations improved from `475.0` to `390.0`
+
+Interpretation:
+- the RTG fix helped the no-obstacle DT warm-start
+- but DT is still clearly worse than baseline
+
+#### Obstacle scenarios (`1` obstacle each) with RTG fix
+
+Outputs:
+- `results/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308.csv`
+- `results/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308_summary.json`
+
+Summary:
+
+| Method | Success | Solve Time | IPOPT Iterations | Lap Time |
+|-------|---------|-----------:|-----------------:|---------:|
+| baseline | 3/3 | 36.85 +/- 2.75 s | 174.3 +/- 14.3 | 15.73 s |
+| baseline_retry | 3/3 | 36.85 +/- 2.75 s | 174.3 +/- 14.3 | 15.73 s |
+| dt_warmstart | 3/3 | 73.60 +/- 14.29 s | 502.7 +/- 116.2 | 17.40 s |
+
+Compared to the pre-fix obstacle run:
+- DT solve time worsened from `54.17 s` to `73.60 s`
+- DT iterations worsened from `372.0` to `502.7`
+
+Interpretation:
+- the RTG heuristic was a real issue
+- but fixing it did not solve the obstacle-conditioned warm-start problem
+- the current DT policy remains a poor initializer, especially in the obstacle case
+
 ## Warm-Start Engineering Fixes Added During This Work
 
 The warm-start path required robustness fixes before it could produce valid trajectories consistently:
@@ -148,12 +280,32 @@ These fixes make the DT warm-start generator usable for testing, but they also m
 
 1. The training run itself was successful and numerically stable.
 2. For this configuration, `10` epochs was more than enough; the best action-related validation performance happened at epoch `1`.
-3. The current baseline DT can produce valid warm starts, but the first optimizer-level comparison was worse than baseline.
-4. The next bottleneck is no longer loader/training stability; it is downstream warm-start usefulness.
+3. The current baseline DT can produce valid warm starts, but it is consistently worse than baseline on both small obstacle and no-obstacle benchmark sets.
+4. RTG conditioning was previously misconfigured at inference time, and fixing that helped nominal no-obstacle performance somewhat.
+5. Even after the RTG fix, the DT initializer remains poor, especially in obstacle scenarios.
+6. The current bottleneck is no longer loader/training stability; it is downstream warm-start usefulness.
 
 ## Recommended Next Steps
 
-1. Run a small fixed benchmark set (`3-5` scenarios) with `checkpoint_best.pt` to check whether the first bad comparison is representative.
-2. In the next training run, reduce the relative influence of the auxiliary state loss so the action head is prioritized more strongly.
-3. Add early stopping or checkpoint selection based on `val_action_loss` or downstream warm-start performance, not only total validation loss.
-4. Compare a few checkpoints directly in warm-start evaluation instead of assuming one scalar validation metric is enough.
+1. Keep the current fixed benchmark sets as the evaluation gate:
+   - `3` no-obstacle scenarios
+   - `3` one-obstacle scenarios
+   - reuse the same seeded scenarios after every meaningful training change
+2. In the next training run, make action the only objective:
+   - set `lambda_x = 0.0`
+   - keep the state head code for now, but remove its training influence completely
+3. Compare a short checkpoint shortlist by downstream benchmark performance rather than by one proxy scalar:
+   - `checkpoint_epoch_0000.pt`
+   - best total validation checkpoint
+   - best `val_action_loss` checkpoint
+   - last checkpoint
+   - choose by feasibility first, then median IPOPT iterations or solve time
+4. Audit RTG conditioning before drawing strong conclusions from the next run:
+   - compare the RTG values used at inference against the training-data distribution
+   - avoid conditioning on unrealistically aggressive targets that can force the DT into infeasible or unstable controls
+5. Add early stopping or checkpoint selection based on `val_action_loss` or downstream warm-start performance, not only total validation loss.
+6. Re-run the same fixed obstacle and no-obstacle benchmark sets after the next training change so the comparison stays apples-to-apples.
+7. If action-only training still fails, then move to robustness and data-distribution interventions:
+   - oversample repair segments
+   - add mild noisy-context training
+   - add targeted longer-horizon or harder repair segments
