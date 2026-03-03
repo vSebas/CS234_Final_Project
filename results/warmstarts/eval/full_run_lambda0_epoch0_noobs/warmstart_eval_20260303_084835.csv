@@ -1,0 +1,10 @@
+scenario_id,method,success,accepted,rejection_reason,solve_time_s,ipopt_iterations,lap_time_s,warmstart_time_s,warmstart_accepted,num_obstacles,min_clearance_m
+0,baseline,True,True,,48.12885856628418,267,15.598643634464773,0.0,True,0,inf
+0,baseline_retry,True,True,,48.12885856628418,267,15.598643634464773,0.0,True,0,inf
+0,dt_warmstart,True,True,,98.4433901309967,636,16.090660569577974,1.2636384963989258,True,0,inf
+1,baseline,True,True,,51.38374733924866,267,15.598643634464773,0.0,True,0,inf
+1,baseline_retry,True,True,,51.38374733924866,267,15.598643634464773,0.0,True,0,inf
+1,dt_warmstart,True,True,,99.65270018577576,636,16.090660569577974,1.46905517578125,True,0,inf
+2,baseline,True,True,,41.17334055900574,267,15.598643634464773,0.0,True,0,inf
+2,baseline_retry,True,True,,41.17334055900574,267,15.598643634464773,0.0,True,0,inf
+2,dt_warmstart,True,True,,89.66041660308838,636,16.090660569577974,1.1820218563079834,True,0,inf

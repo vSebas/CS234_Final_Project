@@ -309,3 +309,96 @@ These fixes make the DT warm-start generator usable for testing, but they also m
    - oversample repair segments
    - add mild noisy-context training
    - add targeted longer-horizon or harder repair segments
+
+## Follow-Up Run: `lambda_x = 0.0`
+
+A second training run was completed with the auxiliary state-loss weight removed:
+- run directory: `dt/checkpoints/full_run_lambda0`
+- `lambda_x = 0.0`
+- `40` epochs
+- total training time: `27140.9 s` (`7 h 32 min 21 s`)
+
+### Validation pattern
+
+Best validation happened early:
+
+| Epoch | Train Loss | Val Loss | Val Action Loss | Val State Loss |
+|------:|-----------:|---------:|----------------:|---------------:|
+| 1 | 0.04911 | 0.04308 | 0.04308 | 0.92961 |
+| 2 | 0.00577 | 0.04271 | 0.04271 | 0.91018 |
+| 3 | 0.00308 | 0.04106 | 0.04106 | 0.91060 |
+| 4 | 0.00201 | 0.04249 | 0.04249 | 0.91663 |
+| 5 | 0.00146 | 0.04743 | 0.04743 | 0.92435 |
+
+After epoch `3`, validation degraded while train loss kept falling.
+
+Best validation checkpoint:
+- `dt/checkpoints/full_run_lambda0/checkpoint_best.pt`
+- best epoch: `3`
+- best `val_loss = val_action_loss = 0.04106`
+
+### Checkpoint shortlist comparison
+
+The following checkpoints were evaluated on the fixed benchmark sets:
+- `checkpoint_epoch_0000.pt`
+- `checkpoint_best.pt` (epoch `3`)
+- `checkpoint_last.pt`
+
+All comparisons below use the per-track RTG calibration.
+
+#### No-obstacle benchmark (`3` scenarios)
+
+Outputs:
+- `results/warmstarts/eval/full_run_lambda0_epoch0_noobs/warmstart_eval_20260303_084835_summary.json`
+- `results/warmstarts/eval/full_run_lambda0_best_noobs/warmstart_eval_20260303_084844_summary.json`
+- `results/warmstarts/eval/full_run_lambda0_last_noobs/warmstart_eval_20260303_084850_summary.json`
+
+Summary:
+
+| Checkpoint | DT Solve Time | DT Iterations | DT Lap Time | Read |
+|-----------|--------------:|--------------:|------------:|------|
+| epoch 0 | 95.92 s | 636.0 | 16.09 s | much worse than baseline |
+| best (epoch 3) | 47.54 s | 272.0 | 15.63 s | roughly equal to baseline |
+| last | 43.34 s | 239.0 | 15.69 s | better than baseline |
+
+Baseline on the same set:
+- solve time: about `47.68 s`
+- iterations: `267.0`
+- lap time: `15.60 s`
+
+Interpretation:
+- removing the state-loss term helped nominal no-obstacle warm starts a lot
+- the final checkpoint now beats baseline on this small no-obstacle set
+
+#### One-obstacle benchmark (`3` scenarios)
+
+Outputs:
+- `results/warmstarts/eval/full_run_lambda0_epoch0_obs1/warmstart_eval_20260303_085600_summary.json`
+- `results/warmstarts/eval/full_run_lambda0_best_obs1/warmstart_eval_20260303_085604_summary.json`
+- `results/warmstarts/eval/full_run_lambda0_last_obs1/warmstart_eval_20260303_085610_summary.json`
+
+Summary:
+
+| Checkpoint | DT Solve Time | DT Iterations | DT Lap Time | Read |
+|-----------|--------------:|--------------:|------------:|------|
+| epoch 0 | 58.12 s | 348.0 | 15.97 s | worse than baseline |
+| best (epoch 3) | 58.91 s | 346.7 | 15.92 s | worse than baseline |
+| last | 65.16 s | 408.0 | 16.04 s | worst of the three |
+
+Baseline on the same set:
+- solve time: about `35.7-36.0 s`
+- iterations: `174.3`
+- lap time: `15.73 s`
+
+Interpretation:
+- obstacle-conditioned warm starts are still clearly worse than baseline
+- the best obstacle-side checkpoint is early, not late
+- the main remaining failure mode is now obstacle robustness, not nominal no-obstacle warm-start quality
+
+## Updated Conclusions
+
+1. The original `lambda_x = 0.5` run was being harmed by the auxiliary state objective.
+2. Removing the state-loss term materially improved no-obstacle warm-start behavior.
+3. With `lambda_x = 0.0`, the final checkpoint is now better than baseline on the small no-obstacle benchmark.
+4. Obstacle-conditioned warm starts remain clearly worse than baseline across the evaluated shortlist.
+5. The project bottleneck has narrowed: the next work should focus on obstacle robustness and off-manifold recovery, not more generic training cleanup.
