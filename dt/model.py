@@ -96,17 +96,33 @@ class CausalSelfAttention(nn.Module):
         causal_mask = torch.tril(torch.ones(T, T, device=x.device)).view(1, 1, T, T)
         att = att.masked_fill(causal_mask == 0, float('-inf'))
 
+        query_mask = None
+
         # Apply attention mask if provided
         if attention_mask is not None:
-            # attention_mask: (B, T) -> (B, 1, 1, T)
-            att = att.masked_fill(attention_mask.unsqueeze(1).unsqueeze(2) == 0, float('-inf'))
+            # Key mask: (B, T) -> (B, 1, 1, T)
+            key_mask = attention_mask.unsqueeze(1).unsqueeze(2)
+            att = att.masked_fill(key_mask == 0, float('-inf'))
+
+            # Query mask: (B, T) -> (B, 1, T, 1)
+            # Invalid padded queries can otherwise end up with an all -inf row,
+            # which makes softmax produce NaNs.
+            query_mask = attention_mask.unsqueeze(1).unsqueeze(3)
+            att = torch.where(query_mask == 0, torch.zeros_like(att), att)
 
         att = F.softmax(att, dim=-1)
+
+        if query_mask is not None:
+            att = torch.where(query_mask == 0, torch.zeros_like(att), att)
+
         att = self.attn_dropout(att)
 
         # Apply attention to values
         y = att @ v  # (B, nh, T, hs)
         y = y.transpose(1, 2).contiguous().view(B, T, C)
+
+        if attention_mask is not None:
+            y = y * attention_mask.unsqueeze(-1).to(y.dtype)
 
         # Output projection
         y = self.resid_dropout(self.c_proj(y))

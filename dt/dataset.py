@@ -21,6 +21,7 @@ NPZ format (from data/generate_dataset.py):
 - s_offset_m: starting position (scalar)
 """
 
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
@@ -92,6 +93,7 @@ class TrajectoryDataset(Dataset):
         context_length: int = 30,
         obstacle_slots: int = 8,
         obstacle_lookahead: float = 60.0,
+        cache_episodes: int = 64,
         normalize: bool = True,
         stats: Optional[DatasetStats] = None,
         split: str = "train",
@@ -105,6 +107,7 @@ class TrajectoryDataset(Dataset):
             context_length: Context window size K
             obstacle_slots: Number of obstacle slots M
             obstacle_lookahead: Arc-length window for obstacle features
+            cache_episodes: Number of preprocessed episodes to keep in memory
             normalize: Whether to normalize states, actions, and RTG
             stats: Pre-computed normalization statistics
             split: Dataset split (used for stat computation if not provided)
@@ -115,8 +118,10 @@ class TrajectoryDataset(Dataset):
         self.context_length = context_length
         self.obstacle_slots = obstacle_slots
         self.obstacle_lookahead = obstacle_lookahead
+        self.cache_episodes = max(0, cache_episodes)
         self.normalize = normalize
         self.split = split
+        self._episode_cache: "OrderedDict[int, Dict[str, np.ndarray]]" = OrderedDict()
 
         # Dimensions
         self.state_dim = 8          # [ux, uy, r, e, dpsi, pos_E, pos_N, yaw_world]
@@ -227,7 +232,19 @@ class TrajectoryDataset(Dataset):
 
     def _load_episode(self, ep_idx: int) -> Dict[str, np.ndarray]:
         """Load episode data from NPZ file."""
-        return self._load_episode_from_record(self.episodes[ep_idx])
+        if self.cache_episodes <= 0:
+            return self._load_episode_from_record(self.episodes[ep_idx])
+
+        cached = self._episode_cache.get(ep_idx)
+        if cached is not None:
+            self._episode_cache.move_to_end(ep_idx)
+            return cached
+
+        episode_data = self._load_episode_from_record(self.episodes[ep_idx])
+        self._episode_cache[ep_idx] = episode_data
+        if len(self._episode_cache) > self.cache_episodes:
+            self._episode_cache.popitem(last=False)
+        return episode_data
 
     def _load_episode_from_record(self, ep: Dict) -> Dict[str, np.ndarray]:
         """Load episode data from an episode manifest record."""
@@ -269,10 +286,17 @@ class TrajectoryDataset(Dataset):
             ep.get("obstacles_list", [])
         )
 
+        aug_states = np.concatenate([
+            states,
+            track_feats,
+            obs_feats,
+        ], axis=1).astype(np.float32)
+
         return {
             "states": states.astype(np.float32),
             "track_feats": track_feats.astype(np.float32),
             "obs_feats": obs_feats.astype(np.float32),
+            "aug_states": aug_states,
             "actions": data["U"][:T].astype(np.float32),
             "rtg": data["rtg"].astype(np.float32),
             "timesteps": np.arange(T, dtype=np.int64),
@@ -336,6 +360,8 @@ class TrajectoryDataset(Dataset):
 
     def _build_augmented_state(self, episode_data: Dict[str, np.ndarray]) -> np.ndarray:
         """Build augmented state representation."""
+        if "aug_states" in episode_data:
+            return episode_data["aug_states"]
         return np.concatenate([
             episode_data["states"],
             episode_data["track_feats"],
@@ -534,20 +560,25 @@ def create_dataloaders(
         for start in range(ep["length"]):
             val_dataset.indices.append((ep_idx, start))
 
+    loader_kwargs = {
+        "batch_size": batch_size,
+        "pin_memory": torch.cuda.is_available(),
+        "num_workers": num_workers,
+    }
+    if num_workers > 0:
+        loader_kwargs["persistent_workers"] = True
+        loader_kwargs["prefetch_factor"] = 2
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=batch_size,
         shuffle=True,
-        num_workers=num_workers,
-        pin_memory=True,
+        **loader_kwargs,
     )
 
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=batch_size,
         shuffle=False,
-        num_workers=num_workers,
-        pin_memory=True,
+        **loader_kwargs,
     )
 
     print(

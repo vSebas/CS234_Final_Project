@@ -17,11 +17,15 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, Optional
 
+import matplotlib
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[1]
@@ -103,6 +107,7 @@ class TrainConfig:
     warmup_steps: int = 2000
     eval_every: int = 1
     save_every: int = 10
+    save_steps: int = 5000
     log_every: int = 100
 
     # Data loading
@@ -163,10 +168,29 @@ class DTTrainer:
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(self.output_dir / "logs")
         self.metrics_log_path = self.output_dir / "metrics.jsonl"
+        self.loss_plot_path = self.output_dir / "loss_curves.png"
+        self.val_loss_plot_path = self.output_dir / "val_loss_curves.png"
 
         # Training state
         self.global_step = 0
         self.best_val_loss = float("inf")
+        self.total_train_time_s = 0.0
+        self.steps_completed_in_epoch = 0
+        self.train_history = {
+            "global_step": [],
+            "loss": [],
+            "action_loss": [],
+            "state_loss": [],
+        }
+        self.val_history = {
+            "epoch": [],
+            "val_loss": [],
+            "val_action_loss": [],
+            "val_state_loss": [],
+        }
+
+        self._load_logged_history()
+        self._refresh_existing_plots()
 
     def _create_scheduler(self):
         """Create learning rate scheduler with linear warmup and cosine decay."""
@@ -210,6 +234,12 @@ class DTTrainer:
 
         # Total loss
         loss = action_loss + self.config.lambda_x * state_loss
+
+        if not torch.isfinite(loss):
+            raise RuntimeError(
+                "Non-finite training loss detected: "
+                f"loss={loss.item()}, action_loss={action_loss.item()}, state_loss={state_loss.item()}"
+            )
 
         # Backward pass
         self.optimizer.zero_grad()
@@ -265,6 +295,12 @@ class DTTrainer:
 
             loss = action_loss + self.config.lambda_x * state_loss
 
+            if not torch.isfinite(loss):
+                raise RuntimeError(
+                    "Non-finite validation loss detected: "
+                    f"loss={loss.item()}, action_loss={action_loss.item()}, state_loss={state_loss.item()}"
+                )
+
             total_loss += loss.item()
             total_action_loss += action_loss.item()
             total_state_loss += state_loss.item()
@@ -277,8 +313,8 @@ class DTTrainer:
         }
 
     def save_checkpoint(self, epoch: int, is_best: bool = False) -> None:
-        """Save numbered checkpoint and refresh the last checkpoint."""
-        checkpoint = self._build_checkpoint(epoch)
+        """Save an epoch checkpoint and refresh the last checkpoint."""
+        checkpoint = self._build_checkpoint(epoch, steps_completed_in_epoch=len(self.train_loader))
 
         path = self.output_dir / f"checkpoint_epoch_{epoch:04d}.pt"
         torch.save(checkpoint, path)
@@ -295,21 +331,36 @@ class DTTrainer:
         stats_path = self.output_dir / "dataset_stats.npz"
         self.stats.save(stats_path)
 
+    def save_step_checkpoint(self, epoch: int, step: int, batch_idx: int) -> None:
+        """Save a step checkpoint for long epochs and refresh the last checkpoint."""
+        checkpoint = self._build_checkpoint(epoch, steps_completed_in_epoch=batch_idx + 1)
+
+        path = self.output_dir / f"checkpoint_step_{step:07d}.pt"
+        torch.save(checkpoint, path)
+        print(f"Saved step checkpoint: {path}")
+
+        self._save_last_checkpoint(checkpoint)
+
+        stats_path = self.output_dir / "dataset_stats.npz"
+        self.stats.save(stats_path)
+
     def _save_last_checkpoint(self, checkpoint: Dict) -> None:
         """Refresh the stable last-checkpoint pointer used for crash recovery."""
         last_path = self.output_dir / "checkpoint_last.pt"
         torch.save(checkpoint, last_path)
         print(f"Updated last checkpoint: {last_path}")
 
-    def _build_checkpoint(self, epoch: int) -> Dict:
+    def _build_checkpoint(self, epoch: int, steps_completed_in_epoch: int) -> Dict:
         """Build a checkpoint payload for periodic and crash recovery saves."""
         return {
             "epoch": epoch,
             "global_step": self.global_step,
+            "steps_completed_in_epoch": int(steps_completed_in_epoch),
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
             "best_val_loss": self.best_val_loss,
+            "total_train_time_s": self.total_train_time_s,
             "config": asdict(self.config),
             "model_config": asdict(self.model.config),
         }
@@ -324,6 +375,97 @@ class DTTrainer:
         with open(self.metrics_log_path, "a") as f:
             f.write(json.dumps(record) + "\n")
 
+    def _load_logged_history(self) -> None:
+        """Load plot history from metrics.jsonl when resuming an existing run."""
+        if not self.metrics_log_path.exists():
+            return
+
+        with open(self.metrics_log_path, "r") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                event = rec.get("event")
+                if event == "train_step":
+                    self.train_history["global_step"].append(rec["global_step"])
+                    self.train_history["loss"].append(rec["loss"])
+                    self.train_history["action_loss"].append(rec["action_loss"])
+                    self.train_history["state_loss"].append(rec["state_loss"])
+                elif event == "epoch_end":
+                    self.val_history["epoch"].append(rec["epoch"] + 1)
+                    self.val_history["val_loss"].append(rec["val_loss"])
+                    self.val_history["val_action_loss"].append(rec["val_action_loss"])
+                    self.val_history["val_state_loss"].append(rec["val_state_loss"])
+
+    def _refresh_existing_plots(self) -> None:
+        """Regenerate plots from any existing metrics history at startup."""
+        update_train = bool(self.train_history["global_step"])
+        update_val = bool(self.val_history["epoch"])
+        if update_train or update_val:
+            self._update_training_plots(update_train=update_train, update_val=update_val)
+
+    def _update_training_plots(self, update_train: bool = True, update_val: bool = True) -> None:
+        """Refresh PNG loss plots in the run directory."""
+        if update_train and self.train_history["global_step"]:
+            plt.figure(figsize=(9, 5))
+            plt.plot(
+                self.train_history["global_step"],
+                self.train_history["loss"],
+                label="train total loss",
+                linewidth=1.2,
+            )
+            plt.plot(
+                self.train_history["global_step"],
+                self.train_history["action_loss"],
+                label="train action loss",
+                linewidth=1.0,
+                alpha=0.85,
+            )
+            plt.plot(
+                self.train_history["global_step"],
+                self.train_history["state_loss"],
+                label="train state loss",
+                linewidth=1.0,
+                alpha=0.85,
+            )
+            plt.xlabel("Global step")
+            plt.ylabel("Loss")
+            plt.title("Training Losses")
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(self.loss_plot_path, dpi=180)
+            plt.close()
+
+        if update_val and self.val_history["epoch"]:
+            plt.figure(figsize=(7, 4.5))
+            plt.plot(
+                self.val_history["epoch"],
+                self.val_history["val_loss"],
+                marker="o",
+                label="val total loss",
+            )
+            plt.plot(
+                self.val_history["epoch"],
+                self.val_history["val_action_loss"],
+                marker="o",
+                label="val action loss",
+            )
+            plt.plot(
+                self.val_history["epoch"],
+                self.val_history["val_state_loss"],
+                marker="o",
+                label="val state loss",
+            )
+            plt.xlabel("Epoch")
+            plt.ylabel("Loss")
+            plt.title("Validation Losses")
+            plt.legend()
+            plt.grid(True, alpha=0.3)
+            plt.tight_layout()
+            plt.savefig(self.val_loss_plot_path, dpi=180)
+            plt.close()
+
     def load_checkpoint(self, path: Path) -> int:
         """Load checkpoint and return starting epoch."""
         checkpoint = torch.load(path, map_location=self.device)
@@ -332,7 +474,12 @@ class DTTrainer:
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
         self.global_step = checkpoint["global_step"]
         self.best_val_loss = checkpoint["best_val_loss"]
-        return checkpoint["epoch"] + 1
+        self.total_train_time_s = float(checkpoint.get("total_train_time_s", 0.0))
+        self.steps_completed_in_epoch = int(checkpoint.get("steps_completed_in_epoch", 0))
+
+        if self.steps_completed_in_epoch >= len(self.train_loader):
+            return checkpoint["epoch"] + 1
+        return checkpoint["epoch"]
 
     def train(self, resume_from: Optional[Path] = None) -> None:
         """Main training loop."""
@@ -341,6 +488,10 @@ class DTTrainer:
             start_epoch = self.load_checkpoint(resume_from)
             print(f"Resumed from checkpoint: {resume_from}")
             print(f"Starting from epoch {start_epoch}")
+            print(f"Restored global_step: {self.global_step}")
+            print(f"Restored best_val_loss: {self.best_val_loss:.6f}")
+            print(f"Restored total_train_time_s: {self.total_train_time_s:.1f}")
+            print(f"Restored steps_completed_in_epoch: {self.steps_completed_in_epoch}")
             self._append_metrics_log(
                 "resume",
                 {
@@ -348,6 +499,8 @@ class DTTrainer:
                     "start_epoch": start_epoch,
                     "global_step": self.global_step,
                     "best_val_loss": self.best_val_loss,
+                    "total_train_time_s": self.total_train_time_s,
+                    "steps_completed_in_epoch": self.steps_completed_in_epoch,
                 },
             )
 
@@ -368,13 +521,19 @@ class DTTrainer:
             for epoch in range(start_epoch, self.config.num_epochs):
                 current_epoch = epoch
                 t_epoch_start = time.time()
+                resume_batches_to_skip = self.steps_completed_in_epoch if epoch == start_epoch else 0
+                last_completed_batch_in_epoch = resume_batches_to_skip
 
                 # Training
                 epoch_losses = []
                 for batch_idx, batch in enumerate(self.train_loader):
+                    if batch_idx < resume_batches_to_skip:
+                        continue
                     metrics = self.train_step(batch)
                     epoch_losses.append(metrics["loss"])
                     self.global_step += 1
+                    last_completed_batch_in_epoch = batch_idx + 1
+                    self.steps_completed_in_epoch = last_completed_batch_in_epoch
 
                     # Log
                     if self.global_step % self.config.log_every == 0:
@@ -388,6 +547,34 @@ class DTTrainer:
                                 "epoch": epoch,
                                 "global_step": self.global_step,
                                 **metrics,
+                            },
+                        )
+                        self.train_history["global_step"].append(self.global_step)
+                        self.train_history["loss"].append(metrics["loss"])
+                        self.train_history["action_loss"].append(metrics["action_loss"])
+                        self.train_history["state_loss"].append(metrics["state_loss"])
+                        print(
+                            f"Epoch {epoch + 1:4d} | "
+                            f"batch {batch_idx + 1:5d}/{len(self.train_loader):5d} | "
+                            f"step {self.global_step:7d} | "
+                            f"loss: {metrics['loss']:.6f} | "
+                            f"action: {metrics['action_loss']:.6f} | "
+                            f"state: {metrics['state_loss']:.6f} | "
+                            f"lr: {metrics['lr']:.2e}"
+                        )
+
+                    if (
+                        self.config.save_steps > 0
+                        and self.global_step % self.config.save_steps == 0
+                    ):
+                        self.save_step_checkpoint(epoch, self.global_step, batch_idx)
+                        self._append_metrics_log(
+                            "step_checkpoint",
+                            {
+                                "epoch": epoch,
+                                "global_step": self.global_step,
+                                "checkpoint": f"checkpoint_step_{self.global_step:07d}.pt",
+                                "steps_completed_in_epoch": batch_idx + 1,
                             },
                         )
 
@@ -423,51 +610,74 @@ class DTTrainer:
                             **val_metrics,
                             "best_val_loss": self.best_val_loss,
                             "epoch_time_s": t_epoch,
+                            "total_train_time_s": self.total_train_time_s + t_epoch,
                             "is_best": is_best,
                         },
                     )
+                    self.val_history["epoch"].append(epoch + 1)
+                    self.val_history["val_loss"].append(val_loss)
+                    self.val_history["val_action_loss"].append(val_metrics["val_action_loss"])
+                    self.val_history["val_state_loss"].append(val_metrics["val_state_loss"])
+                    self._update_training_plots(update_train=False, update_val=True)
+                    self.total_train_time_s += t_epoch
 
-                    # Save checkpoint
-                    if (epoch + 1) % self.config.save_every == 0 or is_best:
-                        self.save_checkpoint(epoch, is_best=is_best)
-                    else:
-                        self._save_last_checkpoint(self._build_checkpoint(epoch))
+                    # Save epoch checkpoint every epoch; best checkpoints are tracked separately.
+                    self.save_checkpoint(epoch, is_best=is_best)
+                    self.steps_completed_in_epoch = 0
                 else:
-                    self._save_last_checkpoint(self._build_checkpoint(epoch))
+                    self.total_train_time_s += time.time() - t_epoch_start
+                    self._save_last_checkpoint(self._build_checkpoint(epoch, steps_completed_in_epoch=len(self.train_loader)))
+                    self.steps_completed_in_epoch = 0
         except KeyboardInterrupt:
             recovery_epoch = max(current_epoch, start_epoch)
-            self._save_last_checkpoint(self._build_checkpoint(recovery_epoch))
+            self._save_last_checkpoint(
+                self._build_checkpoint(
+                    recovery_epoch,
+                    steps_completed_in_epoch=min(len(self.train_loader), self.steps_completed_in_epoch),
+                )
+            )
             self._append_metrics_log(
                 "interrupted",
                 {
                     "epoch": recovery_epoch,
                     "global_step": self.global_step,
                     "best_val_loss": self.best_val_loss,
+                    "total_train_time_s": self.total_train_time_s,
+                    "steps_completed_in_epoch": self.steps_completed_in_epoch,
                 },
             )
             print("\nTraining interrupted. Saved recovery checkpoint.")
             raise
         except Exception:
             recovery_epoch = max(current_epoch, start_epoch)
-            self._save_last_checkpoint(self._build_checkpoint(recovery_epoch))
+            self._save_last_checkpoint(
+                self._build_checkpoint(
+                    recovery_epoch,
+                    steps_completed_in_epoch=min(len(self.train_loader), self.steps_completed_in_epoch),
+                )
+            )
             self._append_metrics_log(
                 "crash",
                 {
                     "epoch": recovery_epoch,
                     "global_step": self.global_step,
                     "best_val_loss": self.best_val_loss,
+                    "total_train_time_s": self.total_train_time_s,
+                    "steps_completed_in_epoch": self.steps_completed_in_epoch,
                     "error_type": sys.exc_info()[0].__name__ if sys.exc_info()[0] else "UnknownError",
                 },
             )
             print("\nTraining crashed. Saved recovery checkpoint.")
             raise
         else:
+            self._update_training_plots(update_train=True, update_val=True)
             self._append_metrics_log(
                 "complete",
                 {
                     "epoch": self.config.num_epochs - 1,
                     "global_step": self.global_step,
                     "best_val_loss": self.best_val_loss,
+                    "total_train_time_s": self.total_train_time_s,
                 },
             )
             print(f"\nTraining complete. Best val loss: {self.best_val_loss:.6f}")
@@ -507,6 +717,7 @@ def main():
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--num-epochs", type=int, default=100)
     parser.add_argument("--warmup-steps", type=int, default=2000)
+    parser.add_argument("--save-steps", type=int, default=5000)
 
     # Misc
     parser.add_argument("--seed", type=int, default=42)
@@ -524,6 +735,12 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
 
     args = parser.parse_args()
+
+    if args.device == "cuda" and not torch.cuda.is_available():
+        raise RuntimeError(
+            "Requested --device cuda, but torch.cuda.is_available() is False in this shell. "
+            "Verify your CUDA environment or use --device cpu."
+        )
 
     # Set seed
     torch.manual_seed(args.seed)
@@ -545,6 +762,7 @@ def main():
         grad_clip=args.grad_clip,
         num_epochs=args.num_epochs,
         warmup_steps=args.warmup_steps,
+        save_steps=args.save_steps,
         seed=args.seed,
         num_workers=args.num_workers,
         device=args.device,

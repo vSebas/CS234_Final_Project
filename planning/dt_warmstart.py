@@ -114,6 +114,14 @@ class DTWarmStarter:
         margin_m = float(obs.get("margin_m", 0.0))
         return radius_m + margin_m + float(obstacle_clearance_m) + float(vehicle_radius_m)
 
+    @staticmethod
+    def _obstacle_frenet(obs: Dict) -> Tuple[float, float, float]:
+        """Read obstacle Frenet coordinates/radius from canonical or legacy keys."""
+        s_m = float(obs.get("s_m", obs.get("s_obs", obs.get("s", 0.0))))
+        e_m = float(obs.get("e_m", obs.get("e_obs", obs.get("e", 0.0))))
+        radius_m = float(obs.get("radius_m", obs.get("r_obs", obs.get("r", 1.0))))
+        return s_m, e_m, radius_m
+
     def _normalize_state(self, state_aug: np.ndarray) -> np.ndarray:
         """Normalize augmented state."""
         if self.stats is not None:
@@ -172,9 +180,7 @@ class DTWarmStarter:
         # Find obstacles ahead
         ahead_obs = []
         for obs in obstacles:
-            s_obs = obs.get("s_obs", obs.get("s", 0))
-            e_obs = obs.get("e_obs", obs.get("e", 0))
-            r_obs = obs.get("r_obs", obs.get("r", 1.0))
+            s_obs, e_obs, r_obs = self._obstacle_frenet(obs)
 
             ds = s_obs - s
             # Handle wrap-around
@@ -267,6 +273,126 @@ class DTWarmStarter:
         # Preserve the spatial rollout clock exactly with the integrated step time.
         x_next[5] = x_full[5] + dt
 
+        return x_next, dt
+
+    def _state_is_reasonable(self, x_full: np.ndarray, s: float) -> bool:
+        """Screen for rollout states that have already blown up numerically."""
+        if not np.isfinite(x_full).all():
+            return False
+
+        s_mod = s % self.world.length_m
+        half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_mod])))
+
+        ux, uy, r = float(x_full[0]), float(x_full[1]), float(x_full[2])
+        e, dpsi = float(x_full[6]), float(x_full[7])
+
+        if ux < 0.1 or ux > 80.0:
+            return False
+        if abs(uy) > 20.0 or abs(r) > 5.0:
+            return False
+        if abs(e) > max(2.0 * half_width, half_width + 5.0):
+            return False
+        if abs(dpsi) > np.pi:
+            return False
+        return True
+
+    def _project_state_to_track(
+        self,
+        x_full: np.ndarray,
+        s: float,
+        obstacles: Optional[List[Dict]] = None,
+        obstacle_clearance_m: float = 0.0,
+        vehicle_radius_m: float = 0.0,
+    ) -> np.ndarray:
+        """Project a rollout state back to a conservative in-track envelope."""
+        x_proj = x_full.copy()
+        s_mod = s % self.world.length_m
+        half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_mod])))
+        e_limit = max(0.5, 0.9 * half_width)
+
+        x_proj[0] = float(np.clip(x_proj[0], 5.0, 25.0))
+        x_proj[1] = float(np.clip(x_proj[1], -2.0, 2.0))
+        x_proj[2] = float(np.clip(x_proj[2], -1.0, 1.0))
+        e_proj = float(np.clip(x_proj[6], -e_limit, e_limit))
+
+        if obstacles:
+            longitudinal_window = max(4.0, 3.0 * (self.world.length_m / 120.0))
+            for obs in obstacles:
+                s_obs, e_obs, _ = self._obstacle_frenet(obs)
+                ds = s_obs - s
+                if ds < -0.5 * self.world.length_m:
+                    ds += self.world.length_m
+                elif ds > 0.5 * self.world.length_m:
+                    ds -= self.world.length_m
+
+                if abs(ds) > longitudinal_window:
+                    continue
+
+                required = self._effective_obstacle_radius(
+                    obs,
+                    obstacle_clearance_m=obstacle_clearance_m,
+                    vehicle_radius_m=vehicle_radius_m,
+                )
+                if abs(e_proj - e_obs) < required:
+                    left_target = e_obs + required
+                    right_target = e_obs - required
+                    left_feasible = abs(left_target) <= e_limit
+                    right_feasible = abs(right_target) <= e_limit
+
+                    if left_feasible and right_feasible:
+                        e_proj = left_target if abs(left_target) < abs(right_target) else right_target
+                    elif left_feasible:
+                        e_proj = left_target
+                    elif right_feasible:
+                        e_proj = right_target
+                    else:
+                        e_proj = float(np.clip(e_proj, -e_limit, e_limit))
+
+        x_proj[6] = e_proj
+        x_proj[7] = float(np.clip(x_proj[7], -0.75, 0.75))
+        return x_proj
+
+    def _fallback_step(
+        self,
+        x_full: np.ndarray,
+        u: np.ndarray,
+        s: float,
+        ds: float,
+    ) -> Tuple[np.ndarray, float]:
+        """
+        Conservative rollout fallback used when the full model step becomes unstable.
+
+        This keeps the warm-start numerically usable for IPOPT rather than letting
+        the trajectory explode to NaNs. The fallback also nudges the trajectory
+        back toward the centerline instead of passively preserving a diverging
+        lateral state.
+        """
+        kappa, _, _ = self._get_road_geometry(s)
+        s_next = s + ds
+        s_next_mod = s_next % self.world.length_m
+        half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_next_mod])))
+        ux = float(np.clip(x_full[0], 5.0, 30.0))
+        e = float(x_full[6])
+        dpsi = float(x_full[7])
+
+        dt = ds / max(ux, 0.5)
+
+        # Simple centerline-recovery law in spatial coordinates.
+        dpsi_cmd = np.clip(0.55 * dpsi - 0.08 * e - ds * kappa, -0.45, 0.45)
+        e_next = e + ds * np.sin(dpsi_cmd)
+        e_limit = max(0.5, 0.8 * half_width)
+        e_next = float(np.clip(e_next, -e_limit, e_limit))
+        dpsi_next = float(np.clip(dpsi_cmd, -0.6, 0.6))
+
+        x_next = x_full.copy()
+        x_next[0] = float(np.clip(ux + 0.02 * np.clip(u[1], -2.0, 2.0), 5.0, 25.0))
+        x_next[1] = float(np.clip(0.35 * x_full[1], -1.5, 1.5))
+        x_next[2] = float(np.clip((dpsi_next - dpsi) / max(dt, 1e-3), -0.8, 0.8))
+        x_next[3] = 0.0
+        x_next[4] = 0.0
+        x_next[5] = x_full[5] + dt
+        x_next[6] = e_next
+        x_next[7] = dpsi_next
         return x_next, dt
 
     @torch.no_grad()
@@ -421,12 +547,33 @@ class DTWarmStarter:
                 action_pred = action_pred * self.stats.action_std + self.stats.action_mean
             action_pred = self._clip_action(action_pred)
 
+            if not np.isfinite(action_pred).all():
+                action_pred = np.zeros_like(action_pred)
+
             # Store action
             U_init[:, k] = action_pred
             actions_buffer.append(action_pred)
 
             # Propagate dynamics
             x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
+            if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
+                x_next, dt = self._fallback_step(x_full, action_pred, s, ds_m)
+                if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
+                    return WarmStartResult(
+                        X_init=X_init,
+                        U_init=U_init,
+                        success=False,
+                        rejection_reason=f"Rollout unstable at step {k}",
+                        rtg_used=rtg_0,
+                        inference_time_s=time.time() - t_start,
+                    )
+            x_next = self._project_state_to_track(
+                x_next,
+                s + ds_m,
+                obstacles=obstacles,
+                obstacle_clearance_m=obstacle_clearance_m,
+                vehicle_radius_m=vehicle_radius_m,
+            )
             X_init[:, k + 1] = x_next
 
             # Update state and progress
@@ -504,9 +651,7 @@ class DTWarmStarter:
                 pose = self._get_global_pose(s, e, X_init[7, k])
 
                 for obs in obstacles:
-                    s_obs = obs.get("s_obs", obs.get("s", 0))
-                    e_obs = obs.get("e_obs", obs.get("e", 0))
-                    r_obs = obs.get("r_obs", obs.get("r", 1.0))
+                    s_obs, e_obs, r_obs = self._obstacle_frenet(obs)
 
                     # Convert obstacle to global
                     obs_pose = self._get_global_pose(s_obs, e_obs, 0)

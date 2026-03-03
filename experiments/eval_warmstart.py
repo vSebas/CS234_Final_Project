@@ -71,7 +71,7 @@ class EvalConfig:
     map_file: str = "maps/Oval_Track_260m.mat"
     num_scenarios: int = 50
     seed: int = 42
-    output_dir: str = "results/warmstart_eval"
+    output_dir: str = "results/warmstarts/eval"
 
     # Optimizer settings
     N: int = 120
@@ -141,10 +141,12 @@ def sample_obstacles(
         r = rng.uniform(config.obstacle_radius_min, config.obstacle_radius_max)
 
         obstacles.append({
-            "s_obs": float(s),
-            "e_obs": float(e),
-            "r_obs": float(r),
-            "margin": config.obstacle_margin,
+            # Keep the optimizer-facing schema canonical here. The DT warm-starter
+            # accepts these names and also supports the older aliases internally.
+            "s_m": float(s),
+            "e_m": float(e),
+            "radius_m": float(r),
+            "margin_m": float(config.obstacle_margin),
         })
         placed_s.append(s)
 
@@ -315,6 +317,8 @@ def evaluate_scenario(
         success_dt, ws_accepted, metrics_dt = run_dt_warmstart_solve(
             optimizer, warmstarter, config, obstacles, verbose
         )
+        metrics_dt = dict(metrics_dt)
+        metrics_dt.pop("warmstart_accepted", None)
         results.append(ScenarioResult(
             scenario_id=scenario_id,
             method="dt_warmstart",
@@ -431,7 +435,7 @@ def main():
     parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     parser.add_argument("--num-scenarios", type=int, default=50)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output-dir", type=str, default="results/warmstart_eval")
+    parser.add_argument("--output-dir", type=str, default="results/warmstarts/eval")
     parser.add_argument("--N", type=int, default=120)
     parser.add_argument("--min-obstacles", type=int, default=0)
     parser.add_argument("--max-obstacles", type=int, default=4)

@@ -46,6 +46,24 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Shifts: `data/datasets/<map_id>_shifts/episodes/*.npz`
 - Repairs: `data/datasets/<map_id>_repairs/episodes/*.npz`
 
+**Run provenance for the current generated dataset**
+- The canonical aggregate build log is:
+  - `data/datasets/progress.log`
+- `progress.log` is the best single place to verify the final dataset because the current dataset was assembled over multiple resumed runs.
+- The detailed shell logs for those resumed runs are stored in:
+  - `results/dataset_runs/run_20260302_103944.log`
+  - `results/dataset_runs/run_20260302_142801.log`
+  - `results/dataset_runs/run_20260302_145210.log`
+- Interpretation for the current dataset:
+  - `run_20260302_103944.log`: first full multi-track resumed build, including all shift generation and the earlier repair pass with `H = 50`
+  - `run_20260302_142801.log`: resumed repair regeneration after switching to the final `H = 20`
+  - `run_20260302_145210.log`: follow-up resumed repair pass that finished additional tracks at `H = 20`
+  - `data/datasets/progress.log`: final stitched record showing the complete accepted repair counts and the final completion timestamp on March 2, 2026 at `15:18:43`
+- The empty `results/dataset_runs/run_20260302_151336.log` is not useful provenance for the current dataset and can be ignored.
+- Practical rule:
+  - use `data/datasets/progress.log` to answer "did the current dataset finish successfully?"
+  - use `results/dataset_runs/run_*.log` when you need the exact shell commands and intermediate resume history that produced the current shard contents
+
 **Saved schema used by training code**
 - Node-aligned arrays (`N+1` for shifts, `H+1` for repairs):
   - `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`

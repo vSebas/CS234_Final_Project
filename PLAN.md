@@ -711,6 +711,9 @@ The current architecture is acceptable as the baseline architecture. The next ar
 2. Consider adding `dfz_long` and `dfz_lat` to DT inputs if warm-start quality stalls.
 3. Keep the current next-observation auxiliary head unless experiments show it is too weak.
 4. Consider feasibility-conditioning or constraints-to-go only after the baseline benchmark is established.
+5. After a clean baseline run is confirmed, test a larger DT capacity setting as an ablation.
+   The current baseline is intentionally small: `4` layers, `4` heads, `d_model=128`, about `0.84M` parameters.
+   A likely next scale is `6` layers, `8` heads, `d_model=256`, with batch size adjusted to fit GPU memory.
 
 Note:
 - `grade` and `bank` are effectively zero for the current tracks and are not a priority DT input change right now.

@@ -257,6 +257,15 @@ python dt/train.py \
   --num-epochs 100
 ```
 
+Convenience wrapper:
+
+```bash
+./dt/run_train.sh smoke
+./dt/run_train.sh full
+```
+
+Optional overrides can be passed through environment variables such as `OUTPUT_DIR`, `BATCH_SIZE`, `NUM_EPOCHS`, `NUM_WORKERS`, `CONTEXT_LENGTH`, `DATA_DIR`, and `DEVICE`.
+
 Crash recovery / resume:
 - by default, training uses `--resume auto`
 - if `dt/checkpoints/<run>/checkpoint_last.pt` exists, training resumes from it automatically
