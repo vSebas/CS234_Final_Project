@@ -123,6 +123,7 @@ class TrainConfig:
     # Data loading
     num_workers: int = 4
     train_ratio: float = 0.9
+    repair_weight: float = 1.0
 
     # Misc
     seed: int = 42
@@ -745,6 +746,12 @@ def main():
         ),
     )
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--repair-weight",
+        type=float,
+        default=1.0,
+        help="Relative sampling weight for repair samples in training.",
+    )
 
     args = parser.parse_args()
 
@@ -777,6 +784,7 @@ def main():
         save_steps=args.save_steps,
         seed=args.seed,
         num_workers=args.num_workers,
+        repair_weight=args.repair_weight,
         device=args.device,
     )
 
@@ -795,6 +803,7 @@ def main():
         num_workers=config.num_workers,
         train_ratio=config.train_ratio,
         seed=config.seed,
+        repair_weight=config.repair_weight,
     )
 
     # Create model

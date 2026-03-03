@@ -480,6 +480,7 @@ def create_dataloaders(
     normalize: bool = True,
     train_ratio: float = 0.9,
     seed: int = 42,
+    repair_weight: float = 1.0,
 ) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, DatasetStats]:
     """
     Create train and validation dataloaders.
@@ -492,6 +493,7 @@ def create_dataloaders(
         normalize: Whether to normalize
         train_ratio: Fraction of data for training
         seed: Random seed
+        repair_weight: Relative sampling weight for repair samples in training.
 
     Returns:
         train_loader, val_loader, stats
@@ -569,10 +571,35 @@ def create_dataloaders(
         loader_kwargs["persistent_workers"] = True
         loader_kwargs["prefetch_factor"] = 2
 
+    train_loader_kwargs = dict(loader_kwargs)
+    train_sampler = None
+    if repair_weight > 1.0:
+        sample_weights = np.ones(len(train_dataset), dtype=np.float64)
+        repair_sample_count = 0
+        for sample_idx, (ep_idx, _) in enumerate(train_dataset.indices):
+            ep = train_episodes[ep_idx]
+            if str(ep.get("episode_type", "")).lower() == "repair":
+                sample_weights[sample_idx] = float(repair_weight)
+                repair_sample_count += 1
+        if repair_sample_count > 0:
+            train_sampler = torch.utils.data.WeightedRandomSampler(
+                weights=torch.as_tensor(sample_weights, dtype=torch.double),
+                num_samples=len(train_dataset),
+                replacement=True,
+            )
+            train_loader_kwargs["sampler"] = train_sampler
+            print(
+                f"Train sampler: weighted repairs enabled "
+                f"(repair_weight={repair_weight:.2f}, repair_samples={repair_sample_count}, "
+                f"nonrepair_samples={len(train_dataset) - repair_sample_count})"
+            )
+
+    if train_sampler is None:
+        train_loader_kwargs["shuffle"] = True
+
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        shuffle=True,
-        **loader_kwargs,
+        **train_loader_kwargs,
     )
 
     val_loader = torch.utils.data.DataLoader(

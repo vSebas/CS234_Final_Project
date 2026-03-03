@@ -8,6 +8,7 @@ context_length="${CONTEXT_LENGTH:-30}"
 num_workers="${NUM_WORKERS:-4}"
 device="${DEVICE:-cuda}"
 lambda_x="${LAMBDA_X:-}"
+repair_weight="${REPAIR_WEIGHT:-}"
 
 case "${mode}" in
   smoke)
@@ -34,12 +35,27 @@ case "${mode}" in
       lambda_x="0.0"
     fi
     ;;
+  full_action_repairs)
+    output_dir="${OUTPUT_DIR:-dt/checkpoints/full_run_lambda0_repairs}"
+    batch_size="${BATCH_SIZE:-64}"
+    num_epochs="${NUM_EPOCHS:-40}"
+    if [[ -z "${lambda_x}" ]]; then
+      lambda_x="0.0"
+    fi
+    if [[ -z "${repair_weight}" ]]; then
+      repair_weight="4.0"
+    fi
+    ;;
   *)
-    echo "Usage: $0 [smoke|full|full_action]"
-    echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X"
+    echo "Usage: $0 [smoke|full|full_action|full_action_repairs]"
+    echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X, REPAIR_WEIGHT"
     exit 1
     ;;
 esac
+
+if [[ -z "${repair_weight}" ]]; then
+  repair_weight="1.0"
+fi
 
 mkdir -p "${output_dir}"
 
@@ -52,6 +68,7 @@ echo "[dt/run_train] num_workers=${num_workers}"
 echo "[dt/run_train] context_length=${context_length}"
 echo "[dt/run_train] device=${device}"
 echo "[dt/run_train] lambda_x=${lambda_x}"
+echo "[dt/run_train] repair_weight=${repair_weight}"
 echo "[dt/run_train] resume=auto"
 
 python -u dt/train.py \
@@ -62,4 +79,5 @@ python -u dt/train.py \
   --num-epochs "${num_epochs}" \
   --num-workers "${num_workers}" \
   --device "${device}" \
-  --lambda-x "${lambda_x}"
+  --lambda-x "${lambda_x}" \
+  --repair-weight "${repair_weight}"
