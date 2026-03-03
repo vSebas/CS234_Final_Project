@@ -31,6 +31,47 @@ from dt.model import DecisionTransformer, DTConfig
 from dt.dataset import TrajectoryDataset, DatasetStats, create_dataloaders
 
 
+def resolve_resume_path(output_dir: Path, resume_arg: Optional[str]) -> Optional[Path]:
+    """
+    Resolve the checkpoint path to resume from.
+
+    Modes:
+    - `auto` or omitted: prefer `checkpoint_last.pt`, then latest epoch checkpoint
+    - explicit path: use that path
+    - `none` / `off`: disable resume
+    """
+    if resume_arg is None:
+        resume_mode = "auto"
+    else:
+        resume_mode = str(resume_arg).strip()
+
+    if resume_mode.lower() in {"none", "off", "false", "0", "disable"}:
+        return None
+
+    if resume_mode.lower() != "auto":
+        path = Path(resume_mode)
+        return path if path.exists() else None
+
+    last_path = output_dir / "checkpoint_last.pt"
+    if last_path.exists():
+        return last_path
+
+    epoch_paths = sorted(output_dir.glob("checkpoint_epoch_*.pt"))
+    if epoch_paths:
+        return epoch_paths[-1]
+
+    return None
+
+
+def is_explicit_resume_path(resume_arg: Optional[str]) -> bool:
+    """Return whether the CLI argument names a concrete checkpoint path."""
+    if resume_arg is None:
+        return False
+
+    resume_mode = str(resume_arg).strip().lower()
+    return resume_mode not in {"auto", "none", "off", "false", "0", "disable"}
+
+
 @dataclass
 class TrainConfig:
     """Training configuration."""
@@ -121,6 +162,7 @@ class DTTrainer:
         self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(self.output_dir / "logs")
+        self.metrics_log_path = self.output_dir / "metrics.jsonl"
 
         # Training state
         self.global_step = 0
@@ -235,8 +277,33 @@ class DTTrainer:
         }
 
     def save_checkpoint(self, epoch: int, is_best: bool = False) -> None:
-        """Save model checkpoint."""
-        checkpoint = {
+        """Save numbered checkpoint and refresh the last checkpoint."""
+        checkpoint = self._build_checkpoint(epoch)
+
+        path = self.output_dir / f"checkpoint_epoch_{epoch:04d}.pt"
+        torch.save(checkpoint, path)
+        print(f"Saved checkpoint: {path}")
+
+        self._save_last_checkpoint(checkpoint)
+
+        if is_best:
+            best_path = self.output_dir / "checkpoint_best.pt"
+            torch.save(checkpoint, best_path)
+            print(f"Saved best checkpoint: {best_path}")
+
+        # Save stats alongside
+        stats_path = self.output_dir / "dataset_stats.npz"
+        self.stats.save(stats_path)
+
+    def _save_last_checkpoint(self, checkpoint: Dict) -> None:
+        """Refresh the stable last-checkpoint pointer used for crash recovery."""
+        last_path = self.output_dir / "checkpoint_last.pt"
+        torch.save(checkpoint, last_path)
+        print(f"Updated last checkpoint: {last_path}")
+
+    def _build_checkpoint(self, epoch: int) -> Dict:
+        """Build a checkpoint payload for periodic and crash recovery saves."""
+        return {
             "epoch": epoch,
             "global_step": self.global_step,
             "model_state_dict": self.model.state_dict(),
@@ -247,18 +314,15 @@ class DTTrainer:
             "model_config": asdict(self.model.config),
         }
 
-        path = self.output_dir / f"checkpoint_epoch_{epoch:04d}.pt"
-        torch.save(checkpoint, path)
-        print(f"Saved checkpoint: {path}")
-
-        if is_best:
-            best_path = self.output_dir / "checkpoint_best.pt"
-            torch.save(checkpoint, best_path)
-            print(f"Saved best checkpoint: {best_path}")
-
-        # Save stats alongside
-        stats_path = self.output_dir / "dataset_stats.npz"
-        self.stats.save(stats_path)
+    def _append_metrics_log(self, event: str, payload: Dict) -> None:
+        """Append a structured log record that survives resume."""
+        record = {
+            "event": event,
+            "time_unix": time.time(),
+            **payload,
+        }
+        with open(self.metrics_log_path, "a") as f:
+            f.write(json.dumps(record) + "\n")
 
     def load_checkpoint(self, path: Path) -> int:
         """Load checkpoint and return starting epoch."""
@@ -275,7 +339,17 @@ class DTTrainer:
         start_epoch = 0
         if resume_from and resume_from.exists():
             start_epoch = self.load_checkpoint(resume_from)
-            print(f"Resumed from epoch {start_epoch}")
+            print(f"Resumed from checkpoint: {resume_from}")
+            print(f"Starting from epoch {start_epoch}")
+            self._append_metrics_log(
+                "resume",
+                {
+                    "resume_from": str(resume_from),
+                    "start_epoch": start_epoch,
+                    "global_step": self.global_step,
+                    "best_val_loss": self.best_val_loss,
+                },
+            )
 
         # Save config
         self.config.save(self.output_dir / "config.json")
@@ -289,53 +363,116 @@ class DTTrainer:
         print(f"  Model params: {sum(p.numel() for p in self.model.parameters()):,}")
         print()
 
-        for epoch in range(start_epoch, self.config.num_epochs):
-            t_epoch_start = time.time()
+        current_epoch = start_epoch - 1
+        try:
+            for epoch in range(start_epoch, self.config.num_epochs):
+                current_epoch = epoch
+                t_epoch_start = time.time()
 
-            # Training
-            epoch_losses = []
-            for batch_idx, batch in enumerate(self.train_loader):
-                metrics = self.train_step(batch)
-                epoch_losses.append(metrics["loss"])
-                self.global_step += 1
+                # Training
+                epoch_losses = []
+                for batch_idx, batch in enumerate(self.train_loader):
+                    metrics = self.train_step(batch)
+                    epoch_losses.append(metrics["loss"])
+                    self.global_step += 1
 
-                # Log
-                if self.global_step % self.config.log_every == 0:
-                    self.writer.add_scalar("train/loss", metrics["loss"], self.global_step)
-                    self.writer.add_scalar("train/action_loss", metrics["action_loss"], self.global_step)
-                    self.writer.add_scalar("train/state_loss", metrics["state_loss"], self.global_step)
-                    self.writer.add_scalar("train/lr", metrics["lr"], self.global_step)
+                    # Log
+                    if self.global_step % self.config.log_every == 0:
+                        self.writer.add_scalar("train/loss", metrics["loss"], self.global_step)
+                        self.writer.add_scalar("train/action_loss", metrics["action_loss"], self.global_step)
+                        self.writer.add_scalar("train/state_loss", metrics["state_loss"], self.global_step)
+                        self.writer.add_scalar("train/lr", metrics["lr"], self.global_step)
+                        self._append_metrics_log(
+                            "train_step",
+                            {
+                                "epoch": epoch,
+                                "global_step": self.global_step,
+                                **metrics,
+                            },
+                        )
 
-            train_loss = np.mean(epoch_losses)
+                train_loss = np.mean(epoch_losses)
 
-            # Validation
-            if (epoch + 1) % self.config.eval_every == 0:
-                val_metrics = self.evaluate()
-                val_loss = val_metrics["val_loss"]
+                # Validation
+                if (epoch + 1) % self.config.eval_every == 0:
+                    val_metrics = self.evaluate()
+                    val_loss = val_metrics["val_loss"]
 
-                self.writer.add_scalar("val/loss", val_loss, self.global_step)
-                self.writer.add_scalar("val/action_loss", val_metrics["val_action_loss"], self.global_step)
-                self.writer.add_scalar("val/state_loss", val_metrics["val_state_loss"], self.global_step)
+                    self.writer.add_scalar("val/loss", val_loss, self.global_step)
+                    self.writer.add_scalar("val/action_loss", val_metrics["val_action_loss"], self.global_step)
+                    self.writer.add_scalar("val/state_loss", val_metrics["val_state_loss"], self.global_step)
 
-                is_best = val_loss < self.best_val_loss
-                if is_best:
-                    self.best_val_loss = val_loss
+                    is_best = val_loss < self.best_val_loss
+                    if is_best:
+                        self.best_val_loss = val_loss
 
-                t_epoch = time.time() - t_epoch_start
-                print(
-                    f"Epoch {epoch + 1:4d} | "
-                    f"train_loss: {train_loss:.6f} | "
-                    f"val_loss: {val_loss:.6f} | "
-                    f"best: {self.best_val_loss:.6f} | "
-                    f"time: {t_epoch:.1f}s"
-                )
+                    t_epoch = time.time() - t_epoch_start
+                    print(
+                        f"Epoch {epoch + 1:4d} | "
+                        f"train_loss: {train_loss:.6f} | "
+                        f"val_loss: {val_loss:.6f} | "
+                        f"best: {self.best_val_loss:.6f} | "
+                        f"time: {t_epoch:.1f}s"
+                    )
+                    self._append_metrics_log(
+                        "epoch_end",
+                        {
+                            "epoch": epoch,
+                            "global_step": self.global_step,
+                            "train_loss": float(train_loss),
+                            **val_metrics,
+                            "best_val_loss": self.best_val_loss,
+                            "epoch_time_s": t_epoch,
+                            "is_best": is_best,
+                        },
+                    )
 
-                # Save checkpoint
-                if (epoch + 1) % self.config.save_every == 0 or is_best:
-                    self.save_checkpoint(epoch, is_best=is_best)
-
-        print(f"\nTraining complete. Best val loss: {self.best_val_loss:.6f}")
-        self.writer.close()
+                    # Save checkpoint
+                    if (epoch + 1) % self.config.save_every == 0 or is_best:
+                        self.save_checkpoint(epoch, is_best=is_best)
+                    else:
+                        self._save_last_checkpoint(self._build_checkpoint(epoch))
+                else:
+                    self._save_last_checkpoint(self._build_checkpoint(epoch))
+        except KeyboardInterrupt:
+            recovery_epoch = max(current_epoch, start_epoch)
+            self._save_last_checkpoint(self._build_checkpoint(recovery_epoch))
+            self._append_metrics_log(
+                "interrupted",
+                {
+                    "epoch": recovery_epoch,
+                    "global_step": self.global_step,
+                    "best_val_loss": self.best_val_loss,
+                },
+            )
+            print("\nTraining interrupted. Saved recovery checkpoint.")
+            raise
+        except Exception:
+            recovery_epoch = max(current_epoch, start_epoch)
+            self._save_last_checkpoint(self._build_checkpoint(recovery_epoch))
+            self._append_metrics_log(
+                "crash",
+                {
+                    "epoch": recovery_epoch,
+                    "global_step": self.global_step,
+                    "best_val_loss": self.best_val_loss,
+                    "error_type": sys.exc_info()[0].__name__ if sys.exc_info()[0] else "UnknownError",
+                },
+            )
+            print("\nTraining crashed. Saved recovery checkpoint.")
+            raise
+        else:
+            self._append_metrics_log(
+                "complete",
+                {
+                    "epoch": self.config.num_epochs - 1,
+                    "global_step": self.global_step,
+                    "best_val_loss": self.best_val_loss,
+                },
+            )
+            print(f"\nTraining complete. Best val loss: {self.best_val_loss:.6f}")
+        finally:
+            self.writer.close()
 
 
 def main():
@@ -374,7 +511,16 @@ def main():
     # Misc
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--num-workers", type=int, default=4)
-    parser.add_argument("--resume", type=str, default=None, help="Checkpoint to resume from")
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default="auto",
+        help=(
+            "Resume mode: `auto` (default) resumes from output_dir/checkpoint_last.pt "
+            "or the latest epoch checkpoint, an explicit checkpoint path resumes from "
+            "that path, and `none` disables resume."
+        ),
+    )
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
 
     args = parser.parse_args()
@@ -457,10 +603,10 @@ def main():
     # Create trainer
     trainer = DTTrainer(model, train_loader, val_loader, config, stats)
 
-    # Resume if specified
-    resume_path = Path(args.resume) if args.resume else None
-
     # Train
+    resume_path = resolve_resume_path(Path(config.output_dir), args.resume)
+    if is_explicit_resume_path(args.resume) and resume_path is None:
+        raise FileNotFoundError(f"Resume checkpoint not found: {args.resume}")
     trainer.train(resume_from=resume_path)
 
 

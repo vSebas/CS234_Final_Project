@@ -168,9 +168,29 @@ Current default hyperparameters:
   - total loss = `action_loss + lambda_x * state_loss`
 - uses AdamW with warmup
 - saves:
-  - checkpoints
+  - numbered checkpoints
+  - `checkpoint_last.pt` for stable crash recovery
   - `dataset_stats.npz`
   - config JSON
+  - `metrics.jsonl` with append-only structured training logs
+  - TensorBoard event files under `logs/`
+
+Resume behavior:
+- default CLI mode is `--resume auto`
+- resume resolution prefers `checkpoint_last.pt`
+- if that is missing, it falls back to the latest `checkpoint_epoch_*.pt`
+- `--resume none` disables resume
+- `--resume path/to/checkpoint.pt` resumes from a specific checkpoint
+
+Crash handling:
+- the trainer refreshes `checkpoint_last.pt` at the end of each epoch
+- if training is interrupted or crashes after an epoch completes, the next run can continue from that stable checkpoint
+- if an exception bubbles out of the training loop, the trainer also writes a recovery `checkpoint_last.pt` before re-raising
+
+Logging behavior:
+- TensorBoard scalars are written to the run-local `logs/` directory
+- `metrics.jsonl` is append-only and persists across resumes
+- the structured log includes `resume`, `train_step`, `epoch_end`, `interrupted`, `crash`, and `complete` events
 
 Current training target:
 - action prediction at the state token

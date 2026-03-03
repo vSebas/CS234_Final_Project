@@ -257,6 +257,15 @@ python dt/train.py \
   --num-epochs 100
 ```
 
+Crash recovery / resume:
+- by default, training uses `--resume auto`
+- if `dt/checkpoints/<run>/checkpoint_last.pt` exists, training resumes from it automatically
+- otherwise it falls back to the latest `checkpoint_epoch_*.pt`
+- pass `--resume none` to force a fresh run
+- pass `--resume path/to/checkpoint.pt` to resume from a specific checkpoint
+- training metrics are appended to `dt/checkpoints/<run>/metrics.jsonl` across resumes
+- TensorBoard logs continue under `dt/checkpoints/<run>/logs`
+
 The `--data-dir` argument accepts:
 - one shard directory such as `data/datasets/Oval_Track_260m_shifts`
 - a comma-separated list of shard directories
@@ -279,6 +288,7 @@ Recommended current usage:
 - use the generated shard structure as-is
 - treat `data/DATASET_CONFIG.md` as the canonical description of the on-disk dataset schema
 - use the full `data/datasets` root for current multi-shard training unless you are intentionally running a shard-specific experiment
+- keep one `--output-dir` per training run so auto-resume behavior is unambiguous
 - treat benchmark claims as provisional until baseline-vs-DT warm-start evaluation is run end-to-end
 
 ### Vehicle Simulation
