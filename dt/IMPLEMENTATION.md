@@ -169,7 +169,7 @@ Current default hyperparameters:
 - uses AdamW with warmup
 - saves:
   - numbered checkpoints
-  - `checkpoint_last.pt` for stable crash recovery
+  - `checkpoints/checkpoint_last.pt` for stable crash recovery
   - `dataset_stats.npz`
   - config JSON
   - `metrics.jsonl` with append-only structured training logs
@@ -177,15 +177,15 @@ Current default hyperparameters:
 
 Resume behavior:
 - default CLI mode is `--resume auto`
-- resume resolution prefers `checkpoint_last.pt`
-- if that is missing, it falls back to the latest `checkpoint_epoch_*.pt`
+- resume resolution prefers `checkpoints/checkpoint_last.pt`
+- if that is missing, it falls back to the latest `checkpoints/checkpoint_epoch_*.pt`
 - `--resume none` disables resume
 - `--resume path/to/checkpoint.pt` resumes from a specific checkpoint
 
 Crash handling:
-- the trainer refreshes `checkpoint_last.pt` at the end of each epoch
+- the trainer refreshes `checkpoints/checkpoint_last.pt` at the end of each epoch
 - if training is interrupted or crashes after an epoch completes, the next run can continue from that stable checkpoint
-- if an exception bubbles out of the training loop, the trainer also writes a recovery `checkpoint_last.pt` before re-raising
+- if an exception bubbles out of the training loop, the trainer also writes a recovery `checkpoints/checkpoint_last.pt` before re-raising
 
 Logging behavior:
 - TensorBoard scalars are written to the run-local `logs/` directory

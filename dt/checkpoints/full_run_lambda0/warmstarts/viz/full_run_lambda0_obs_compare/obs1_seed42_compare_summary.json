@@ -1,0 +1,31 @@
+{
+  "checkpoint": "dt/checkpoints/full_run_lambda0/checkpoint_best.pt",
+  "target_lap_time_s": 15.517157617613966,
+  "obstacles": [
+    {
+      "s_m": 201.22857262455048,
+      "e_m": -0.1466917445950744,
+      "radius_m": 1.4010185439379677,
+      "margin_m": 0.3
+    }
+  ],
+  "baseline": {
+    "success": true,
+    "iterations": 155,
+    "solve_time_s": 54.362844467163086,
+    "lap_time_s": 15.750795337699586,
+    "min_clearance_m": -0.1163807148292455
+  },
+  "dt_warmstart": {
+    "warmstart_success": true,
+    "warmstart_reason": null,
+    "warmstart_time_s": 1.4853434562683105,
+    "rtg_used": -15.517157617613966,
+    "opt_success": true,
+    "iterations": 355,
+    "solve_time_s": 53.69516658782959,
+    "lap_time_s": 16.001267340359068,
+    "min_clearance_m": 7.873948280057164e-07
+  },
+  "plot": "results/warmstarts/viz/full_run_lambda0_obs_compare/obs1_seed42_compare.png"
+}

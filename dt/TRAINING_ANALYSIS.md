@@ -1,6 +1,38 @@
 # DT Training Analysis
 
-This note summarizes the completed `full_run1` Decision Transformer training run and the first downstream warm-start check.
+This note summarizes the completed DT training runs and their downstream warm-start checks.
+
+## Run Bundles
+
+Use these run-local bundles when you want one self-contained folder per training run.
+
+### `full_run1`
+
+Run directory:
+- `dt/checkpoints/full_run1`
+
+Local bundle note:
+- `dt/checkpoints/full_run1/RUN_ANALYSIS.md`
+
+Use this folder for:
+- the original `lambda_x = 0.5` training artifacts
+- local copies of the first warm-start evals
+- local copies of the RTG-fix reruns
+
+### `full_run_lambda0`
+
+Run directory:
+- `dt/checkpoints/full_run_lambda0`
+
+Local bundle note:
+- `dt/checkpoints/full_run_lambda0/RUN_ANALYSIS.md`
+
+Use this folder for:
+- the action-only `lambda_x = 0.0` training artifacts
+- the checkpoint-shortlist warm-start comparisons
+- the no-obstacle and obstacle comparison visualizations
+
+The rest of this document keeps the cross-run narrative in one place.
 
 ## Run
 
@@ -8,8 +40,8 @@ Training run directory:
 - `dt/checkpoints/full_run1`
 
 Primary artifacts:
-- `checkpoint_best.pt`
-- `checkpoint_last.pt`
+- `checkpoints/checkpoint_best.pt`
+- `checkpoints/checkpoint_last.pt`
 - `metrics.jsonl`
 - `loss_curves.png`
 - `val_loss_curves.png`
@@ -95,7 +127,7 @@ Practical reading:
 ## Which Checkpoint To Use
 
 Use:
-- `dt/checkpoints/full_run1/checkpoint_best.pt`
+- `dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt`
 
 Reason:
 - it corresponds to the best validation loss
@@ -106,7 +138,7 @@ Do not assume the final checkpoint is the best one for warm-starting.
 ## First Warm-Start Comparison
 
 A first optimizer-level comparison was run on one fixed scenario with one obstacle using:
-- `dt/checkpoints/full_run1/checkpoint_best.pt`
+- `dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt`
 
 Outputs:
 - `results/warmstarts/eval/full_run1_cmp_1/warmstart_eval_20260302_205240.csv`
@@ -135,7 +167,7 @@ This is only one scenario, so it is not enough for a final claim, but it is not 
 ## Follow-Up Fixed Benchmark Sets
 
 To check whether the first negative result was an outlier, two small fixed benchmark sets were run with:
-- `dt/checkpoints/full_run1/checkpoint_best.pt`
+- `dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt`
 - map: `maps/Oval_Track_260m.mat`
 - seed: `42`
 - `3` scenarios each
@@ -333,16 +365,16 @@ Best validation happened early:
 After epoch `3`, validation degraded while train loss kept falling.
 
 Best validation checkpoint:
-- `dt/checkpoints/full_run_lambda0/checkpoint_best.pt`
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_best.pt`
 - best epoch: `3`
 - best `val_loss = val_action_loss = 0.04106`
 
 ### Checkpoint shortlist comparison
 
 The following checkpoints were evaluated on the fixed benchmark sets:
-- `checkpoint_epoch_0000.pt`
-- `checkpoint_best.pt` (epoch `3`)
-- `checkpoint_last.pt`
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_epoch_0000.pt`
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_best.pt` (epoch `3`)
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_last.pt`
 
 All comparisons below use the per-track RTG calibration.
 

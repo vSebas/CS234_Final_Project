@@ -268,8 +268,8 @@ Optional overrides can be passed through environment variables such as `OUTPUT_D
 
 Crash recovery / resume:
 - by default, training uses `--resume auto`
-- if `dt/checkpoints/<run>/checkpoint_last.pt` exists, training resumes from it automatically
-- otherwise it falls back to the latest `checkpoint_epoch_*.pt`
+- if `dt/checkpoints/<run>/checkpoints/checkpoint_last.pt` exists, training resumes from it automatically
+- otherwise it falls back to the latest `checkpoint_epoch_*.pt` under `dt/checkpoints/<run>/checkpoints/`
 - pass `--resume none` to force a fresh run
 - pass `--resume path/to/checkpoint.pt` to resume from a specific checkpoint
 - training metrics are appended to `dt/checkpoints/<run>/metrics.jsonl` across resumes
@@ -284,7 +284,7 @@ Evaluate a checkpoint on the full dataset root or on a chosen subset:
 
 ```bash
 python dt/eval.py \
-  --checkpoint dt/checkpoints/full_run1/checkpoint_best.pt \
+  --checkpoint dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt \
   --data-dir data/datasets
 ```
 

@@ -56,13 +56,23 @@ def resolve_resume_path(output_dir: Path, resume_arg: Optional[str]) -> Optional
         path = Path(resume_mode)
         return path if path.exists() else None
 
-    last_path = output_dir / "checkpoint_last.pt"
+    checkpoint_dir = output_dir / "checkpoints"
+
+    last_path = checkpoint_dir / "checkpoint_last.pt"
     if last_path.exists():
         return last_path
 
-    epoch_paths = sorted(output_dir.glob("checkpoint_epoch_*.pt"))
+    legacy_last_path = output_dir / "checkpoint_last.pt"
+    if legacy_last_path.exists():
+        return legacy_last_path
+
+    epoch_paths = sorted(checkpoint_dir.glob("checkpoint_epoch_*.pt"))
     if epoch_paths:
         return epoch_paths[-1]
+
+    legacy_epoch_paths = sorted(output_dir.glob("checkpoint_epoch_*.pt"))
+    if legacy_epoch_paths:
+        return legacy_epoch_paths[-1]
 
     return None
 
@@ -166,6 +176,8 @@ class DTTrainer:
         # Logging
         self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.checkpoint_dir = self.output_dir / "checkpoints"
+        self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         self.writer = SummaryWriter(self.output_dir / "logs")
         self.metrics_log_path = self.output_dir / "metrics.jsonl"
         self.loss_plot_path = self.output_dir / "loss_curves.png"
@@ -316,14 +328,14 @@ class DTTrainer:
         """Save an epoch checkpoint and refresh the last checkpoint."""
         checkpoint = self._build_checkpoint(epoch, steps_completed_in_epoch=len(self.train_loader))
 
-        path = self.output_dir / f"checkpoint_epoch_{epoch:04d}.pt"
+        path = self.checkpoint_dir / f"checkpoint_epoch_{epoch:04d}.pt"
         torch.save(checkpoint, path)
         print(f"Saved checkpoint: {path}")
 
         self._save_last_checkpoint(checkpoint)
 
         if is_best:
-            best_path = self.output_dir / "checkpoint_best.pt"
+            best_path = self.checkpoint_dir / "checkpoint_best.pt"
             torch.save(checkpoint, best_path)
             print(f"Saved best checkpoint: {best_path}")
 
@@ -335,7 +347,7 @@ class DTTrainer:
         """Save a step checkpoint for long epochs and refresh the last checkpoint."""
         checkpoint = self._build_checkpoint(epoch, steps_completed_in_epoch=batch_idx + 1)
 
-        path = self.output_dir / f"checkpoint_step_{step:07d}.pt"
+        path = self.checkpoint_dir / f"checkpoint_step_{step:07d}.pt"
         torch.save(checkpoint, path)
         print(f"Saved step checkpoint: {path}")
 
@@ -346,7 +358,7 @@ class DTTrainer:
 
     def _save_last_checkpoint(self, checkpoint: Dict) -> None:
         """Refresh the stable last-checkpoint pointer used for crash recovery."""
-        last_path = self.output_dir / "checkpoint_last.pt"
+        last_path = self.checkpoint_dir / "checkpoint_last.pt"
         torch.save(checkpoint, last_path)
         print(f"Updated last checkpoint: {last_path}")
 
@@ -727,8 +739,8 @@ def main():
         type=str,
         default="auto",
         help=(
-            "Resume mode: `auto` (default) resumes from output_dir/checkpoint_last.pt "
-            "or the latest epoch checkpoint, an explicit checkpoint path resumes from "
+            "Resume mode: `auto` (default) resumes from output_dir/checkpoints/checkpoint_last.pt "
+            "or the latest epoch checkpoint under output_dir/checkpoints/, an explicit checkpoint path resumes from "
             "that path, and `none` disables resume."
         ),
     )
