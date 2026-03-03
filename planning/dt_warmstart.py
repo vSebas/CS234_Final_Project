@@ -16,6 +16,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
+import casadi as ca
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[1]
@@ -94,6 +95,25 @@ class DTWarmStarter:
         print(f"Loaded DT warm-starter from {checkpoint_path}")
         print(f"  Model params: {sum(p.numel() for p in self.model.parameters()):,}")
 
+    @staticmethod
+    def _effective_obstacle_radius(
+        obs: Dict,
+        obstacle_clearance_m: float,
+        vehicle_radius_m: float,
+    ) -> float:
+        """
+        Current optimizer-consistent obstacle radius.
+
+        Matches the active dataset/optimizer convention:
+        radius_m + margin_m + obstacle_clearance_m + vehicle_radius_m
+
+        When the repo collapses margin into a single clearance term, this helper
+        is the only place that needs to change on the warm-start side.
+        """
+        radius_m = float(obs.get("radius_m", obs.get("r_obs", obs.get("r", 1.0))))
+        margin_m = float(obs.get("margin_m", 0.0))
+        return radius_m + margin_m + float(obstacle_clearance_m) + float(vehicle_radius_m)
+
     def _normalize_state(self, state_aug: np.ndarray) -> np.ndarray:
         """Normalize augmented state."""
         if self.stats is not None:
@@ -124,6 +144,14 @@ class DTWarmStarter:
         kappa = float(self.world.psi_s_radpm_LUT(np.array([s_mod])))
         half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_mod])))
         return np.array([kappa, half_width], dtype=np.float32)
+
+    def _get_road_geometry(self, s: float) -> Tuple[float, float, float]:
+        """Get (kappa, theta, phi) at arc-length s."""
+        s_mod = s % self.world.length_m
+        kappa = float(self.world.psi_s_radpm_LUT(np.array([s_mod])))
+        theta = float(self.world.grade_rad_LUT(np.array([s_mod]))) if hasattr(self.world, "grade_rad_LUT") else 0.0
+        phi = float(self.world.bank_rad_LUT(np.array([s_mod]))) if hasattr(self.world, "bank_rad_LUT") else 0.0
+        return kappa, theta, phi
 
     def _get_obstacle_features(
         self,
@@ -193,53 +221,51 @@ class DTWarmStarter:
         obs_feats = self._get_obstacle_features(s, state[3], obstacles)  # e is index 3
         return np.concatenate([state, track_feats, obs_feats]).astype(np.float32)
 
-    def _dynamics_step(
+    def _dx_ds(
         self,
         x_full: np.ndarray,  # Full state: [ux, uy, r, dfz_long, dfz_lat, t, e, dpsi]
         u: np.ndarray,       # Control: [delta, fx]
         s: float,            # Current arc-length
-        ds: float,           # Step size
     ) -> Tuple[np.ndarray, float]:
         """
-        Propagate dynamics one spatial step.
+        Evaluate spatial path dynamics using the actual vehicle model.
 
         Returns:
-            x_next: Next full state
-            dt: Time taken for step
+            dx_ds: Spatial derivative of the full path state
+            s_dot: Arc length rate [m/s]
         """
-        # Get curvature at current position
-        s_mod = s % self.world.length_m
-        kappa = float(self.world.psi_s_radpm_LUT(np.array([s_mod])))
+        kappa, theta, phi = self._get_road_geometry(s)
+        dx_dt, s_dot = self.vehicle.dynamics_dt_path_vec(
+            ca.DM(x_full),
+            ca.DM(u),
+            kappa,
+            theta,
+            phi,
+        )
+        s_dot_float = max(0.1, float(s_dot))
+        dx_ds = np.array(dx_dt / s_dot_float, dtype=np.float64).reshape(-1)
+        return dx_ds, s_dot_float
 
-        # Extract states
-        ux, uy, r = x_full[0], x_full[1], x_full[2]
-        dfz_long, dfz_lat = x_full[3], x_full[4]
-        t, e, dpsi = x_full[5], x_full[6], x_full[7]
+    def _dynamics_step(
+        self,
+        x_full: np.ndarray,
+        u: np.ndarray,
+        s: float,
+        ds: float,
+    ) -> Tuple[np.ndarray, float]:
+        """
+        Propagate one spatial step with RK4 on the model-consistent path dynamics.
+        """
+        k1, sdot_1 = self._dx_ds(x_full, u, s)
+        k2, _ = self._dx_ds(x_full + 0.5 * ds * k1, u, s + 0.5 * ds)
+        k3, _ = self._dx_ds(x_full + 0.5 * ds * k2, u, s + 0.5 * ds)
+        k4, _ = self._dx_ds(x_full + ds * k3, u, s + ds)
 
-        # Compute sdot (spatial velocity)
-        one_minus_kappa_e = 1.0 - kappa * e
-        sdot = (ux * np.cos(dpsi) - uy * np.sin(dpsi)) / max(0.1, one_minus_kappa_e)
-        sdot = max(0.1, sdot)  # Ensure positive progress
+        x_next = x_full + (ds / 6.0) * (k1 + 2.0 * k2 + 2.0 * k3 + k4)
+        dt = ds / sdot_1
 
-        # Time for this step
-        dt = ds / sdot
-
-        # Simple Euler integration of path kinematics
-        e_dot = ux * np.sin(dpsi) + uy * np.cos(dpsi)
-        dpsi_dot = r - kappa * sdot
-
-        # For simplicity, keep vehicle states roughly constant over short spatial step
-        # (A more accurate approach would integrate the full dynamics)
-        x_next = np.array([
-            ux,  # Could integrate dvx/dt but keep simple
-            uy,
-            r,
-            dfz_long,
-            dfz_lat,
-            t + dt,
-            e + e_dot * dt,
-            dpsi + dpsi_dot * dt,
-        ])
+        # Preserve the spatial rollout clock exactly with the integrated step time.
+        x_next[5] = x_full[5] + dt
 
         return x_next, dt
 
@@ -251,6 +277,8 @@ class DTWarmStarter:
         x0: np.ndarray,
         obstacles: Optional[List[Dict]] = None,
         target_lap_time: Optional[float] = None,
+        obstacle_clearance_m: float = 0.0,
+        vehicle_radius_m: float = 0.0,
     ) -> WarmStartResult:
         """
         Generate warm-start trajectory using DT.
@@ -261,6 +289,8 @@ class DTWarmStarter:
             x0: Initial full state [ux, uy, r, dfz_long, dfz_lat, t, e, dpsi]
             obstacles: List of obstacle dicts
             target_lap_time: Target lap time for RTG conditioning
+            obstacle_clearance_m: Extra clearance beyond obstacle radius + margin
+            vehicle_radius_m: Conservative vehicle footprint radius
 
         Returns:
             WarmStartResult with X_init, U_init, and validation info
@@ -410,7 +440,13 @@ class DTWarmStarter:
         inference_time = time.time() - t_start
 
         # Validate warm-start
-        success, reason = self._validate_warmstart(X_init, U_init, obstacles)
+        success, reason = self._validate_warmstart(
+            X_init,
+            U_init,
+            obstacles,
+            obstacle_clearance_m=obstacle_clearance_m,
+            vehicle_radius_m=vehicle_radius_m,
+        )
 
         return WarmStartResult(
             X_init=X_init,
@@ -426,6 +462,8 @@ class DTWarmStarter:
         X_init: np.ndarray,
         U_init: np.ndarray,
         obstacles: List[Dict],
+        obstacle_clearance_m: float = 0.0,
+        vehicle_radius_m: float = 0.0,
     ) -> Tuple[bool, Optional[str]]:
         """
         Validate warm-start trajectory.
@@ -477,8 +515,16 @@ class DTWarmStarter:
                         (pose["pos_E"] - obs_pose["pos_E"])**2 +
                         (pose["pos_N"] - obs_pose["pos_N"])**2
                     )
-                    if dist < r_obs:
-                        return False, f"Obstacle collision at node {k}"
+                    required_radius = self._effective_obstacle_radius(
+                        obs,
+                        obstacle_clearance_m=obstacle_clearance_m,
+                        vehicle_radius_m=vehicle_radius_m,
+                    )
+                    if dist < required_radius:
+                        return False, (
+                            f"Obstacle collision at node {k}: "
+                            f"dist={dist:.3f} < required_radius={required_radius:.3f}"
+                        )
 
         return True, None
 
@@ -516,7 +562,13 @@ if __name__ == "__main__":
     ds_m = world.length_m / args.N
     x0 = np.array([10.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])  # Initial state
 
-    result = warmstarter.generate_warmstart(args.N, ds_m, x0)
+    result = warmstarter.generate_warmstart(
+        args.N,
+        ds_m,
+        x0,
+        obstacle_clearance_m=0.0,
+        vehicle_radius_m=0.0,
+    )
 
     print(f"\nWarm-start result:")
     print(f"  Success: {result.success}")

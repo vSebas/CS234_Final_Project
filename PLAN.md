@@ -378,6 +378,21 @@ Required optimizer tweaks to support segments cleanly:
 
 ## 3) Decision Transformer design for this repo
 
+### 3.0 Current implementation status
+
+Implemented in the current repo:
+- `dt/model.py`: causal GPT-style DT with RTG/state/action tokenization, learned timestep embeddings, action head, and next-state head.
+- `dt/dataset.py`: loads the saved dataset schema in `data/datasets/*`, builds augmented DT observations, supports multi-shard loading, splits train/validation by `base_id`, and computes normalization stats from train only.
+- `dt/train.py`: DT training entry point for a single shard, a comma-separated shard list, or the full `data/datasets` root.
+- `dt/eval.py`: checkpoint evaluation on the same dataset input formats as training.
+- `planning/dt_warmstart.py`: warm-start rollout with model-consistent path dynamics and obstacle-aware validation aligned with the current optimizer/dataset obstacle inflation rule.
+
+Still missing or not yet finalized:
+- persisted train/val/test split artifacts on disk (the split is currently performed inside the loader)
+- weighted sampling / balancing so repair segments are not drowned out by shift episodes
+- end-to-end DT-vs-baseline benchmark results
+- final cleanup of obstacle metadata once `margin` is removed in favor of a single clearance/inflation term
+
 ### 3.1 What DT should predict
 
 Goal: produce a **full warm-start** for IPOPT:
@@ -492,6 +507,10 @@ Standard DT trick:
 Normalization:
 - store dataset mean/std for states and actions, normalize both.
 
+Implementation note:
+- the current code now computes normalization statistics from the training split only, after splitting by `base_id`
+- the current loader also handles obstacle lookahead with lap wrap-around consistently between training and warm-start inference
+
 ---
 
 ## 4) DT → IPOPT integration (the real deliverable)
@@ -511,6 +530,12 @@ Given a scenario:
    - append tokens
 4) output `U_init` and `X_init`
 
+Current implementation note:
+- `planning/dt_warmstart.py` now rolls out the actual single-track path dynamics using the vehicle model and local road geometry, rather than the earlier kinematic placeholder
+- warm-start validation now uses the current optimizer-consistent effective obstacle radius:
+  - `radius_m + margin_m + obstacle_clearance_m + vehicle_radius_m`
+- when the repo removes `margin_m`, the warm-start validator should be simplified to the new single-clearance convention in one place
+
 ### 4.2 Warm-start acceptance check (before calling IPOPT)
 
 Reuse the same style of checks you already implemented for solver outputs:
@@ -521,6 +546,11 @@ Reuse the same style of checks you already implemented for solver outputs:
 
 If DT fails acceptance:
 - fall back to baseline initializer (or a cached previous IPOPT solution).
+
+Current implementation status:
+- obstacle wrap-around handling is consistent between DT training features and warm-start inference features
+- experiment call sites now pass `obstacle_clearance_m` into DT warm-start generation where that setting exists
+- `vehicle_radius_m` should also be threaded through experiment configs whenever nonzero footprint inflation is used
 
 ### 4.3 IPOPT refinement
 
@@ -608,3 +638,154 @@ Plot:
   - DT warm-start reduces median IPOPT iterations and solve time vs baseline
   - success/acceptance does not drop (or improves)
   - final lap time is within a small gap of baseline (or improves)
+
+---
+
+## 8) Live Backlog
+
+This section is the active consolidated backlog for the repo. Treat `PLAN.md` as the single planning source of truth going forward.
+
+### 8.1 Current state
+
+- Production optimizer path: IPOPT direct collocation with hard obstacle constraints.
+- Dataset generation is complete for 6 tracks using Fix A + Fix B.
+- The on-disk dataset schema is stable and documented in `data/DATASET_CONFIG.md`.
+- DT code is implemented in:
+  - `dt/dataset.py`
+  - `dt/model.py`
+  - `dt/train.py`
+  - `dt/eval.py`
+  - `planning/dt_warmstart.py`
+- DT data handling already supports:
+  - multi-shard loading
+  - split-by-`base_id` train/validation splitting
+  - train-only normalization statistics
+  - consistent obstacle wrap-around features
+- DT warm-start currently uses:
+  - model-consistent path dynamics rollout
+  - optimizer-consistent obstacle validation based on the current obstacle inflation rule
+
+### 8.2 Immediate priorities
+
+1. Persist train/val/test split artifacts to disk instead of splitting only inside the loader at runtime.
+2. Add weighted sampling or balancing so repair segments are not drowned out by shift episodes.
+3. Run end-to-end DT-vs-baseline warm-start benchmarks.
+4. Add postprocessing for constraints-to-go / safety labels if obstacle-aware conditioning will use them.
+5. If nonzero `vehicle_radius_m` is used in experiments, thread it through all DT warm-start evaluation/config paths.
+
+### 8.3 Dataset
+
+Already done:
+- base laps, shifts, and repairs are generated
+- dataset manifests and saved arrays are internally consistent
+- current saved schema is documented and consumed directly by DT code
+
+Remaining dataset work:
+1. Create explicit train/val/test manifests or equivalent split files on disk.
+2. Ensure split artifacts preserve split-by-`base_id` hygiene.
+3. Add constraints-to-go / safety label postprocessing if needed.
+4. Clean up obstacle metadata after the planned obstacle simplification:
+   - remove the redundant `margin` vs `clearance` split
+   - store one final enforced obstacle inflation / clearance term
+   - keep the effective enforced obstacle size explicit in metadata
+
+### 8.4 Decision Transformer engineering
+
+Already done:
+- DT loader, model, train script, eval script, and warm-start rollout exist
+- loader supports one shard, comma-separated shard lists, and full dataset roots
+- loader splits by `base_id`
+- loader computes normalization stats from the training split only
+
+Remaining DT engineering work:
+1. Add weighted sampling or shard balancing for repairs.
+2. Decide whether to persist dataset stats and split assignments alongside split artifacts.
+3. Run full training smoke tests on the mixed dataset root, not just shard-level loader checks.
+4. Run model-level evaluation on held-out splits and store results in a reproducible output path.
+
+### 8.5 DT architecture checks
+
+The current architecture is acceptable as the baseline architecture. The next architecture-level checks are:
+
+1. Replace raw obstacle radius in DT obstacle features with the enforced effective obstacle radius if that improves alignment with the optimizer.
+2. Consider adding `dfz_long` and `dfz_lat` to DT inputs if warm-start quality stalls.
+3. Keep the current next-observation auxiliary head unless experiments show it is too weak.
+4. Consider feasibility-conditioning or constraints-to-go only after the baseline benchmark is established.
+
+Note:
+- `grade` and `bank` are effectively zero for the current tracks and are not a priority DT input change right now.
+
+### 8.6 Warm-start integration
+
+Already done:
+- warm-start rollout no longer uses the earlier kinematic placeholder
+- warm-start validation now uses the current optimizer-consistent obstacle rule:
+  - `radius_m + margin_m + obstacle_clearance_m + vehicle_radius_m`
+
+Remaining warm-start work:
+1. Thread `vehicle_radius_m` through all experiment/evaluation code paths if footprint inflation is enabled.
+2. Keep warm-start validation logic aligned when the repo collapses `margin_m` into a single clearance term.
+3. Run realistic warm-start experiments to check whether the new rollout remains numerically stable over full laps and obstacle scenarios.
+
+### 8.7 Evaluation and benchmarking
+
+This is the main missing proof step.
+
+Benchmark goals:
+1. Compare:
+   - baseline initializer only
+   - baseline + acceptance retry schedule
+   - DT warm-start + IPOPT
+2. Report:
+   - IPOPT success rate
+   - warm-start acceptance rate
+   - solve time
+   - IPOPT iteration count
+   - final lap time / objective
+   - minimum obstacle clearance
+3. Report results:
+   - overall
+   - per map
+   - per obstacle difficulty if useful
+
+Evaluation checks:
+1. Verify benchmark claims only after end-to-end evaluation is run on held-out scenarios.
+2. Check that DT warm-start reduces median iterations and solve time without hurting acceptance.
+3. Check that final objective stays close to or better than baseline.
+4. Save outputs in a repeatable experiment directory.
+
+Ablations to run:
+1. Remove obstacle features.
+2. Remove track features.
+3. Vary obstacle slot count `M`.
+4. Vary context length `K`.
+5. Sweep `lambda_x`.
+6. Optionally compare current DT inputs against a version with `dfz_*`.
+
+### 8.8 Optimizer / obstacle cleanup
+
+These are still on the roadmap:
+1. Remove the redundant `margin` vs `clearance` split.
+2. Keep a single obstacle inflation / clearance parameter across:
+   - map generation
+   - optimizer constraints
+   - dataset generation
+   - docs
+3. Keep or store the final enforced obstacle radius explicitly.
+4. Remove obstacle slack support if the active path remains hard-constrained only.
+5. Keep `vehicle_radius_m` handling consistent anywhere obstacle feasibility is checked.
+
+### 8.9 Stretch goals
+
+1. Multi-track generalization.
+2. Feasibility-conditioned DT / constraint-to-go conditioning.
+3. Multi-objective conditioning with lap time and safety margin.
+
+### 8.10 Done criteria
+
+The project is in a defensible finished state when:
+1. DT warm-start is benchmarked against baseline on held-out randomized obstacle scenarios.
+2. DT warm-start reduces median IPOPT iterations and solve time, or provides another clearly defensible benefit.
+3. Success / acceptance does not regress materially.
+4. Final lap time remains within a small gap of baseline, or improves.
+5. Dataset splits, evaluation outputs, and key preprocessing choices are reproducible from disk artifacts and docs.

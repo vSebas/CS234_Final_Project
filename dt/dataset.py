@@ -23,7 +23,7 @@ NPZ format (from data/generate_dataset.py):
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 import json
 
 import numpy as np
@@ -88,7 +88,7 @@ class TrajectoryDataset(Dataset):
 
     def __init__(
         self,
-        data_dir: Union[str, Path],
+        data_dir: Union[str, Path, Sequence[Union[str, Path]]],
         context_length: int = 30,
         obstacle_slots: int = 8,
         obstacle_lookahead: float = 60.0,
@@ -110,7 +110,8 @@ class TrajectoryDataset(Dataset):
             split: Dataset split (used for stat computation if not provided)
             max_episodes: Maximum number of episodes to load (for testing)
         """
-        self.data_dir = Path(data_dir)
+        self.data_dir = data_dir
+        self.data_dirs = self._resolve_data_dirs(data_dir)
         self.context_length = context_length
         self.obstacle_slots = obstacle_slots
         self.obstacle_lookahead = obstacle_lookahead
@@ -145,17 +146,55 @@ class TrajectoryDataset(Dataset):
         else:
             self.stats = None
 
+    def _resolve_data_dirs(
+        self,
+        data_dir: Union[str, Path, Sequence[Union[str, Path]]],
+    ) -> List[Path]:
+        """Resolve one or more dataset shard directories."""
+        if isinstance(data_dir, (str, Path)):
+            raw_dirs = [item.strip() for item in str(data_dir).split(",") if item.strip()]
+        else:
+            raw_dirs = [str(item).strip() for item in data_dir if str(item).strip()]
+
+        resolved: List[Path] = []
+        for raw_dir in raw_dirs:
+            path = Path(raw_dir)
+            manifest_path = path / "manifest.jsonl"
+            if manifest_path.exists():
+                resolved.append(path)
+                continue
+
+            shard_dirs = sorted(
+                p for p in path.iterdir()
+                if p.is_dir() and (p / "manifest.jsonl").exists()
+            ) if path.exists() else []
+            if shard_dirs:
+                resolved.extend(shard_dirs)
+                continue
+
+            raise ValueError(
+                f"Could not resolve dataset shard(s) from {path}. "
+                "Expected a shard directory with manifest.jsonl, a comma-separated "
+                "list of shard directories, or a root containing shard subdirectories."
+            )
+
+        if not resolved:
+            raise ValueError("No dataset shard directories were resolved.")
+
+        return resolved
+
     def _load_manifest(self, max_episodes: Optional[int] = None) -> List[Dict]:
-        """Load episode metadata from manifest.jsonl."""
-        manifest_path = self.data_dir / "manifest.jsonl"
+        """Load episode metadata from one or more shard manifest files."""
         episodes = []
 
-        if manifest_path.exists():
-            with open(manifest_path, "r") as f:
-                for line in f:
-                    if line.strip():
+        for shard_dir in self.data_dirs:
+            manifest_path = shard_dir / "manifest.jsonl"
+            if manifest_path.exists():
+                with open(manifest_path, "r") as f:
+                    for line in f:
+                        if not line.strip():
+                            continue
                         ep = json.loads(line)
-                        # Get episode length from NPZ
                         npz_path = Path(ep["npz_path"])
                         if npz_path.exists():
                             data = np.load(npz_path)
@@ -164,27 +203,34 @@ class TrajectoryDataset(Dataset):
                             episodes.append(ep)
                         if max_episodes and len(episodes) >= max_episodes:
                             break
-        else:
-            # Fallback: load from episodes directory
-            episodes_dir = self.data_dir / "episodes"
-            if episodes_dir.exists():
-                for npz_file in sorted(episodes_dir.glob("*.npz"))[:max_episodes]:
-                    data = np.load(npz_file)
-                    episodes.append({
-                        "npz_path": str(npz_file),
-                        "length": len(data["rtg"]),
-                        "obstacles_list": [],
-                    })
+            else:
+                episodes_dir = shard_dir / "episodes"
+                if episodes_dir.exists():
+                    for npz_file in sorted(episodes_dir.glob("*.npz")):
+                        data = np.load(npz_file)
+                        episodes.append({
+                            "npz_path": str(npz_file),
+                            "length": len(data["rtg"]),
+                            "obstacles_list": [],
+                        })
+                        if max_episodes and len(episodes) >= max_episodes:
+                            break
+
+            if max_episodes and len(episodes) >= max_episodes:
+                break
 
         if not episodes:
-            raise ValueError(f"No episodes found in {self.data_dir}")
+            raise ValueError(f"No episodes found in resolved dataset shards: {self.data_dirs}")
 
-        print(f"Loaded {len(episodes)} episodes from {self.data_dir}")
+        print(f"Loaded {len(episodes)} episodes from {len(self.data_dirs)} shard(s)")
         return episodes
 
     def _load_episode(self, ep_idx: int) -> Dict[str, np.ndarray]:
         """Load episode data from NPZ file."""
-        ep = self.episodes[ep_idx]
+        return self._load_episode_from_record(self.episodes[ep_idx])
+
+    def _load_episode_from_record(self, ep: Dict) -> Dict[str, np.ndarray]:
+        """Load episode data from an episode manifest record."""
         npz_path = Path(ep["npz_path"])
         data = np.load(npz_path)
 
@@ -252,6 +298,7 @@ class TrajectoryDataset(Dataset):
         """
         T = len(s_abs)
         obs_feats = np.zeros((T, self.obstacle_slots, self.obstacle_feat_dim), dtype=np.float32)
+        lap_length = float(s_abs[-1] + (s_abs[1] - s_abs[0])) if T >= 2 else float(s_abs[-1]) if T == 1 else 0.0
 
         if not obstacles:
             return obs_feats.reshape(T, -1)
@@ -268,9 +315,9 @@ class TrajectoryDataset(Dataset):
                 r_obs = obs.get("r_obs", obs.get("r", 0))
 
                 ds = s_obs - s_t
-                # Handle wrap-around (skip if behind)
+                # Handle wrap-around consistently with DT warm-start inference.
                 if ds < 0:
-                    continue
+                    ds += lap_length
                 if 0 < ds <= self.obstacle_lookahead:
                     ahead_obs.append({
                         "ds": ds,
@@ -297,6 +344,10 @@ class TrajectoryDataset(Dataset):
 
     def _compute_statistics(self) -> DatasetStats:
         """Compute normalization statistics from all episodes."""
+        return self.compute_statistics_from_episodes(self.episodes)
+
+    def compute_statistics_from_episodes(self, episodes: List[Dict]) -> DatasetStats:
+        """Compute normalization statistics from a provided episode list."""
         print("Computing dataset statistics...")
 
         all_states = []
@@ -304,11 +355,11 @@ class TrajectoryDataset(Dataset):
         all_rtg = []
 
         # Sample subset for efficiency
-        sample_size = min(100, len(self.episodes))
-        sample_indices = np.random.choice(len(self.episodes), sample_size, replace=False)
+        sample_size = min(100, len(episodes))
+        sample_indices = np.random.choice(len(episodes), sample_size, replace=False)
 
         for ep_idx in sample_indices:
-            data = self._load_episode(ep_idx)
+            data = self._load_episode_from_record(episodes[ep_idx])
             aug_state = self._build_augmented_state(data)
             all_states.append(aug_state)
             all_actions.append(data["actions"])
@@ -419,28 +470,51 @@ def create_dataloaders(
     Returns:
         train_loader, val_loader, stats
     """
-    # Load full dataset to compute stats
+    # Load full dataset metadata first; split before fitting normalization stats.
     full_dataset = TrajectoryDataset(
         data_dir,
         context_length=context_length,
-        normalize=normalize,
+        normalize=False,
     )
 
-    # Split indices
+    # Split by base_id to avoid leakage across circular shifts from the same base lap.
     rng = np.random.default_rng(seed)
-    n_episodes = len(full_dataset.episodes)
-    indices = rng.permutation(n_episodes)
-    n_train = int(n_episodes * train_ratio)
+    episodes_by_base: Dict[str, List[Dict]] = {}
+    for ep in full_dataset.episodes:
+        base_id = str(ep.get("base_id") or Path(ep["npz_path"]).stem)
+        episodes_by_base.setdefault(base_id, []).append(ep)
 
-    train_episodes = [full_dataset.episodes[i] for i in indices[:n_train]]
-    val_episodes = [full_dataset.episodes[i] for i in indices[n_train:]]
+    base_ids = list(episodes_by_base.keys())
+    shuffled_base_ids = [base_ids[i] for i in rng.permutation(len(base_ids))]
+    n_train_bases = int(len(shuffled_base_ids) * train_ratio)
+
+    train_base_ids = set(shuffled_base_ids[:n_train_bases])
+    val_base_ids = set(shuffled_base_ids[n_train_bases:])
+
+    train_episodes = []
+    val_episodes = []
+    for base_id, grouped_episodes in episodes_by_base.items():
+        if base_id in train_base_ids:
+            train_episodes.extend(grouped_episodes)
+        elif base_id in val_base_ids:
+            val_episodes.extend(grouped_episodes)
+
+    if not train_episodes or not val_episodes:
+        raise ValueError(
+            "Split by base_id produced an empty train or validation set. "
+            "Adjust train_ratio or provide more distinct base laps."
+        )
+
+    stats = None
+    if normalize:
+        stats = full_dataset.compute_statistics_from_episodes(train_episodes)
 
     # Create separate datasets
     train_dataset = TrajectoryDataset(
         data_dir,
         context_length=context_length,
         normalize=normalize,
-        stats=full_dataset.stats,
+        stats=stats,
     )
     train_dataset.episodes = train_episodes
     train_dataset.indices = []
@@ -452,7 +526,7 @@ def create_dataloaders(
         data_dir,
         context_length=context_length,
         normalize=normalize,
-        stats=full_dataset.stats,
+        stats=stats,
     )
     val_dataset.episodes = val_episodes
     val_dataset.indices = []
@@ -476,10 +550,16 @@ def create_dataloaders(
         pin_memory=True,
     )
 
-    print(f"Train: {len(train_dataset)} samples, {len(train_episodes)} episodes")
-    print(f"Val: {len(val_dataset)} samples, {len(val_episodes)} episodes")
+    print(
+        f"Train: {len(train_dataset)} samples, {len(train_episodes)} episodes, "
+        f"{len(train_base_ids)} base trajectories"
+    )
+    print(
+        f"Val: {len(val_dataset)} samples, {len(val_episodes)} episodes, "
+        f"{len(val_base_ids)} base trajectories"
+    )
 
-    return train_loader, val_loader, full_dataset.stats
+    return train_loader, val_loader, stats
 
 
 if __name__ == "__main__":

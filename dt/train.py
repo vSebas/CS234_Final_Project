@@ -35,7 +35,7 @@ from dt.dataset import TrajectoryDataset, DatasetStats, create_dataloaders
 class TrainConfig:
     """Training configuration."""
     # Data
-    data_dir: str = "data/datasets/oval_no_obstacles_1k"
+    data_dir: str = "data/datasets"
     output_dir: str = "dt/checkpoints"
 
     # Model
@@ -342,7 +342,15 @@ def main():
     parser = argparse.ArgumentParser(description="Train Decision Transformer")
 
     # Data
-    parser.add_argument("--data-dir", type=str, default="data/datasets/oval_no_obstacles_1k")
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        default="data/datasets",
+        help=(
+            "Dataset shard directory, comma-separated list of shard directories, "
+            "or a root directory containing shard subdirectories."
+        ),
+    )
     parser.add_argument("--output-dir", type=str, default="dt/checkpoints")
 
     # Model
@@ -399,7 +407,7 @@ def main():
     print("=" * 60)
     print("Decision Transformer Training")
     print("=" * 60)
-    print(f"Data directory: {config.data_dir}")
+    print(f"Data source: {config.data_dir}")
     print(f"Output directory: {config.output_dir}")
     print()
 

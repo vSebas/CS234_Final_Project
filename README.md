@@ -246,34 +246,40 @@ The current DT code in `dt/dataset.py` consumes this saved schema directly. Trea
 
 ### Decision Transformer Training
 
-Train on a single dataset shard:
+Train on the full dataset root or on a single shard:
 
 ```bash
 python dt/train.py \
-  --data-dir data/datasets/Oval_Track_260m_shifts \
-  --output-dir dt/checkpoints/oval_shifts_run1 \
+  --data-dir data/datasets \
+  --output-dir dt/checkpoints/full_run1 \
   --context-length 30 \
   --batch-size 64 \
   --num-epochs 100
 ```
 
-Evaluate a checkpoint on a single dataset shard:
+The `--data-dir` argument accepts:
+- one shard directory such as `data/datasets/Oval_Track_260m_shifts`
+- a comma-separated list of shard directories
+- a dataset root such as `data/datasets` containing multiple shard subdirectories
+
+Evaluate a checkpoint on the full dataset root or on a chosen subset:
 
 ```bash
 python dt/eval.py \
-  --checkpoint dt/checkpoints/oval_shifts_run1/checkpoint_best.pt \
-  --data-dir data/datasets/Oval_Track_260m_shifts
+  --checkpoint dt/checkpoints/full_run1/checkpoint_best.pt \
+  --data-dir data/datasets
 ```
 
 Current training limitations:
-- `dt/train.py` currently expects one `--data-dir` at a time, not the full multi-shard dataset root
-- train/validation splitting is done inside the loader and still needs explicit split-by-`base_id` hygiene
-- normalization statistics are currently computed before the train/validation split and should be moved to train-only stats
+- train/validation splitting is done inside the loader; explicit persisted train/val/test split artifacts are still missing
+- repair segments are still a small minority of the data and may need weighted sampling or balancing during training
+- end-to-end benchmark results are still pending; the code path is implemented, but not yet fully characterized
 
 Recommended current usage:
 - use the generated shard structure as-is
 - treat `data/DATASET_CONFIG.md` as the canonical description of the on-disk dataset schema
-- update the training/data-loading path before claiming final offline-RL or DT benchmark results on the full dataset
+- use the full `data/datasets` root for current multi-shard training unless you are intentionally running a shard-specific experiment
+- treat benchmark claims as provisional until baseline-vs-DT warm-start evaluation is run end-to-end
 
 ### Vehicle Simulation
 
@@ -361,10 +367,10 @@ print(f"Collocation solve time: {dc_result.solve_time:.2f}s")
 - [x] Implement IPOPT hard obstacle constraints in the production pipeline
 - [x] Build Fix A + Fix B dataset generation pipeline
 - [x] Implement Decision Transformer dataset loader, model, training, and evaluation scripts
-- [x] Implement DT warm-start integration scaffold
+- [x] Implement DT warm-start integration with model-consistent rollout and obstacle-aware validation
 - [ ] IPOPT obstacle-avoidance constraints (slack + staged solve)
 - [ ] Evaluation benchmarks
 - [ ] Train/val/test split artifacts with split-by-`base_id` hygiene
-- [ ] Multi-shard DT training on the full generated dataset
+- [ ] Weighted sampling / balancing for shifts vs repairs
 - [ ] End-to-end DT-vs-baseline warm-start benchmark
 - [ ] Multi-track generalization

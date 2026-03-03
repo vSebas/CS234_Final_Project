@@ -157,7 +157,15 @@ def load_model_and_stats(checkpoint_path: Path) -> tuple:
 def main():
     parser = argparse.ArgumentParser(description="Evaluate Decision Transformer")
     parser.add_argument("--checkpoint", type=str, required=True, help="Path to checkpoint")
-    parser.add_argument("--data-dir", type=str, required=True, help="Path to dataset")
+    parser.add_argument(
+        "--data-dir",
+        type=str,
+        required=True,
+        help=(
+            "Dataset shard directory, comma-separated list of shard directories, "
+            "or a root directory containing shard subdirectories."
+        ),
+    )
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--num-workers", type=int, default=4)
     parser.add_argument("--max-episodes", type=int, default=None, help="Limit episodes for quick eval")
@@ -176,7 +184,7 @@ def main():
     print(f"Device: {device}")
 
     # Load dataset
-    print(f"\nLoading dataset: {args.data_dir}")
+    print(f"\nLoading dataset source: {args.data_dir}")
     dataset = TrajectoryDataset(
         args.data_dir,
         context_length=model_config.context_length,
