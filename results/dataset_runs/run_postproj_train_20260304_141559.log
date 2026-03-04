@@ -1,0 +1,6 @@
+[dt/run_postproj_train] wrapper_log=results/dataset_runs/run_postproj_train_20260304_141559.log
+[dt/run_postproj_train] step=postproj_repairs
+[dt/run_postproj_train] postproj_repairs=600
+[dt/run_postproj_train] postproj_per_map=0
+[dt/run_postproj_train] seed=0
+Logging to results/dataset_runs/postproj_repairs_20260304_141559.log
