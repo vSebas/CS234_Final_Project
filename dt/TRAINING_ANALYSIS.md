@@ -572,31 +572,44 @@ The current recommended program is:
    - keep using warm-start benchmark performance as the checkpoint-selection rule
    - feasibility first, then median IPOPT iterations or solve time
 2. **Rollout / wrapper diagnostics**
-   - add diagnostics such as projection count, fallback count, and projection magnitude
-   - use them to distinguish a poor DT prediction from wrapper-induced distortion
+   - use the newly added projection/fallback diagnostics when interpreting future runs
+   - compare whether new data reduces wrapper intervention pressure, not just IPOPT iterations
 3. **Expand the benchmark set**
    - keep the benchmark deterministic
    - grow beyond the current `3` no-obstacle + `3` one-obstacle cases once the diagnostics are in place
 4. **Harder targeted data interventions**
-   - skip generic repair upweighting and go directly to obstacle-specific data changes if needed:
-     - targeted near-obstacle repairs
-     - lower-clearance starts
-     - possibly longer-horizon repairs for a subset
+   - skip generic repair upweighting and go directly to obstacle-specific data changes:
+     - separate hard-repair shard
+     - start-point bias toward low-clearance / near-obstacle cases
+     - hotspot guidance from the `s` regions where projection or fallback spikes
+     - perturb mainly `e` and `dpsi`
+     - keep `uy` and `r` perturbations smaller and rarer
+     - mixed horizons for the hard subset (for example `H=20/40/60`)
+     - save hardness and solver metadata with the shard
 5. **Only then revisit sampling**
    - if targeted data exists, revisit weighting with a more selective policy rather than a global repair multiplier
 
 ### Next concrete experiment
 
-The next concrete experiment should focus on diagnosing the obstacle failure before changing the dataset again:
+The next concrete experiment should target obstacle robustness with a new hard-repair shard:
 
-1. Add rollout / wrapper diagnostics:
-   - projection count
-   - fallback count
-   - projection magnitude
-2. Re-run the fixed benchmark sets on the current best run:
-   - `dt/checkpoints/full_run_lambda0`
-   - `3` no-obstacle scenarios
-   - `3` one-obstacle scenarios
-3. Use those diagnostics to decide whether the next intervention should be:
-   - targeted harder obstacle-recovery data, or
-   - a wrapper/rollout correction rather than another training-mixture change
+1. Keep the existing dataset unchanged.
+2. Generate a separate hard-repair shard that:
+   - focuses on obstacle scenarios first
+   - biases starts toward low-clearance and near-obstacle cases
+   - uses the diagnostic hotspot regions in `s` where projection/fallback pressure is high
+   - perturbs mainly `e` and `dpsi`
+   - adds smaller and rarer `uy` / `r` perturbations
+   - uses mixed horizons for the hard subset instead of a single new horizon
+   - stores hardness and solver metadata
+3. Retrain with:
+   - `lambda_x = 0.0`
+   - existing shifts
+   - existing repairs
+   - the new hard-repair shard
+   - no global repair multiplier
+4. Re-run the same fixed benchmark sets and the same rollout diagnostics.
+5. Only if that still fails, consider more invasive additions later:
+   - post-projection state training examples
+   - broader multi-obstacle hard repairs
+   - action-smoothing interventions
