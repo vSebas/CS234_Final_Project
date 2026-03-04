@@ -10,10 +10,13 @@ This note summarizes the completed DT training runs and their downstream warm-st
   - nominal no-obstacle warm starts can be useful
   - obstacle-conditioned warm starts are still the main failure mode
   - rollout/wrapper diagnostics show heavy intervention even in nominal cases, with more pressure in obstacle cases
+- Latest negative result:
+  - `dt/checkpoints/full_run_lambda0_hard`
+  - best validation loss improved substantially, but downstream warm-start performance on the fixed Oval benchmark regressed badly
 - Current next step:
-  - build a separate hard-repair shard
-  - retrain with `lambda_x = 0.0`
-  - no global repair multiplier
+  - keep `full_run_lambda0` as the current best run
+  - treat validation loss as a weak shortlist signal only
+  - if continuing, move to more invasive ideas such as per-step hotspot heatmaps or post-projection-state training rather than more naive repair-mix tuning
 
 ## Brief Run History
 
@@ -32,6 +35,15 @@ This note summarizes the completed DT training runs and their downstream warm-st
    - negative result
    - naive global repair upweighting hurt both nominal and obstacle performance
    - conclusion: do not pursue global repair weighting as-is
+4. `full_run_lambda0_hard`
+   - `lambda_x = 0.0`
+   - explicit train-only source mix:
+     - `75%` shifts
+     - `10%` standard repairs
+     - `15%` hard repairs
+   - best validation action loss improved to `0.03182` at epoch `2`
+   - downstream result on the fixed Oval benchmark was still strongly negative
+   - conclusion: the hard-repair shard plus simple source mixing did not improve actual warm-start utility
 
 ## Run Bundles
 
@@ -75,6 +87,19 @@ Use this folder for:
 - the weighted-repair action-only training artifacts
 - the negative-result warm-start evals for the repair-weighted experiment
 - the direct comparison point against `full_run_lambda0`
+
+### `full_run_lambda0_hard`
+
+Run directory:
+- `dt/checkpoints/full_run_lambda0_hard`
+
+Local bundle note:
+- `dt/checkpoints/full_run_lambda0_hard/RUN_ANALYSIS.md`
+
+Use this folder for:
+- the hard-repair + explicit source-mix training artifacts
+- the fixed Oval benchmark reruns for the early best checkpoint
+- the negative downstream result showing that better validation did not translate to better warm-start quality
 
 The rest of this document keeps the cross-run narrative in one place.
 

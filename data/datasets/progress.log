@@ -188,3 +188,150 @@
 [2026-03-03 23:51:20] Stage B complete for Oval_Track_260m. accepted=84/0
 [2026-03-03 23:51:20] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
 [2026-03-03 23:51:20] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json
+[2026-03-04 01:00:43] Starting dataset build.
+[2026-03-04 01:00:43] Stage A1: base laps already present; skipping.
+[2026-03-04 01:00:43] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-04 01:00:43] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-04 01:00:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 01:00:45] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-04 01:00:45] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
+[2026-03-04 01:00:45] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 01:07:17] Starting dataset build.
+[2026-03-04 01:07:17] Stage A1: base laps already present; skipping.
+[2026-03-04 01:07:17] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-04 01:07:17] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-04 01:07:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 01:07:18] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-04 01:07:18] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
+[2026-03-04 01:07:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 01:41:56] Starting dataset build.
+[2026-03-04 01:41:56] Stage A1: base laps already present; skipping.
+[2026-03-04 01:41:56] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-04 01:41:56] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-04 01:41:56] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 01:42:00] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-04 01:42:00] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
+[2026-03-04 01:42:00] Stage B2 chunk for Oval_Track_260m: accepted=69/200, next_target=94
+[2026-03-04 01:42:00] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 94 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 01:47:55] Stage B2 chunk for Oval_Track_260m: accepted=94/200, next_target=119
+[2026-03-04 01:47:55] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 119 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 01:56:42] Stage B2 chunk for Oval_Track_260m: accepted=119/200, next_target=144
+[2026-03-04 01:56:42] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 144 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:01:36] Stage B2 chunk for Oval_Track_260m: accepted=144/200, next_target=169
+[2026-03-04 02:01:36] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 169 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:08:21] Stage B2 chunk for Oval_Track_260m: accepted=169/200, next_target=194
+[2026-03-04 02:08:21] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 194 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:14:40] Stage B2 chunk for Oval_Track_260m: accepted=194/200, next_target=200
+[2026-03-04 02:14:40] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:16:25] Stage B2 complete for Oval_Track_260m. accepted=200/200
+[2026-03-04 02:16:25] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-04 02:16:25] Stage B: target accepted repairs for TRACK1_280m (target=0)
+[2026-03-04 02:16:25] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 02:16:26] Stage B complete for TRACK1_280m. accepted=84/0
+[2026-03-04 02:16:26] Stage B2: target accepted hard repairs for TRACK1_280m (target=200)
+[2026-03-04 02:16:26] Stage B2 chunk for TRACK1_280m: accepted=0/200, next_target=25
+[2026-03-04 02:16:26] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 25 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:25:02] Stage B2 chunk for TRACK1_280m: accepted=25/200, next_target=50
+[2026-03-04 02:25:02] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 50 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:31:10] Stage B2 chunk for TRACK1_280m: accepted=50/200, next_target=75
+[2026-03-04 02:31:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 75 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:38:40] Stage B2 chunk for TRACK1_280m: accepted=75/200, next_target=100
+[2026-03-04 02:38:40] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 100 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:45:38] Stage B2 chunk for TRACK1_280m: accepted=100/200, next_target=125
+[2026-03-04 02:45:38] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 125 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 02:53:10] Stage B2 chunk for TRACK1_280m: accepted=125/200, next_target=150
+[2026-03-04 02:53:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 150 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:00:35] Stage B2 chunk for TRACK1_280m: accepted=150/200, next_target=175
+[2026-03-04 03:00:35] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 175 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:10:12] Stage B2 chunk for TRACK1_280m: accepted=175/200, next_target=200
+[2026-03-04 03:10:12] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:15:10] Stage B2 complete for TRACK1_280m. accepted=200/200
+[2026-03-04 03:15:10] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-04 03:15:10] Stage B: target accepted repairs for TRACK2 (target=0)
+[2026-03-04 03:15:10] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 03:15:11] Stage B complete for TRACK2. accepted=83/0
+[2026-03-04 03:15:11] Stage B2: target accepted hard repairs for TRACK2 (target=200)
+[2026-03-04 03:15:11] Stage B2 chunk for TRACK2: accepted=0/200, next_target=25
+[2026-03-04 03:15:11] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 25 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:19:19] Stage B2 chunk for TRACK2: accepted=25/200, next_target=50
+[2026-03-04 03:19:19] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 50 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:23:55] Stage B2 chunk for TRACK2: accepted=50/200, next_target=75
+[2026-03-04 03:23:55] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 75 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:27:50] Stage B2 chunk for TRACK2: accepted=75/200, next_target=100
+[2026-03-04 03:27:50] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 100 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:32:31] Stage B2 chunk for TRACK2: accepted=100/200, next_target=125
+[2026-03-04 03:32:31] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 125 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:37:19] Stage B2 chunk for TRACK2: accepted=125/200, next_target=150
+[2026-03-04 03:37:19] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 150 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:41:54] Stage B2 chunk for TRACK2: accepted=150/200, next_target=175
+[2026-03-04 03:41:54] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 175 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:47:01] Stage B2 chunk for TRACK2: accepted=175/200, next_target=200
+[2026-03-04 03:47:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:50:54] Stage B2 complete for TRACK2. accepted=200/200
+[2026-03-04 03:50:54] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-04 03:50:54] Stage B: target accepted repairs for TRACK3_300m (target=0)
+[2026-03-04 03:50:54] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 03:50:56] Stage B complete for TRACK3_300m. accepted=83/0
+[2026-03-04 03:50:56] Stage B2: target accepted hard repairs for TRACK3_300m (target=200)
+[2026-03-04 03:50:56] Stage B2 chunk for TRACK3_300m: accepted=0/200, next_target=25
+[2026-03-04 03:50:56] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 25 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 03:59:43] Stage B2 chunk for TRACK3_300m: accepted=25/200, next_target=50
+[2026-03-04 03:59:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 50 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:06:53] Stage B2 chunk for TRACK3_300m: accepted=50/200, next_target=75
+[2026-03-04 04:06:53] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 75 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:14:22] Stage B2 chunk for TRACK3_300m: accepted=75/200, next_target=100
+[2026-03-04 04:14:22] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 100 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:22:49] Stage B2 chunk for TRACK3_300m: accepted=100/200, next_target=125
+[2026-03-04 04:22:49] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 125 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:28:24] Stage B2 chunk for TRACK3_300m: accepted=125/200, next_target=150
+[2026-03-04 04:28:24] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 150 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:34:23] Stage B2 chunk for TRACK3_300m: accepted=150/200, next_target=175
+[2026-03-04 04:34:23] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 175 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:40:06] Stage B2 chunk for TRACK3_300m: accepted=175/200, next_target=200
+[2026-03-04 04:40:06] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:47:35] Stage B2 complete for TRACK3_300m. accepted=200/200
+[2026-03-04 04:47:35] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-04 04:47:35] Stage B: target accepted repairs for TRACK4_315m (target=0)
+[2026-03-04 04:47:35] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 04:47:37] Stage B complete for TRACK4_315m. accepted=83/0
+[2026-03-04 04:47:37] Stage B2: target accepted hard repairs for TRACK4_315m (target=200)
+[2026-03-04 04:47:37] Stage B2 chunk for TRACK4_315m: accepted=0/200, next_target=25
+[2026-03-04 04:47:37] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 25 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:52:44] Stage B2 chunk for TRACK4_315m: accepted=25/200, next_target=50
+[2026-03-04 04:52:44] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 50 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 04:56:54] Stage B2 chunk for TRACK4_315m: accepted=50/200, next_target=75
+[2026-03-04 04:56:54] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 75 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:01:01] Stage B2 chunk for TRACK4_315m: accepted=75/200, next_target=100
+[2026-03-04 05:01:01] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 100 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:05:05] Stage B2 chunk for TRACK4_315m: accepted=100/200, next_target=125
+[2026-03-04 05:05:05] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 125 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:10:14] Stage B2 chunk for TRACK4_315m: accepted=125/200, next_target=150
+[2026-03-04 05:10:14] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 150 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:15:31] Stage B2 chunk for TRACK4_315m: accepted=150/200, next_target=175
+[2026-03-04 05:15:31] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 175 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:20:29] Stage B2 chunk for TRACK4_315m: accepted=175/200, next_target=200
+[2026-03-04 05:20:29] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:25:32] Stage B2 complete for TRACK4_315m. accepted=200/200
+[2026-03-04 05:25:32] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-04 05:25:32] Stage B: target accepted repairs for TRACK5_330m (target=0)
+[2026-03-04 05:25:32] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-04 05:25:34] Stage B complete for TRACK5_330m. accepted=83/0
+[2026-03-04 05:25:34] Stage B2: target accepted hard repairs for TRACK5_330m (target=200)
+[2026-03-04 05:25:34] Stage B2 chunk for TRACK5_330m: accepted=0/200, next_target=25
+[2026-03-04 05:25:34] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 25 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:30:33] Stage B2 chunk for TRACK5_330m: accepted=25/200, next_target=50
+[2026-03-04 05:30:33] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 50 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:35:21] Stage B2 chunk for TRACK5_330m: accepted=50/200, next_target=75
+[2026-03-04 05:35:21] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 75 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:39:51] Stage B2 chunk for TRACK5_330m: accepted=75/200, next_target=100
+[2026-03-04 05:39:51] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 100 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:43:20] Stage B2 chunk for TRACK5_330m: accepted=100/200, next_target=125
+[2026-03-04 05:43:20] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 125 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:48:09] Stage B2 chunk for TRACK5_330m: accepted=125/200, next_target=150
+[2026-03-04 05:48:09] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 150 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:52:33] Stage B2 chunk for TRACK5_330m: accepted=150/200, next_target=175
+[2026-03-04 05:52:33] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 175 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 05:56:41] Stage B2 chunk for TRACK5_330m: accepted=175/200, next_target=200
+[2026-03-04 05:56:41] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+[2026-03-04 06:00:20] Stage B2 complete for TRACK5_330m. accepted=200/200
+[2026-03-04 06:00:20] Dataset build finished.

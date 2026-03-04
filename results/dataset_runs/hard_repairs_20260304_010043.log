@@ -1,0 +1,20 @@
+[2026-03-04 01:00:43] Starting dataset build.
+[2026-03-04 01:00:43] Stage A1: base laps already present; skipping.
+[2026-03-04 01:00:43] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-04 01:00:43] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-04 01:00:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=84/0 attempts=140 elapsed=0.0s
+[2026-03-04 01:00:45] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-04 01:00:45] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
+[2026-03-04 01:00:45] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[attempt 10/1000] repairs accepted=1/200 elapsed=92.2s
+[attempt 20/1000] repairs accepted=6/200 elapsed=144.9s
+[accepted 10/200] attempts=29/1000 elapsed=228.5s
+[attempt 30/1000] repairs accepted=10/200 elapsed=228.5s

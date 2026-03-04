@@ -49,6 +49,12 @@ def main() -> None:
     )
     parser.add_argument("--repair-segments", type=int, default=200)
     parser.add_argument("--hard-repair-segments", type=int, default=0)
+    parser.add_argument(
+        "--hard-repair-chunk-size",
+        type=int,
+        default=25,
+        help="Generate hard repairs in resumed subprocess chunks of this many accepted episodes.",
+    )
     parser.add_argument("--output-root", type=str, default="data/datasets")
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--seed", type=int, default=0)
@@ -201,34 +207,43 @@ def main() -> None:
             log(f"Stage B2: target accepted hard repairs already present for {stem}; skipping.", progress_file)
         else:
             log(f"Stage B2: target accepted hard repairs for {stem} (target={nhard})", progress_file)
-            hard_cmd = [
-                sys.executable,
-                "-u",
-                "data/build_repair_segments.py",
-                "--map-file",
-                map_file,
-                "--base-laps-dir",
-                args.base_laps_dir,
-                "--output-dir",
-                str(hard_repairs_dir),
-                "--num-segments",
-                str(nhard),
-                "--seed",
-                str(args.seed),
-                "--H",
-                str(args.H),
-                "--save-every",
-                "10",
-                "--resume",
-                "--hard-mode",
-                "--uy-perturb-mps",
-                "0.15",
-                "--r-perturb-radps",
-                "0.08",
-            ]
-            if args.hard_repair_hotspot_json:
-                hard_cmd.extend(["--hotspot-json", args.hard_repair_hotspot_json])
-            run(hard_cmd, progress_file)
+            chunk_size = max(1, int(args.hard_repair_chunk_size))
+            while hard_repairs_done < nhard:
+                chunk_target = min(nhard, hard_repairs_done + chunk_size)
+                log(
+                    f"Stage B2 chunk for {stem}: accepted={hard_repairs_done}/{nhard}, "
+                    f"next_target={chunk_target}",
+                    progress_file,
+                )
+                hard_cmd = [
+                    sys.executable,
+                    "-u",
+                    "data/build_repair_segments.py",
+                    "--map-file",
+                    map_file,
+                    "--base-laps-dir",
+                    args.base_laps_dir,
+                    "--output-dir",
+                    str(hard_repairs_dir),
+                    "--num-segments",
+                    str(chunk_target),
+                    "--seed",
+                    str(args.seed),
+                    "--H",
+                    str(args.H),
+                    "--save-every",
+                    "10",
+                    "--resume",
+                    "--hard-mode",
+                    "--uy-perturb-mps",
+                    "0.15",
+                    "--r-perturb-radps",
+                    "0.08",
+                ]
+                if args.hard_repair_hotspot_json:
+                    hard_cmd.extend(["--hotspot-json", args.hard_repair_hotspot_json])
+                run(hard_cmd, progress_file)
+                hard_repairs_done = _manifest_lines(hard_repairs_manifest)
             hard_repairs_done_after = _manifest_lines(hard_repairs_manifest)
             log(
                 f"Stage B2 complete for {stem}. accepted={hard_repairs_done_after}/{nhard}",

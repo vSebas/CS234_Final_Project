@@ -1,0 +1,48 @@
+[2026-03-04 01:07:17] Starting dataset build.
+[2026-03-04 01:07:17] Stage A1: base laps already present; skipping.
+[2026-03-04 01:07:17] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-04 01:07:17] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-04 01:07:17] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=84/0 attempts=140 elapsed=0.0s
+[2026-03-04 01:07:18] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-04 01:07:18] Stage B2: target accepted hard repairs for Oval_Track_260m (target=200)
+[2026-03-04 01:07:18] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 200 --seed 0 --H 20 --save-every 10 --resume --hard-mode --uy-perturb-mps 0.15 --r-perturb-radps 0.08 --hotspot-json data/hotspots/all_tracks_hotspots.json
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[attempt 10/1000] repairs accepted=1/200 elapsed=99.0s
+[attempt 20/1000] repairs accepted=6/200 elapsed=153.7s
+[accepted 10/200] attempts=29/1000 elapsed=237.2s
+[attempt 30/1000] repairs accepted=10/200 elapsed=237.2s
+[attempt 40/1000] repairs accepted=18/200 elapsed=316.3s
+[accepted 20/200] attempts=44/1000 elapsed=364.9s
+[attempt 50/1000] repairs accepted=23/200 elapsed=401.7s
+[attempt 60/1000] repairs accepted=26/200 elapsed=489.5s
+[accepted 30/200] attempts=69/1000 elapsed=564.8s
+[attempt 70/1000] repairs accepted=30/200 elapsed=564.8s
+[attempt 80/1000] repairs accepted=36/200 elapsed=647.3s
+[accepted 40/200] attempts=85/1000 elapsed=678.8s
+[attempt 90/1000] repairs accepted=42/200 elapsed=714.7s
+[attempt 100/1000] repairs accepted=49/200 elapsed=786.8s
+[accepted 50/200] attempts=100/1000 elapsed=795.8s
+[attempt 110/1000] repairs accepted=54/200 elapsed=861.8s
+[accepted 60/200] attempts=118/1000 elapsed=909.1s
+[attempt 120/1000] repairs accepted=61/200 elapsed=918.4s
+[attempt 130/1000] repairs accepted=64/200 elapsed=985.8s
+[attempt 140/1000] repairs accepted=69/200 elapsed=1098.2s
+Traceback (most recent call last):
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 253, in <module>
+    main()
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 247, in main
+    _process_track(idx, map_file)
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 231, in _process_track
+    run(hard_cmd, progress_file)
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_dataset.py", line 29, in run
+    subprocess.check_call(cmd)
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/subprocess.py", line 413, in check_call
+    raise CalledProcessError(retcode, cmd)
+subprocess.CalledProcessError: Command '['/home/saveas/.conda/envs/DT_trajopt/bin/python', '-u', 'data/build_repair_segments.py', '--map-file', 'maps/Oval_Track_260m.mat', '--base-laps-dir', 'data/base_laps', '--output-dir', 'data/datasets/Oval_Track_260m_repairs_hard', '--num-segments', '200', '--seed', '0', '--H', '20', '--save-every', '10', '--resume', '--hard-mode', '--uy-perturb-mps', '0.15', '--r-perturb-radps', '0.08', '--hotspot-json', 'data/hotspots/all_tracks_hotspots.json']' died with <Signals.SIGKILL: 9>.
