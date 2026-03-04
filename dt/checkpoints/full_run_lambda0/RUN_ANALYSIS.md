@@ -55,6 +55,7 @@ Main conclusion for this run:
 - the last checkpoint beat baseline on the small no-obstacle benchmark set
 - obstacle-conditioned warm starts were still clearly worse than baseline
 - the main remaining failure mode is obstacle robustness, not nominal racing-line initialization
+- after the later weighted-repair experiment failed, this remains the current best DT run
 
 Recommended use of this run:
 - use `warmstarts/eval/` here when comparing checkpoint shortlist behavior

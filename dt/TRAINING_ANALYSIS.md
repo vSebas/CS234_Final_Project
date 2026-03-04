@@ -32,6 +32,19 @@ Use this folder for:
 - the checkpoint-shortlist warm-start comparisons
 - the no-obstacle and obstacle comparison visualizations
 
+### `full_run_lambda0_repairs`
+
+Run directory:
+- `dt/checkpoints/full_run_lambda0_repairs`
+
+Local bundle note:
+- `dt/checkpoints/full_run_lambda0_repairs/RUN_ANALYSIS.md`
+
+Use this folder for:
+- the weighted-repair action-only training artifacts
+- the negative-result warm-start evals for the repair-weighted experiment
+- the direct comparison point against `full_run_lambda0`
+
 The rest of this document keeps the cross-run narrative in one place.
 
 ## Run
@@ -435,39 +448,120 @@ Interpretation:
 4. Obstacle-conditioned warm starts remain clearly worse than baseline across the evaluated shortlist.
 5. The project bottleneck has narrowed: the next work should focus on obstacle robustness and off-manifold recovery, not more generic training cleanup.
 
+## Follow-Up Run: Weighted Repair Sampling
+
+A third run tested naive global repair upweighting:
+- run directory: `dt/checkpoints/full_run_lambda0_repairs`
+- `lambda_x = 0.0`
+- `repair_weight = 4.0`
+- interrupted during epoch `12` after `11` full epochs
+- accumulated train time at interruption: `10078.6 s` (`2 h 47 min 59 s`)
+
+### Validation pattern
+
+Best validation again happened immediately:
+
+| Epoch | Val Loss | Val Action Loss |
+|------:|---------:|----------------:|
+| 1 | 0.04167 | 0.04167 |
+| 2 | 0.04278 | 0.04278 |
+| 3 | 0.04608 | 0.04608 |
+| 4 | 0.04588 | 0.04588 |
+| 5 | 0.04471 | 0.04471 |
+| 6 | 0.04675 | 0.04675 |
+| 7 | 0.04963 | 0.04963 |
+| 8 | 0.05046 | 0.05046 |
+| 9 | 0.04882 | 0.04882 |
+| 10 | 0.05014 | 0.05014 |
+| 11 | 0.05075 | 0.05075 |
+
+Read:
+- best `val_action_loss` was epoch `1`
+- the same early-peak pattern remained
+- validation alone did not show a win over `full_run_lambda0`
+
+### Downstream benchmark result
+
+This run was evaluated after fixing the checkpoint-layout stats lookup in `planning/dt_warmstart.py`, so the results below use the correct normalization stats.
+
+Outputs are stored locally under:
+- `dt/checkpoints/full_run_lambda0_repairs/warmstarts/eval/current_best_noobs/`
+- `dt/checkpoints/full_run_lambda0_repairs/warmstarts/eval/current_best_obs1/`
+- `dt/checkpoints/full_run_lambda0_repairs/warmstarts/eval/current_last_noobs/`
+- `dt/checkpoints/full_run_lambda0_repairs/warmstarts/eval/current_last_obs1/`
+
+Summary:
+
+| Checkpoint | Scenario Set | DT Success | DT Solve Time | DT Iterations | Read |
+|-----------|--------------|-----------:|--------------:|--------------:|------|
+| best | no obstacles | 0/3 | n/a | n/a | catastrophic failure |
+| best | 1 obstacle | 2/3 | 128.48 s | 617.0 | far worse than baseline |
+| last | no obstacles | 3/3 | 126.43 s | 612.0 | far worse than baseline |
+| last | 1 obstacle | 2/3 | 120.92 s | 553.5 | far worse than baseline |
+
+Important clarification:
+- DT warm-start generation itself was still accepted in these runs
+- the failure is at the optimizer stage: IPOPT either fails or takes far more iterations
+
+### Fair comparison against `full_run_lambda0` at epoch 11
+
+To avoid comparing the weighted-repair run only against the fully completed `full_run_lambda0`, the same fixed benchmark sets were run on:
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_epoch_0010.pt`
+
+Outputs:
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/epoch11_noobs/`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/epoch11_obs1/`
+
+Results for `full_run_lambda0` epoch `11`:
+- no obstacles: `3/3` success, `64.19 s`, `300.0` iterations
+- 1 obstacle: `3/3` success, `290.46 s`, `372.7` iterations
+
+Compared directly against the weighted-repair run state at epoch `11`:
+- no obstacles: weighted-repair was worse
+- 1 obstacle: weighted-repair was worse in success rate and worse in iterations
+
+### Interpretation
+
+This is a real negative result:
+- naive global repair upweighting did not help obstacle robustness
+- it also degraded nominal no-obstacle behavior
+- the current best run remains `dt/checkpoints/full_run_lambda0`
+
+The likely read is that simple repair oversampling changed the training distribution in a way that hurt the nominal manifold without solving the obstacle-conditioned distribution shift.
+
 ## Immediate Next Steps
 
 The current recommended program is:
 
 1. **Checkpoint selection by downstream benchmark**
-   - treat warm-start benchmark performance as the checkpoint-selection rule
+   - keep using warm-start benchmark performance as the checkpoint-selection rule
    - feasibility first, then median IPOPT iterations or solve time
-   - in practice, this is already being used informally through the checkpoint shortlist comparisons
-2. **Weighted repair sampling**
-   - implement weighted repair sampling in DT training so repair episodes, especially obstacle-conditioned repairs, have more influence than they do under uniform sampling
-   - this is the next concrete coding step
-3. **Rollout / wrapper diagnostics**
+2. **Rollout / wrapper diagnostics**
    - add diagnostics such as projection count, fallback count, and projection magnitude
    - use them to distinguish a poor DT prediction from wrapper-induced distortion
-4. **Expand the benchmark set**
+3. **Expand the benchmark set**
    - keep the benchmark deterministic
-   - grow beyond the current `3` no-obstacle + `3` one-obstacle cases once the next training change is in place
-5. **Harder data interventions if needed**
-   - if weighted repairs are still not enough, then move on to harder repair data:
+   - grow beyond the current `3` no-obstacle + `3` one-obstacle cases once the diagnostics are in place
+4. **Harder targeted data interventions**
+   - skip generic repair upweighting and go directly to obstacle-specific data changes if needed:
      - targeted near-obstacle repairs
      - lower-clearance starts
      - possibly longer-horizon repairs for a subset
+5. **Only then revisit sampling**
+   - if targeted data exists, revisit weighting with a more selective policy rather than a global repair multiplier
 
 ### Next concrete experiment
 
-The next concrete experiment should target obstacle robustness directly while keeping the current nominal gains:
+The next concrete experiment should focus on diagnosing the obstacle failure before changing the dataset again:
 
-1. Implement weighted repair sampling.
-2. Retrain with the same action-only setup:
-   - keep `lambda_x = 0.0`
-   - keep the same dataset
-   - change only the training mixture / sampling emphasis first
-3. Re-run the same fixed benchmark sets:
+1. Add rollout / wrapper diagnostics:
+   - projection count
+   - fallback count
+   - projection magnitude
+2. Re-run the fixed benchmark sets on the current best run:
+   - `dt/checkpoints/full_run_lambda0`
    - `3` no-obstacle scenarios
    - `3` one-obstacle scenarios
-4. Compare against the current `full_run_lambda0` checkpoint shortlist so the effect of repair weighting is isolated.
+3. Use those diagnostics to decide whether the next intervention should be:
+   - targeted harder obstacle-recovery data, or
+   - a wrapper/rollout correction rather than another training-mixture change

@@ -80,12 +80,21 @@ class DTWarmStarter:
         self.model.eval()
 
         # Load normalization stats
-        stats_path = Path(checkpoint_path).parent / "dataset_stats.npz"
-        if stats_path.exists():
-            self.stats = DatasetStats.load(stats_path)
-        else:
-            print(f"Warning: No dataset_stats.npz found at {stats_path}")
-            self.stats = None
+        checkpoint_dir = Path(checkpoint_path).parent
+        stats_candidates = [
+            checkpoint_dir / "dataset_stats.npz",
+            checkpoint_dir.parent / "dataset_stats.npz",
+        ]
+        self.stats = None
+        for stats_path in stats_candidates:
+            if stats_path.exists():
+                self.stats = DatasetStats.load(stats_path)
+                break
+        if self.stats is None:
+            print(
+                "Warning: No dataset_stats.npz found at any of: "
+                + ", ".join(str(p) for p in stats_candidates)
+            )
 
         # Control bounds (from vehicle/optimizer config)
         self.delta_max = 0.5   # rad
