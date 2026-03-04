@@ -194,6 +194,7 @@ class TrajectoryDataset(Dataset):
 
         for shard_dir in self.data_dirs:
             manifest_path = shard_dir / "manifest.jsonl"
+            source_kind = self._infer_source_kind(shard_dir)
             if manifest_path.exists():
                 with open(manifest_path, "r") as f:
                     for line in f:
@@ -205,6 +206,7 @@ class TrajectoryDataset(Dataset):
                             data = np.load(npz_path)
                             ep["length"] = len(data["rtg"])
                             ep["obstacles_list"] = ep.get("obstacles", [])
+                            ep["source_kind"] = ep.get("source_kind") or source_kind
                             episodes.append(ep)
                         if max_episodes and len(episodes) >= max_episodes:
                             break
@@ -217,6 +219,7 @@ class TrajectoryDataset(Dataset):
                             "npz_path": str(npz_file),
                             "length": len(data["rtg"]),
                             "obstacles_list": [],
+                            "source_kind": source_kind,
                         })
                         if max_episodes and len(episodes) >= max_episodes:
                             break
@@ -229,6 +232,18 @@ class TrajectoryDataset(Dataset):
 
         print(f"Loaded {len(episodes)} episodes from {len(self.data_dirs)} shard(s)")
         return episodes
+
+    @staticmethod
+    def _infer_source_kind(shard_dir: Path) -> str:
+        """Infer coarse source category from shard directory name."""
+        name = shard_dir.name.lower()
+        if name.endswith("_repairs_hard"):
+            return "repair_hard"
+        if name.endswith("_repairs"):
+            return "repair"
+        if name.endswith("_shifts"):
+            return "shift"
+        return "other"
 
     def _load_episode(self, ep_idx: int) -> Dict[str, np.ndarray]:
         """Load episode data from NPZ file."""
@@ -481,6 +496,9 @@ def create_dataloaders(
     train_ratio: float = 0.9,
     seed: int = 42,
     repair_weight: float = 1.0,
+    shift_fraction: Optional[float] = None,
+    repair_fraction: Optional[float] = None,
+    hard_repair_fraction: Optional[float] = None,
 ) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, DatasetStats]:
     """
     Create train and validation dataloaders.
@@ -494,6 +512,9 @@ def create_dataloaders(
         train_ratio: Fraction of data for training
         seed: Random seed
         repair_weight: Relative sampling weight for repair samples in training.
+        shift_fraction: Target fraction of train samples drawn from shift shards.
+        repair_fraction: Target fraction of train samples drawn from standard repair shards.
+        hard_repair_fraction: Target fraction of train samples drawn from hard repair shards.
 
     Returns:
         train_loader, val_loader, stats
@@ -573,7 +594,75 @@ def create_dataloaders(
 
     train_loader_kwargs = dict(loader_kwargs)
     train_sampler = None
-    if repair_weight > 1.0:
+    source_mix_requested = any(
+        value is not None
+        for value in (shift_fraction, repair_fraction, hard_repair_fraction)
+    )
+    if source_mix_requested:
+        if None in (shift_fraction, repair_fraction, hard_repair_fraction):
+            raise ValueError(
+                "Explicit source mixing requires --shift-fraction, --repair-fraction, "
+                "and --hard-repair-fraction together."
+            )
+        total_fraction = float(shift_fraction) + float(repair_fraction) + float(hard_repair_fraction)
+        if not np.isclose(total_fraction, 1.0, atol=1e-6):
+            raise ValueError(
+                "Shift/repair/hard-repair fractions must sum to 1.0; "
+                f"got {total_fraction:.6f}."
+            )
+
+        sample_weights = np.zeros(len(train_dataset), dtype=np.float64)
+        source_counts = {"shift": 0, "repair": 0, "repair_hard": 0, "other": 0}
+        target_fractions = {
+            "shift": float(shift_fraction),
+            "repair": float(repair_fraction),
+            "repair_hard": float(hard_repair_fraction),
+        }
+        sample_sources: List[str] = []
+
+        for ep_idx, _ in train_dataset.indices:
+            source_kind = str(train_episodes[ep_idx].get("source_kind", "other")).lower()
+            if source_kind not in source_counts:
+                source_kind = "other"
+            sample_sources.append(source_kind)
+            source_counts[source_kind] += 1
+
+        for source_kind, target_fraction in target_fractions.items():
+            if target_fraction > 0.0 and source_counts[source_kind] == 0:
+                raise ValueError(
+                    f"Requested {source_kind} fraction {target_fraction:.3f}, "
+                    "but the train split contains no samples from that source."
+                )
+
+        other_fraction = 0.0
+        if source_counts["other"] > 0:
+            other_fraction = 1e-6
+            target_total = total_fraction + other_fraction
+            target_fractions = {
+                key: value / target_total for key, value in target_fractions.items()
+            }
+            other_fraction = other_fraction / target_total
+
+        for sample_idx, source_kind in enumerate(sample_sources):
+            if source_kind in target_fractions:
+                target_fraction = target_fractions[source_kind]
+                sample_weights[sample_idx] = target_fraction / max(1, source_counts[source_kind])
+            else:
+                sample_weights[sample_idx] = other_fraction / max(1, source_counts[source_kind])
+
+        train_sampler = torch.utils.data.WeightedRandomSampler(
+            weights=torch.as_tensor(sample_weights, dtype=torch.double),
+            num_samples=len(train_dataset),
+            replacement=True,
+        )
+        train_loader_kwargs["sampler"] = train_sampler
+        print(
+            "Train sampler: explicit source mix enabled "
+            f"(shift={float(shift_fraction):.2f}, repair={float(repair_fraction):.2f}, "
+            f"repair_hard={float(hard_repair_fraction):.2f}; "
+            f"sample_counts={source_counts})"
+        )
+    elif repair_weight > 1.0:
         sample_weights = np.ones(len(train_dataset), dtype=np.float64)
         repair_sample_count = 0
         for sample_idx, (ep_idx, _) in enumerate(train_dataset.indices):

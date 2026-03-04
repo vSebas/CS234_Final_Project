@@ -124,6 +124,9 @@ class TrainConfig:
     num_workers: int = 4
     train_ratio: float = 0.9
     repair_weight: float = 1.0
+    shift_fraction: Optional[float] = None
+    repair_fraction: Optional[float] = None
+    hard_repair_fraction: Optional[float] = None
 
     # Misc
     seed: int = 42
@@ -752,6 +755,24 @@ def main():
         default=1.0,
         help="Relative sampling weight for repair samples in training.",
     )
+    parser.add_argument(
+        "--shift-fraction",
+        type=float,
+        default=None,
+        help="Target train-only sampling fraction for shift windows.",
+    )
+    parser.add_argument(
+        "--repair-fraction",
+        type=float,
+        default=None,
+        help="Target train-only sampling fraction for standard repair windows.",
+    )
+    parser.add_argument(
+        "--hard-repair-fraction",
+        type=float,
+        default=None,
+        help="Target train-only sampling fraction for hard-repair windows.",
+    )
 
     args = parser.parse_args()
 
@@ -785,6 +806,9 @@ def main():
         seed=args.seed,
         num_workers=args.num_workers,
         repair_weight=args.repair_weight,
+        shift_fraction=args.shift_fraction,
+        repair_fraction=args.repair_fraction,
+        hard_repair_fraction=args.hard_repair_fraction,
         device=args.device,
     )
 
@@ -804,6 +828,9 @@ def main():
         train_ratio=config.train_ratio,
         seed=config.seed,
         repair_weight=config.repair_weight,
+        shift_fraction=config.shift_fraction,
+        repair_fraction=config.repair_fraction,
+        hard_repair_fraction=config.hard_repair_fraction,
     )
 
     # Create model
