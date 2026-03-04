@@ -668,10 +668,20 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 ### 8.2 Immediate priorities
 
 1. Persist train/val/test split artifacts to disk instead of splitting only inside the loader at runtime.
-2. Build a separate hard-repair shard guided by the current DT obstacle diagnostics.
-3. Retrain the DT with `lambda_x = 0.0` using shifts + standard repairs + hard repairs, without global repair weighting.
-4. Re-run the fixed warm-start benchmark and rollout/wrapper diagnostics.
-5. If nonzero `vehicle_radius_m` is used in experiments, thread it through all DT warm-start evaluation/config paths.
+2. Keep `dt/checkpoints/full_run_lambda0` as the current best run-family baseline.
+3. Implement post-projection labeled data generation (DAGGER-lite):
+   - export per-step wrapper traces
+   - trigger-select problematic states
+   - label with short repair solves
+   - save as a dedicated post-projection shard
+4. Retrain with conservative first mix:
+   - `85%` shifts
+   - `10%` standard repairs
+   - `5%` post-projection repairs
+5. Evaluate with two-tier benchmark gates:
+   - `3/3` smoke gate
+   - `10/10` decision gate
+6. If nonzero `vehicle_radius_m` is used in experiments, thread it through all DT warm-start evaluation/config paths.
 
 ### 8.3 Dataset
 

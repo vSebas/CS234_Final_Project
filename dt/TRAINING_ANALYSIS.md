@@ -16,7 +16,50 @@ This note summarizes the completed DT training runs and their downstream warm-st
 - Current next step:
   - keep `full_run_lambda0` as the current best run
   - treat validation loss as a weak shortlist signal only
-  - if continuing, move to more invasive ideas such as per-step hotspot heatmaps or post-projection-state training rather than more naive repair-mix tuning
+  - if continuing, move to post-projection labeled data (DAGGER-like) rather than more naive repair-mix tuning
+
+## Next Program: Post-Projection Labeled Data (DAGGER-Lite)
+
+This is the new primary plan after the negative `full_run_lambda0_hard` downstream result.
+
+### Why this plan
+
+- DT rollout is frequently corrected by projection/fallback.
+- That means inference-time state distribution differs from clean expert data.
+- Training only on clean expert trajectories is likely a distribution-mismatch failure mode.
+
+### Core workflow
+
+1. Export per-step rollout traces from DT + wrapper runs.
+2. Keep trigger-selected states:
+   - projection magnitude over threshold
+   - fallback events
+   - optional low-clearance proxy
+3. Label selected states with short repair solves (optimizer teacher).
+4. Build a separate post-projection shard.
+5. Retrain with conservative mix.
+
+### Practical guardrails
+
+- Keep benchmark usage two-tier:
+  - `3/3` seeds as smoke gate
+  - `10/10` seeds as decision gate
+- Add labeling budgets:
+  - max solve time/iterations per candidate state
+  - stop after collecting a target number of accepted labels
+- Serialize solver-relevant trace context (do not rely on fragile reconstruction).
+- Enforce diversity caps:
+  - cap contribution per checkpoint
+  - cap contribution per scenario
+  - stratify sampling across `s` bins
+
+### First retrain mix for this plan
+
+- `85%` shifts
+- `10%` standard repairs
+- `5%` post-projection repairs
+
+Use this as the first conservative setting to avoid over-biasing into recovery-mode behavior.
 
 ## Brief Run History
 
