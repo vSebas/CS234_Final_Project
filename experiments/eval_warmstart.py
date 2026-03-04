@@ -96,6 +96,11 @@ class EvalConfig:
 
     # Retry settings
     max_retries: int = 3
+    export_rollout_trace: bool = False
+    trace_projection_thresh: float = 0.1
+    trace_clearance_thresh: float = 0.2
+    trace_random_keep_prob: float = 0.01
+    trace_max_keep_per_scenario: int = 200
 
 
 def infer_track_target_lap_time_s(map_file: str, dataset_root: str) -> Optional[float]:
@@ -245,7 +250,7 @@ def run_dt_warmstart_solve(
     config: EvalConfig,
     obstacles: List[Dict],
     verbose: bool = False,
-) -> Tuple[bool, bool, Dict]:
+) -> Tuple[bool, bool, Dict, List[Dict]]:
     """Run optimizer with DT warm-start."""
     ds_m = optimizer.world.length_m / config.N
 
@@ -259,9 +264,11 @@ def run_dt_warmstart_solve(
         obstacles=obstacles,
         obstacle_clearance_m=config.obstacle_clearance,
         vehicle_radius_m=0.0,
+        collect_rollout_trace=config.export_rollout_trace,
     )
 
     warmstart_accepted = ws_result.success
+    rollout_trace = ws_result.rollout_trace or []
 
     if not warmstart_accepted:
         # Fall back to baseline
@@ -272,7 +279,7 @@ def run_dt_warmstart_solve(
         metrics["ws_projection_count"] = ws_result.projection_count
         metrics["ws_projection_total_magnitude"] = ws_result.projection_total_magnitude
         metrics["ws_projection_max_magnitude"] = ws_result.projection_max_magnitude
-        return success, False, metrics
+        return success, False, metrics, rollout_trace
 
     # Run IPOPT with warm-start
     t_start = time.time()
@@ -307,7 +314,7 @@ def run_dt_warmstart_solve(
         "ws_projection_count": ws_result.projection_count,
         "ws_projection_total_magnitude": ws_result.projection_total_magnitude,
         "ws_projection_max_magnitude": ws_result.projection_max_magnitude,
-    }
+    }, rollout_trace
 
 
 def evaluate_scenario(
@@ -317,9 +324,10 @@ def evaluate_scenario(
     obstacles: List[Dict],
     config: EvalConfig,
     verbose: bool = False,
-) -> List[ScenarioResult]:
+) -> Tuple[List[ScenarioResult], List[Dict]]:
     """Evaluate all methods on a single scenario."""
     results = []
+    collected_trace_rows: List[Dict] = []
 
     # 1. Baseline
     success, metrics = run_baseline_solve(optimizer, config, obstacles, verbose)
@@ -373,7 +381,7 @@ def evaluate_scenario(
 
     # 3. DT warm-start (if available)
     if warmstarter is not None:
-        success_dt, ws_accepted, metrics_dt = run_dt_warmstart_solve(
+        success_dt, ws_accepted, metrics_dt, rollout_trace = run_dt_warmstart_solve(
             optimizer, warmstarter, config, obstacles, verbose
         )
         metrics_dt = dict(metrics_dt)
@@ -389,7 +397,36 @@ def evaluate_scenario(
             **metrics_dt,
         ))
 
-    return results
+        if config.export_rollout_trace:
+            kept = 0
+            for row in rollout_trace:
+                projection_mag = float(row.get("projection_mag", 0.0))
+                clearance_proxy = float(row.get("clearance_proxy_m", float("inf")))
+                fallback_used = bool(row.get("fallback_used", False))
+                trigger = (
+                    fallback_used
+                    or projection_mag >= float(config.trace_projection_thresh)
+                    or clearance_proxy <= float(config.trace_clearance_thresh)
+                )
+                random_keep = np.random.random() < float(config.trace_random_keep_prob)
+                if not (trigger or random_keep):
+                    continue
+                if kept >= int(config.trace_max_keep_per_scenario):
+                    break
+                trace_row = {
+                    "scenario_id": int(scenario_id),
+                    "method": "dt_warmstart",
+                    "map_file": str(config.map_file),
+                    "checkpoint_path": str(config.checkpoint_path) if config.checkpoint_path else "",
+                    "num_obstacles": int(len(obstacles)),
+                    "triggered": bool(trigger),
+                    "random_keep": bool(random_keep),
+                    **row,
+                }
+                collected_trace_rows.append(trace_row)
+                kept += 1
+
+    return results, collected_trace_rows
 
 
 def compute_summary_stats(results: List[ScenarioResult]) -> Dict:
@@ -530,6 +567,11 @@ def main():
     parser.add_argument("--min-obstacles", type=int, default=0)
     parser.add_argument("--max-obstacles", type=int, default=4)
     parser.add_argument("--verbose", action="store_true")
+    parser.add_argument("--export-rollout-trace", action="store_true")
+    parser.add_argument("--trace-projection-thresh", type=float, default=0.1)
+    parser.add_argument("--trace-clearance-thresh", type=float, default=0.2)
+    parser.add_argument("--trace-random-keep-prob", type=float, default=0.01)
+    parser.add_argument("--trace-max-keep-per-scenario", type=int, default=200)
     args = parser.parse_args()
 
     config = EvalConfig(
@@ -543,6 +585,11 @@ def main():
         N=args.N,
         min_obstacles=args.min_obstacles,
         max_obstacles=args.max_obstacles,
+        export_rollout_trace=args.export_rollout_trace,
+        trace_projection_thresh=args.trace_projection_thresh,
+        trace_clearance_thresh=args.trace_clearance_thresh,
+        trace_random_keep_prob=args.trace_random_keep_prob,
+        trace_max_keep_per_scenario=args.trace_max_keep_per_scenario,
     )
 
     # Setup output
@@ -588,6 +635,7 @@ def main():
     # Run evaluation
     rng = np.random.default_rng(config.seed)
     all_results = []
+    all_trace_rows: List[Dict] = []
 
     for scenario_id in range(config.num_scenarios):
         # Sample obstacles
@@ -597,10 +645,11 @@ def main():
         print(f"Scenario {scenario_id + 1}/{config.num_scenarios}: {len(obstacles)} obstacles...", end=" ", flush=True)
 
         # Evaluate
-        results = evaluate_scenario(
+        results, trace_rows = evaluate_scenario(
             scenario_id, optimizer, warmstarter, obstacles, config, config.verbose if hasattr(config, 'verbose') else False
         )
         all_results.extend(results)
+        all_trace_rows.extend(trace_rows)
 
         # Quick status
         baseline_result = next(r for r in results if r.method == "baseline")
@@ -625,6 +674,13 @@ def main():
     with open(summary_json, "w") as f:
         json.dump(summary, f, indent=2)
     print(f"Summary saved to: {summary_json}")
+
+    if config.export_rollout_trace and all_trace_rows:
+        trace_jsonl = output_dir / f"warmstart_eval_{timestamp}_rollout_trace.jsonl"
+        with open(trace_jsonl, "w", encoding="utf-8") as f:
+            for row in all_trace_rows:
+                f.write(json.dumps(row) + "\n")
+        print(f"Rollout trace saved to: {trace_jsonl} ({len(all_trace_rows)} rows)")
 
 
 if __name__ == "__main__":

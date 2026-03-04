@@ -127,6 +127,7 @@ class TrainConfig:
     shift_fraction: Optional[float] = None
     repair_fraction: Optional[float] = None
     hard_repair_fraction: Optional[float] = None
+    postproj_repair_fraction: Optional[float] = None
 
     # Misc
     seed: int = 42
@@ -773,6 +774,12 @@ def main():
         default=None,
         help="Target train-only sampling fraction for hard-repair windows.",
     )
+    parser.add_argument(
+        "--postproj-repair-fraction",
+        type=float,
+        default=None,
+        help="Target train-only sampling fraction for post-projection repair windows.",
+    )
 
     args = parser.parse_args()
 
@@ -809,6 +816,7 @@ def main():
         shift_fraction=args.shift_fraction,
         repair_fraction=args.repair_fraction,
         hard_repair_fraction=args.hard_repair_fraction,
+        postproj_repair_fraction=args.postproj_repair_fraction,
         device=args.device,
     )
 
@@ -831,6 +839,7 @@ def main():
         shift_fraction=config.shift_fraction,
         repair_fraction=config.repair_fraction,
         hard_repair_fraction=config.hard_repair_fraction,
+        postproj_repair_fraction=config.postproj_repair_fraction,
     )
 
     # Create model

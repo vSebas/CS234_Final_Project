@@ -12,7 +12,7 @@ Based on PLAN.md Section 4:
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -39,6 +39,7 @@ class WarmStartResult:
     projection_count: int = 0
     projection_total_magnitude: float = 0.0
     projection_max_magnitude: float = 0.0
+    rollout_trace: Optional[List[Dict[str, Any]]] = None
 
 
 class DTWarmStarter:
@@ -367,6 +368,45 @@ class DTWarmStarter:
         projection_mag = float(np.linalg.norm(x_proj - x_before))
         return x_proj, projection_mag
 
+    def _clearance_proxy_m(
+        self,
+        s: float,
+        e: float,
+        obstacles: Optional[List[Dict]],
+        obstacle_clearance_m: float,
+        vehicle_radius_m: float,
+    ) -> float:
+        """
+        Conservative 1D clearance proxy in Frenet e-direction.
+
+        Returns minimum signed lateral-distance-minus-required-radius among
+        obstacles in a small longitudinal window around s.
+        """
+        if not obstacles:
+            return float("inf")
+
+        min_clearance = float("inf")
+        longitudinal_window = max(4.0, 3.0 * (self.world.length_m / 120.0))
+        for obs in obstacles:
+            s_obs, e_obs, _ = self._obstacle_frenet(obs)
+            ds = s_obs - s
+            if ds < -0.5 * self.world.length_m:
+                ds += self.world.length_m
+            elif ds > 0.5 * self.world.length_m:
+                ds -= self.world.length_m
+
+            if abs(ds) > longitudinal_window:
+                continue
+
+            required = self._effective_obstacle_radius(
+                obs,
+                obstacle_clearance_m=obstacle_clearance_m,
+                vehicle_radius_m=vehicle_radius_m,
+            )
+            clearance = abs(float(e) - float(e_obs)) - required
+            min_clearance = min(min_clearance, float(clearance))
+        return min_clearance
+
     def _fallback_step(
         self,
         x_full: np.ndarray,
@@ -420,6 +460,7 @@ class DTWarmStarter:
         target_lap_time: Optional[float] = None,
         obstacle_clearance_m: float = 0.0,
         vehicle_radius_m: float = 0.0,
+        collect_rollout_trace: bool = False,
     ) -> WarmStartResult:
         """
         Generate warm-start trajectory using DT.
@@ -474,6 +515,7 @@ class DTWarmStarter:
         projection_count = 0
         projection_total_magnitude = 0.0
         projection_max_magnitude = 0.0
+        rollout_trace: List[Dict[str, Any]] = [] if collect_rollout_trace else None
         for k in range(N):
             # Build DT observation: [ux, uy, r, e, dpsi, pos_E, pos_N, yaw_world]
             pose = self._get_global_pose(s, x_full[6], x_full[7])
@@ -574,9 +616,12 @@ class DTWarmStarter:
             actions_buffer.append(action_pred)
 
             # Propagate dynamics
+            x_pred_before_projection = None
+            fallback_used = False
             x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
             if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
                 fallback_count += 1
+                fallback_used = True
                 x_next, dt = self._fallback_step(x_full, action_pred, s, ds_m)
                 if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
                     return WarmStartResult(
@@ -590,7 +635,9 @@ class DTWarmStarter:
                         projection_count=projection_count,
                         projection_total_magnitude=projection_total_magnitude,
                         projection_max_magnitude=projection_max_magnitude,
+                        rollout_trace=rollout_trace,
                     )
+            x_pred_before_projection = x_next.copy()
             x_next, projection_mag = self._project_state_to_track(
                 x_next,
                 s + ds_m,
@@ -602,6 +649,44 @@ class DTWarmStarter:
                 projection_count += 1
                 projection_total_magnitude += projection_mag
                 projection_max_magnitude = max(projection_max_magnitude, projection_mag)
+
+            if collect_rollout_trace and rollout_trace is not None:
+                clearance_proxy = self._clearance_proxy_m(
+                    s=s + ds_m,
+                    e=float(x_next[6]),
+                    obstacles=obstacles,
+                    obstacle_clearance_m=obstacle_clearance_m,
+                    vehicle_radius_m=vehicle_radius_m,
+                )
+                rollout_trace.append(
+                    {
+                        "k": int(k),
+                        "s_m": float(s),
+                        "s_next_m": float(s + ds_m),
+                        "dt_s": float(dt),
+                        "rtg_before": float(rtg),
+                        "fallback_used": bool(fallback_used),
+                        "projection_mag": float(projection_mag),
+                        "clearance_proxy_m": float(clearance_proxy),
+                        "action_pred": action_pred.astype(float).tolist(),
+                        "x_before": x_full.astype(float).tolist(),
+                        "x_pred_before_projection": (
+                            x_pred_before_projection.astype(float).tolist()
+                            if x_pred_before_projection is not None
+                            else None
+                        ),
+                        "x_after_projection": x_next.astype(float).tolist(),
+                        "obstacles": [
+                            {
+                                "s_m": float(self._obstacle_frenet(obs)[0]),
+                                "e_m": float(self._obstacle_frenet(obs)[1]),
+                                "radius_m": float(self._obstacle_frenet(obs)[2]),
+                                "margin_m": float(obs.get("margin_m", 0.0)),
+                            }
+                            for obs in (obstacles or [])
+                        ],
+                    }
+                )
             X_init[:, k + 1] = x_next
 
             # Update state and progress
@@ -634,6 +719,7 @@ class DTWarmStarter:
             projection_count=projection_count,
             projection_total_magnitude=projection_total_magnitude,
             projection_max_magnitude=projection_max_magnitude,
+            rollout_trace=rollout_trace,
         )
 
     def _validate_warmstart(

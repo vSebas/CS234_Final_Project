@@ -39,6 +39,25 @@ This is the new primary plan after the negative `full_run_lambda0_hard` downstre
 4. Build a separate post-projection shard.
 5. Retrain with conservative mix.
 
+Implementation status (now):
+- `planning/dt_warmstart.py` supports optional per-step rollout trace collection via `collect_rollout_trace=True`.
+- `experiments/eval_warmstart.py` supports trace export and trigger filtering with:
+  - `--export-rollout-trace`
+  - `--trace-projection-thresh`
+  - `--trace-clearance-thresh`
+  - `--trace-random-keep-prob`
+  - `--trace-max-keep-per-scenario`
+- exported trace rows are written as:
+  - `warmstart_eval_<timestamp>_rollout_trace.jsonl`
+- post-projection label builder is implemented:
+  - `data/build_postprojection_repairs.py`
+  - output shard pattern: `data/datasets/<map_id>_repairs_postproj`
+- convenience wrappers:
+  - `./data/run_postprojection_repairs.sh`
+  - `./dt/run_postproj_train.sh`
+- DT loader source-mix now supports a 4th source:
+  - `repair_postproj` via `--postproj-repair-fraction`
+
 ### Practical guardrails
 
 - Keep benchmark usage two-tier:
@@ -57,6 +76,7 @@ This is the new primary plan after the negative `full_run_lambda0_hard` downstre
 
 - `85%` shifts
 - `10%` standard repairs
+- `0%` hard repairs
 - `5%` post-projection repairs
 
 Use this as the first conservative setting to avoid over-biasing into recovery-mode behavior.

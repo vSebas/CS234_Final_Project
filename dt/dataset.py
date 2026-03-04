@@ -237,6 +237,8 @@ class TrajectoryDataset(Dataset):
     def _infer_source_kind(shard_dir: Path) -> str:
         """Infer coarse source category from shard directory name."""
         name = shard_dir.name.lower()
+        if name.endswith("_repairs_postproj"):
+            return "repair_postproj"
         if name.endswith("_repairs_hard"):
             return "repair_hard"
         if name.endswith("_repairs"):
@@ -342,6 +344,28 @@ class TrajectoryDataset(Dataset):
         if not obstacles:
             return obs_feats.reshape(T, -1)
 
+        def _obs_s(obs: Dict) -> float:
+            if "s_m" in obs:
+                return float(obs["s_m"])
+            if "s_obs" in obs:
+                return float(obs["s_obs"])
+            return float(obs.get("s", 0.0))
+
+        def _obs_e(obs: Dict) -> float:
+            if "e_m" in obs:
+                return float(obs["e_m"])
+            if "e_obs" in obs:
+                return float(obs["e_obs"])
+            return float(obs.get("e", 0.0))
+
+        def _obs_r(obs: Dict) -> float:
+            # Dataset convention: radius_m is treated as effective radius.
+            if "radius_m" in obs:
+                return float(obs["radius_m"])
+            if "r_obs" in obs:
+                return float(obs["r_obs"])
+            return float(obs.get("r", 0.0))
+
         for t in range(T):
             s_t = s_abs[t]
             e_t = e[t]
@@ -349,9 +373,9 @@ class TrajectoryDataset(Dataset):
             # Find obstacles ahead within lookahead window
             ahead_obs = []
             for obs in obstacles:
-                s_obs = obs.get("s_obs", obs.get("s", 0))
-                e_obs = obs.get("e_obs", obs.get("e", 0))
-                r_obs = obs.get("r_obs", obs.get("r", 0))
+                s_obs = _obs_s(obs)
+                e_obs = _obs_e(obs)
+                r_obs = _obs_r(obs)
 
                 ds = s_obs - s_t
                 # Handle wrap-around consistently with DT warm-start inference.
@@ -499,6 +523,7 @@ def create_dataloaders(
     shift_fraction: Optional[float] = None,
     repair_fraction: Optional[float] = None,
     hard_repair_fraction: Optional[float] = None,
+    postproj_repair_fraction: Optional[float] = None,
 ) -> Tuple[torch.utils.data.DataLoader, torch.utils.data.DataLoader, DatasetStats]:
     """
     Create train and validation dataloaders.
@@ -515,6 +540,7 @@ def create_dataloaders(
         shift_fraction: Target fraction of train samples drawn from shift shards.
         repair_fraction: Target fraction of train samples drawn from standard repair shards.
         hard_repair_fraction: Target fraction of train samples drawn from hard repair shards.
+        postproj_repair_fraction: Target fraction of train samples drawn from post-projection repair shards.
 
     Returns:
         train_loader, val_loader, stats
@@ -596,27 +622,42 @@ def create_dataloaders(
     train_sampler = None
     source_mix_requested = any(
         value is not None
-        for value in (shift_fraction, repair_fraction, hard_repair_fraction)
+        for value in (shift_fraction, repair_fraction, hard_repair_fraction, postproj_repair_fraction)
     )
     if source_mix_requested:
-        if None in (shift_fraction, repair_fraction, hard_repair_fraction):
+        # Backward-compatible 3-way mix and optional 4-way mix with post-projection repairs.
+        if postproj_repair_fraction is None:
+            if None in (shift_fraction, repair_fraction, hard_repair_fraction):
+                raise ValueError(
+                    "Explicit source mixing requires --shift-fraction, --repair-fraction, "
+                    "and --hard-repair-fraction together (optionally plus --postproj-repair-fraction)."
+                )
+            postproj_repair_fraction = 0.0
+        elif None in (shift_fraction, repair_fraction, hard_repair_fraction):
             raise ValueError(
-                "Explicit source mixing requires --shift-fraction, --repair-fraction, "
-                "and --hard-repair-fraction together."
+                "When --postproj-repair-fraction is set, also set --shift-fraction, "
+                "--repair-fraction, and --hard-repair-fraction."
             )
-        total_fraction = float(shift_fraction) + float(repair_fraction) + float(hard_repair_fraction)
+
+        total_fraction = (
+            float(shift_fraction)
+            + float(repair_fraction)
+            + float(hard_repair_fraction)
+            + float(postproj_repair_fraction)
+        )
         if not np.isclose(total_fraction, 1.0, atol=1e-6):
             raise ValueError(
-                "Shift/repair/hard-repair fractions must sum to 1.0; "
+                "Shift/repair/hard-repair/postproj fractions must sum to 1.0; "
                 f"got {total_fraction:.6f}."
             )
 
         sample_weights = np.zeros(len(train_dataset), dtype=np.float64)
-        source_counts = {"shift": 0, "repair": 0, "repair_hard": 0, "other": 0}
+        source_counts = {"shift": 0, "repair": 0, "repair_hard": 0, "repair_postproj": 0, "other": 0}
         target_fractions = {
             "shift": float(shift_fraction),
             "repair": float(repair_fraction),
             "repair_hard": float(hard_repair_fraction),
+            "repair_postproj": float(postproj_repair_fraction),
         }
         sample_sources: List[str] = []
 
@@ -659,7 +700,8 @@ def create_dataloaders(
         print(
             "Train sampler: explicit source mix enabled "
             f"(shift={float(shift_fraction):.2f}, repair={float(repair_fraction):.2f}, "
-            f"repair_hard={float(hard_repair_fraction):.2f}; "
+            f"repair_hard={float(hard_repair_fraction):.2f}, "
+            f"repair_postproj={float(postproj_repair_fraction):.2f}; "
             f"sample_counts={source_counts})"
         )
     elif repair_weight > 1.0:

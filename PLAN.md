@@ -674,9 +674,14 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
    - trigger-select problematic states
    - label with short repair solves
    - save as a dedicated post-projection shard
+   - status:
+     - trace export is implemented in `experiments/eval_warmstart.py`
+     - labeling script is implemented in `data/build_postprojection_repairs.py`
+     - wrapper script is implemented in `data/run_postprojection_repairs.sh`
 4. Retrain with conservative first mix:
    - `85%` shifts
    - `10%` standard repairs
+   - `0%` hard repairs
    - `5%` post-projection repairs
 5. Evaluate with two-tier benchmark gates:
    - `3/3` smoke gate
@@ -694,7 +699,7 @@ Remaining dataset work:
 1. Create explicit train/val/test manifests or equivalent split files on disk.
 2. Ensure split artifacts preserve split-by-`base_id` hygiene.
 3. Add constraints-to-go / safety label postprocessing if needed.
-4. Build and evaluate the first `*_repairs_hard` shard using hotspot-guided obstacle-focused repairs.
+4. Build and evaluate the first `*_repairs_postproj` shard from wrapper-triggered traces.
 5. Clean up obstacle metadata after the planned obstacle simplification:
    - remove the redundant `margin` vs `clearance` split
    - store one final enforced obstacle inflation / clearance term
@@ -737,6 +742,10 @@ Current command path:
   - `./data/run_hard_repairs.sh`
 - or use the broader wrapper:
   - `./data/run_full_dataset.sh hard_repairs`
+- build post-projection repairs from rollout traces:
+  - `./data/run_postprojection_repairs.sh`
+- one-shot post-projection data + training wrapper:
+  - `./dt/run_postproj_train.sh`
 
 Hotspot interpretation:
 - the current all-track hotspot JSON is a practical proxy, not a full failure-density map

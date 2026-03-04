@@ -46,6 +46,7 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Shifts: `data/datasets/<map_id>_shifts/episodes/*.npz`
 - Repairs: `data/datasets/<map_id>_repairs/episodes/*.npz`
 - Hard repairs: `data/datasets/<map_id>_repairs_hard/episodes/*.npz` (optional targeted shard)
+- Post-projection repairs: `data/datasets/<map_id>_repairs_postproj/episodes/*.npz` (optional DAGGER-lite shard)
 
 **Run provenance for the current generated dataset**
 - The canonical aggregate build log is:
@@ -133,3 +134,34 @@ Hotspot note:
 - they are derived from the bad obstacle benchmark scenarios and weighted by DT rollout difficulty
 - they are useful as a first-pass sampling bias for hard repairs
 - they are not yet true per-step projection/fallback heatmaps
+
+## Post-Projection Repair Workflow
+
+This workflow labels DT+wrapper-induced states with short repair solves and stores
+them in a dedicated shard.
+
+**Scripts**
+- Build labels directly from rollout trace JSONL:
+  - `data/build_postprojection_repairs.py`
+- Convenience wrapper:
+  - `./data/run_postprojection_repairs.sh`
+
+**Trace input**
+- Export trace rows using:
+  - `python -u experiments/eval_warmstart.py ... --export-rollout-trace`
+- Input rows must contain:
+  - `map_file`, `s_m`, `x_after_projection`, `obstacles`
+
+**Current defaults**
+- target size:
+  - `600` accepted repairs total (or `--per-map-target`)
+- horizons:
+  - base `H=20`
+  - optional long horizon `H=40` at `20%` probability
+- trigger filter:
+  - uses rows marked `triggered=true` by default
+
+**Output shard**
+- `data/datasets/<map_id>_repairs_postproj`
+- manifest `episode_type`:
+  - `repair_postproj`

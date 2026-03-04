@@ -12,6 +12,7 @@ repair_weight="${REPAIR_WEIGHT:-}"
 shift_fraction="${SHIFT_FRACTION:-}"
 repair_fraction="${REPAIR_FRACTION:-}"
 hard_repair_fraction="${HARD_REPAIR_FRACTION:-}"
+postproj_repair_fraction="${POSTPROJ_REPAIR_FRACTION:-}"
 python_bin="${PYTHON_BIN:-python}"
 
 case "${mode}" in
@@ -56,9 +57,29 @@ case "${mode}" in
       hard_repair_fraction="0.15"
     fi
     ;;
+  full_action_postproj)
+    output_dir="${OUTPUT_DIR:-dt/checkpoints/full_run_lambda0_postproj}"
+    batch_size="${BATCH_SIZE:-64}"
+    num_epochs="${NUM_EPOCHS:-40}"
+    if [[ -z "${lambda_x}" ]]; then
+      lambda_x="0.0"
+    fi
+    if [[ -z "${shift_fraction}" ]]; then
+      shift_fraction="0.85"
+    fi
+    if [[ -z "${repair_fraction}" ]]; then
+      repair_fraction="0.10"
+    fi
+    if [[ -z "${hard_repair_fraction}" ]]; then
+      hard_repair_fraction="0.00"
+    fi
+    if [[ -z "${postproj_repair_fraction}" ]]; then
+      postproj_repair_fraction="0.05"
+    fi
+    ;;
   *)
-    echo "Usage: $0 [smoke|full|full_action|full_action_hard]"
-    echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X, REPAIR_WEIGHT, SHIFT_FRACTION, REPAIR_FRACTION, HARD_REPAIR_FRACTION"
+    echo "Usage: $0 [smoke|full|full_action|full_action_hard|full_action_postproj]"
+    echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X, REPAIR_WEIGHT, SHIFT_FRACTION, REPAIR_FRACTION, HARD_REPAIR_FRACTION, POSTPROJ_REPAIR_FRACTION"
     exit 1
     ;;
 esac
@@ -80,10 +101,11 @@ echo "[dt/run_train] device=${device}"
 echo "[dt/run_train] python_bin=${python_bin}"
 echo "[dt/run_train] lambda_x=${lambda_x}"
 echo "[dt/run_train] repair_weight=${repair_weight}"
-if [[ -n "${shift_fraction}" || -n "${repair_fraction}" || -n "${hard_repair_fraction}" ]]; then
+if [[ -n "${shift_fraction}" || -n "${repair_fraction}" || -n "${hard_repair_fraction}" || -n "${postproj_repair_fraction}" ]]; then
   echo "[dt/run_train] shift_fraction=${shift_fraction:-unset}"
   echo "[dt/run_train] repair_fraction=${repair_fraction:-unset}"
   echo "[dt/run_train] hard_repair_fraction=${hard_repair_fraction:-unset}"
+  echo "[dt/run_train] postproj_repair_fraction=${postproj_repair_fraction:-unset}"
 fi
 echo "[dt/run_train] resume=auto"
 
@@ -100,12 +122,15 @@ cmd=(
   --repair-weight "${repair_weight}"
 )
 
-if [[ -n "${shift_fraction}" || -n "${repair_fraction}" || -n "${hard_repair_fraction}" ]]; then
+if [[ -n "${shift_fraction}" || -n "${repair_fraction}" || -n "${hard_repair_fraction}" || -n "${postproj_repair_fraction}" ]]; then
   cmd+=(
     --shift-fraction "${shift_fraction}"
     --repair-fraction "${repair_fraction}"
     --hard-repair-fraction "${hard_repair_fraction}"
   )
+  if [[ -n "${postproj_repair_fraction}" ]]; then
+    cmd+=(--postproj-repair-fraction "${postproj_repair_fraction}")
+  fi
 fi
 
 "${cmd[@]}"
