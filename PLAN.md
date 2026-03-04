@@ -696,6 +696,7 @@ Hard-repair plan:
 - bias hard-repair starts toward:
   - low-clearance / near-obstacle cases
   - hotspot `s` regions derived from the DT diagnostic obstacle evals
+  - note: current hotspots are anchor points, not a continuous heatmap
 - perturb mainly:
   - `e`
   - `dpsi`
@@ -720,12 +721,18 @@ Hard-repair plan:
   - `15%` hard repairs
 
 Current command path:
-- build hotspot JSON:
-  - `python data/build_hotspot_json.py --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv --map-file maps/Oval_Track_260m.mat --seed 42 --num-scenarios 3 --min-obstacles 1 --max-obstacles 1 --output-json data/hotspots/Oval_Track_260m_hotspots.json`
-- build hard repairs directly:
-  - `python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 80 --resume --hard-mode --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json --uy-perturb-mps 0.15 --r-perturb-radps 0.08`
-- or use the wrapper:
+- build symmetric hotspot JSON for all tracks:
+  - `./data/build_all_hotspots.sh`
+- build the all-track hard-repair shard:
+  - `./data/run_hard_repairs.sh`
+- or use the broader wrapper:
   - `./data/run_full_dataset.sh hard_repairs`
+
+Hotspot interpretation:
+- the current all-track hotspot JSON is a practical proxy, not a full failure-density map
+- it stores a few anchor `s` locations per track taken from bad obstacle scenarios
+- this is sufficient for first-pass hard-repair biasing
+- if needed later, replace it with a true per-step heatmap from rollout event logging
 
 ### 8.4 Decision Transformer engineering
 

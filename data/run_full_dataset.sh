@@ -34,17 +34,10 @@ common_args=(
     --repair-segments 500
 
   if [[ "${mode}" == "hard_repairs" ]]; then
-    hotspot_json="data/hotspots/Oval_Track_260m_hotspots.json"
+    hotspot_json="data/hotspots/all_tracks_hotspots.json"
     if [[ ! -f "${hotspot_json}" ]]; then
-      echo "[run_full_dataset] Building hotspot JSON for Oval hard repairs"
-      /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_hotspot_json.py \
-        --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv \
-        --map-file maps/Oval_Track_260m.mat \
-        --seed 42 \
-        --num-scenarios 3 \
-        --min-obstacles 1 \
-        --max-obstacles 1 \
-        --output-json "${hotspot_json}"
+      echo "[run_full_dataset] Building hotspot JSON for all tracks"
+      ./data/build_all_hotspots.sh
     fi
 
     echo "[run_full_dataset] Stage 3: hard repairs on a single core"

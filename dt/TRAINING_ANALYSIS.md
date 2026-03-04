@@ -632,6 +632,7 @@ The next concrete experiment should target obstacle robustness with a new hard-r
    - focuses on obstacle scenarios first
    - biases starts toward low-clearance and near-obstacle cases
    - uses the diagnostic hotspot regions in `s` where projection/fallback pressure is high
+   - for now, those hotspots are anchor points from bad obstacle scenarios, not a continuous heatmap
    - perturbs mainly `e` and `dpsi`
    - adds smaller and rarer `uy` / `r` perturbations
    - uses mixed horizons for the hard subset instead of a single new horizon:

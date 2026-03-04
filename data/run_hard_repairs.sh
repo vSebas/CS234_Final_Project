@@ -2,7 +2,7 @@
 set -euo pipefail
 
 python_bin="${PYTHON_BIN:-/home/saveas/.conda/envs/DT_trajopt/bin/python}"
-hotspot_json="${HOTSPOT_JSON:-data/hotspots/Oval_Track_260m_hotspots.json}"
+hotspot_json="${HOTSPOT_JSON:-data/hotspots/all_tracks_hotspots.json}"
 hard_repairs="${HARD_REPAIRS:-1200}"
 seed="${SEED:-0}"
 
@@ -11,6 +11,10 @@ map_files="${MAP_FILES:-maps/Oval_Track_260m.mat,maps/TRACK1_280m.mat,maps/TRACK
 mkdir -p results/dataset_runs
 log_file="results/dataset_runs/hard_repairs_$(date +%Y%m%d_%H%M%S).log"
 echo "Logging to ${log_file}"
+
+if [[ ! -f "${hotspot_json}" ]]; then
+  ./data/build_all_hotspots.sh
+fi
 
 "${python_bin}" -u data/build_dataset.py \
   --map-files "${map_files}" \

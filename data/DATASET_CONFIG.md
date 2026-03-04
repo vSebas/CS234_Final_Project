@@ -96,6 +96,7 @@ recovery data. This does not replace the existing dataset; it adds a new shard.
 - biased starts toward:
   - low-clearance / near-obstacle states
   - optional hotspot `s` regions from the diagnostic obstacle runs
+  - current hotspot JSONs are anchor points, not a continuous heatmap
 - perturb mainly:
   - `e`
   - `dpsi`
@@ -120,9 +121,15 @@ recovery data. This does not replace the existing dataset; it adds a new shard.
 - validation should remain unweighted / natural after the split
 
 **Current command path**
-- build Oval hotspots from the best obstacle diagnostic run:
-  - `python data/build_hotspot_json.py --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv --map-file maps/Oval_Track_260m.mat --seed 42 --num-scenarios 3 --min-obstacles 1 --max-obstacles 1 --output-json data/hotspots/Oval_Track_260m_hotspots.json`
-- build Oval hard repairs directly:
-  - `python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 80 --resume --hard-mode --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json --uy-perturb-mps 0.15 --r-perturb-radps 0.08`
-- or use the wrapper:
+- build symmetric hotspot anchors for all tracks:
+  - `./data/build_all_hotspots.sh`
+- build the all-track hard-repair shard:
+  - `./data/run_hard_repairs.sh`
+- or use the broader dataset wrapper:
   - `./data/run_full_dataset.sh hard_repairs`
+
+Hotspot note:
+- the current hotspot files store a small set of per-track anchor `s` positions
+- they are derived from the bad obstacle benchmark scenarios and weighted by DT rollout difficulty
+- they are useful as a first-pass sampling bias for hard repairs
+- they are not yet true per-step projection/fallback heatmaps

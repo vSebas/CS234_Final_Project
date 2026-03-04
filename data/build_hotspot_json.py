@@ -111,9 +111,13 @@ def main() -> None:
         max_obstacles=args.max_obstacles,
     )
 
-    payload = {
-        map_file.stem: hotspots,
-    }
+    payload = {}
+    if output_json.exists():
+        with output_json.open("r", encoding="utf-8") as f:
+            existing = json.load(f)
+        if isinstance(existing, dict):
+            payload.update(existing)
+    payload[map_file.stem] = hotspots
     output_json.parent.mkdir(parents=True, exist_ok=True)
     with output_json.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
