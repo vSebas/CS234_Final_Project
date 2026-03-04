@@ -48,11 +48,13 @@ def main() -> None:
         help="Generate all unique shifts per base lap (k0=0..N).",
     )
     parser.add_argument("--repair-segments", type=int, default=200)
+    parser.add_argument("--hard-repair-segments", type=int, default=0)
     parser.add_argument("--output-root", type=str, default="data/datasets")
     parser.add_argument("--base-laps-dir", type=str, default="data/base_laps")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--N", type=int, default=200)
     parser.add_argument("--H", type=int, default=20)
+    parser.add_argument("--hard-repair-hotspot-json", type=str, default=None)
     parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
@@ -116,6 +118,8 @@ def main() -> None:
 
     base_rep = args.repair_segments // max(1, len(map_files))
     rem = args.repair_segments - base_rep * max(1, len(map_files))
+    base_hard_rep = args.hard_repair_segments // max(1, len(map_files))
+    hard_rem = args.hard_repair_segments - base_hard_rep * max(1, len(map_files))
 
     def _process_track(idx: int, map_file: str) -> None:
         stem = Path(map_file).stem
@@ -184,6 +188,50 @@ def main() -> None:
             repairs_done_after = _manifest_lines(repairs_manifest)
             log(
                 f"Stage B complete for {stem}. accepted={repairs_done_after}/{nseg}",
+                progress_file,
+            )
+
+        nhard = base_hard_rep + (1 if idx < hard_rem else 0)
+        hard_repairs_dir = output_root / f"{stem}_repairs_hard"
+        hard_repairs_manifest = hard_repairs_dir / "manifest.jsonl"
+        hard_repairs_done = _manifest_lines(hard_repairs_manifest)
+        if nhard <= 0:
+            return
+        if args.resume and hard_repairs_done >= nhard:
+            log(f"Stage B2: target accepted hard repairs already present for {stem}; skipping.", progress_file)
+        else:
+            log(f"Stage B2: target accepted hard repairs for {stem} (target={nhard})", progress_file)
+            hard_cmd = [
+                sys.executable,
+                "-u",
+                "data/build_repair_segments.py",
+                "--map-file",
+                map_file,
+                "--base-laps-dir",
+                args.base_laps_dir,
+                "--output-dir",
+                str(hard_repairs_dir),
+                "--num-segments",
+                str(nhard),
+                "--seed",
+                str(args.seed),
+                "--H",
+                str(args.H),
+                "--save-every",
+                "10",
+                "--resume",
+                "--hard-mode",
+                "--uy-perturb-mps",
+                "0.15",
+                "--r-perturb-radps",
+                "0.08",
+            ]
+            if args.hard_repair_hotspot_json:
+                hard_cmd.extend(["--hotspot-json", args.hard_repair_hotspot_json])
+            run(hard_cmd, progress_file)
+            hard_repairs_done_after = _manifest_lines(hard_repairs_manifest)
+            log(
+                f"Stage B2 complete for {stem}. accepted={hard_repairs_done_after}/{nhard}",
                 progress_file,
             )
 

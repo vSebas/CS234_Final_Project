@@ -159,3 +159,24 @@
 [2026-03-02 15:15:48] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 83 --seed 0 --H 20 --save-every 10 --resume
 [2026-03-02 15:18:43] Stage B complete for TRACK5_330m. accepted=83/83
 [2026-03-02 15:18:43] Dataset build finished.
+[2026-03-03 23:49:03] Starting dataset build.
+[2026-03-03 23:49:03] Stage A1: base laps already present; skipping.
+[2026-03-03 23:49:03] Running per-track stages in parallel (workers=3).
+[2026-03-03 23:49:04] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-03 23:49:04] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-03 23:49:04] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-03 23:49:04] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-03 23:49:04] Stage B: target accepted repairs for TRACK1_280m (target=0)
+[2026-03-03 23:49:04] Stage B: target accepted repairs for TRACK2 (target=0)
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-03 23:49:04] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-03 23:49:04] Stage B: target accepted repairs for TRACK3_300m (target=0)
+[2026-03-03 23:49:04] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-03 23:49:04] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-03 23:49:04] Stage B: target accepted repairs for TRACK5_330m (target=0)
+[2026-03-03 23:49:04] Stage B: target accepted repairs for TRACK4_315m (target=0)
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+[2026-03-03 23:49:04] RUN: /opt/miniconda3/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume

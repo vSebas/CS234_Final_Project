@@ -132,6 +132,102 @@ def save_repair_state(state_path: Path, attempts: int, rng: np.random.Generator)
         )
 
 
+def parse_float_list(text: str) -> List[float]:
+    return [float(x.strip()) for x in text.split(",") if x.strip()]
+
+
+def parse_int_list(text: str) -> List[int]:
+    return [int(x.strip()) for x in text.split(",") if x.strip()]
+
+
+def load_hotspot_positions(hotspot_json: Path | None, map_id: str) -> np.ndarray:
+    if hotspot_json is None or not hotspot_json.exists():
+        return np.zeros((0,), dtype=float)
+    with open(hotspot_json, "r", encoding="utf-8") as f:
+        payload = json.load(f)
+
+    if isinstance(payload, dict):
+        if map_id in payload:
+            payload = payload[map_id]
+        elif "hotspots_s_m" in payload:
+            payload = payload["hotspots_s_m"]
+
+    if not isinstance(payload, list):
+        return np.zeros((0,), dtype=float)
+    return np.asarray([float(x) for x in payload], dtype=float)
+
+
+def circular_distance_m(a: np.ndarray, b: np.ndarray, length_m: float) -> np.ndarray:
+    diff = np.abs(a - b)
+    return np.minimum(diff, length_m - diff)
+
+
+def pick_repair_start_index(
+    rng: np.random.Generator,
+    s_m: np.ndarray,
+    obstacles_list: List[Dict],
+    H: int,
+    length_m: float,
+    hard_mode: bool,
+    hotspot_s_m: np.ndarray,
+    hotspot_window_m: float,
+    obstacle_bias_window_m: float,
+    hotspot_bias_prob: float,
+    obstacle_bias_prob: float,
+) -> Tuple[int, Dict[str, float | str | bool]]:
+    n_base = len(s_m) - 1
+    candidate_max = max(1, n_base)
+    candidate_indices = np.arange(candidate_max, dtype=int)
+
+    metadata: Dict[str, float | str | bool] = {
+        "hard_mode": bool(hard_mode),
+        "sampling_reason": "uniform",
+        "near_obstacle_start": False,
+        "near_hotspot_start": False,
+        "start_min_obstacle_ds_m": float("inf"),
+        "start_min_hotspot_ds_m": float("inf"),
+    }
+
+    if not hard_mode:
+        return int(rng.integers(0, candidate_max)), metadata
+
+    s_candidates = s_m[candidate_indices]
+    obstacle_near = np.zeros(candidate_indices.shape, dtype=bool)
+    obstacle_ds = np.full(candidate_indices.shape, np.inf, dtype=float)
+    if obstacles_list:
+        obs_s = np.asarray(
+            [float(obs.get("s_m", obs.get("s_obs", obs.get("s", 0.0)))) for obs in obstacles_list],
+            dtype=float,
+        )
+        dmat = np.stack([circular_distance_m(s_candidates, s_obs, length_m) for s_obs in obs_s], axis=1)
+        obstacle_ds = np.min(dmat, axis=1)
+        obstacle_near = obstacle_ds <= obstacle_bias_window_m
+
+    hotspot_near = np.zeros(candidate_indices.shape, dtype=bool)
+    hotspot_ds = np.full(candidate_indices.shape, np.inf, dtype=float)
+    if hotspot_s_m.size > 0:
+        dmat = np.stack([circular_distance_m(s_candidates, s_h, length_m) for s_h in hotspot_s_m], axis=1)
+        hotspot_ds = np.min(dmat, axis=1)
+        hotspot_near = hotspot_ds <= hotspot_window_m
+
+    if hotspot_near.any() and rng.random() < hotspot_bias_prob:
+        viable = candidate_indices[hotspot_near]
+        k0 = int(rng.choice(viable))
+        metadata["sampling_reason"] = "hotspot"
+    elif obstacle_near.any() and rng.random() < obstacle_bias_prob:
+        viable = candidate_indices[obstacle_near]
+        k0 = int(rng.choice(viable))
+        metadata["sampling_reason"] = "obstacle"
+    else:
+        k0 = int(rng.integers(0, candidate_max))
+
+    metadata["near_obstacle_start"] = bool(np.isfinite(obstacle_ds[k0]) and obstacle_ds[k0] <= obstacle_bias_window_m)
+    metadata["near_hotspot_start"] = bool(np.isfinite(hotspot_ds[k0]) and hotspot_ds[k0] <= hotspot_window_m)
+    metadata["start_min_obstacle_ds_m"] = float(obstacle_ds[k0]) if np.isfinite(obstacle_ds[k0]) else float("inf")
+    metadata["start_min_hotspot_ds_m"] = float(hotspot_ds[k0]) if np.isfinite(hotspot_ds[k0]) else float("inf")
+    return k0, metadata
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Generate repair segments (Fix B).")
     parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
@@ -147,6 +243,8 @@ def main() -> None:
     parser.add_argument("--eps-kappa", type=float, default=0.05)
     parser.add_argument("--e-perturb-m", type=float, default=1.0)
     parser.add_argument("--dpsi-perturb-rad", type=float, default=0.10)
+    parser.add_argument("--uy-perturb-mps", type=float, default=0.0)
+    parser.add_argument("--r-perturb-radps", type=float, default=0.0)
     parser.add_argument("--terminal-weight", type=float, default=5.0)
     parser.add_argument("--obs-window-m", type=float, default=30.0)
     parser.add_argument("--obs-subsamples", type=int, default=11)
@@ -162,6 +260,29 @@ def main() -> None:
     parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-3)
     parser.add_argument("--ipopt-max-iter", type=int, default=100)
     parser.add_argument("--save-every", type=int, default=10)
+    parser.add_argument(
+        "--hard-mode",
+        action=argparse.BooleanOptionalAction,
+        default=False,
+        help="Generate a hard-repair shard with biased starts, mixed horizons, and metadata.",
+    )
+    parser.add_argument(
+        "--hard-horizons",
+        type=str,
+        default="20,40,60",
+        help="Comma-separated horizon values used in hard mode.",
+    )
+    parser.add_argument(
+        "--hard-horizon-probs",
+        type=str,
+        default="0.6,0.25,0.15",
+        help="Comma-separated probabilities for hard horizons.",
+    )
+    parser.add_argument("--hotspot-json", type=str, default=None, help="Optional JSON file with hotspot s-positions by map.")
+    parser.add_argument("--hotspot-window-m", type=float, default=20.0)
+    parser.add_argument("--obstacle-bias-window-m", type=float, default=25.0)
+    parser.add_argument("--hotspot-bias-prob", type=float, default=0.6)
+    parser.add_argument("--obstacle-bias-prob", type=float, default=0.9)
     parser.add_argument(
         "--max-attempts",
         type=int,
@@ -189,6 +310,20 @@ def main() -> None:
     vehicle = build_vehicle()
     optimizer = TrajectoryOptimizer(vehicle, world)
     map_hash = sha256_file(str(map_file))
+    hotspot_s_m = load_hotspot_positions(Path(args.hotspot_json) if args.hotspot_json else None, map_file.stem)
+    hard_horizons = parse_int_list(args.hard_horizons)
+    hard_horizon_probs = parse_float_list(args.hard_horizon_probs)
+    if args.hard_mode:
+        if not hard_horizons:
+            raise ValueError("--hard-horizons must contain at least one horizon in hard mode")
+        if len(hard_horizons) != len(hard_horizon_probs):
+            raise ValueError("--hard-horizons and --hard-horizon-probs must have the same length")
+        probs = np.asarray(hard_horizon_probs, dtype=float)
+        if np.any(probs < 0):
+            raise ValueError("--hard-horizon-probs must be nonnegative")
+        if probs.sum() <= 0:
+            raise ValueError("--hard-horizon-probs must sum to a positive value")
+        hard_horizon_probs = (probs / probs.sum()).tolist()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -257,14 +392,33 @@ def main() -> None:
                 "obstacle_init_sigma_m": float(args.obs_init_sigma_m),
                 "obstacle_init_margin_m": float(args.obs_init_margin_m),
                 "accept_min_clearance_m": float(args.accept_min_clearance_m),
+                "hard_mode": bool(args.hard_mode),
             }
         )
-        solver_config_hash = sha256_json(solver_config_seg) if solver_config_seg else ""
         obstacles_list = list(obstacles) if isinstance(obstacles, (list, tuple)) else []
 
+        H_cur = int(args.H)
+        if args.hard_mode:
+            H_cur = int(rng.choice(np.asarray(hard_horizons, dtype=int), p=np.asarray(hard_horizon_probs, dtype=float)))
         N_base = X_full.shape[0] - 1
-        k0 = int(rng.integers(0, N_base))
-        idxs = (k0 + np.arange(args.H + 1)) % (N_base + 1)
+        if H_cur > N_base:
+            H_cur = N_base
+        solver_config_seg["H"] = int(H_cur)
+        solver_config_hash = sha256_json(solver_config_seg) if solver_config_seg else ""
+        k0, hard_meta = pick_repair_start_index(
+            rng=rng,
+            s_m=s_m,
+            obstacles_list=obstacles_list,
+            H=H_cur,
+            length_m=world.length_m,
+            hard_mode=bool(args.hard_mode),
+            hotspot_s_m=hotspot_s_m,
+            hotspot_window_m=float(args.hotspot_window_m),
+            obstacle_bias_window_m=float(args.obstacle_bias_window_m),
+            hotspot_bias_prob=float(args.hotspot_bias_prob),
+            obstacle_bias_prob=float(args.obstacle_bias_prob),
+        )
+        idxs = (k0 + np.arange(H_cur + 1)) % (N_base + 1)
 
         X_seg = X_full[idxs, :].T
         U_seg = U_full[idxs, :].T
@@ -275,22 +429,32 @@ def main() -> None:
         dpsi0 = float(x0[TrajectoryOptimizer.IDX_DPSI]) + float(
             rng.uniform(-args.dpsi_perturb_rad, args.dpsi_perturb_rad)
         )
+        uy0 = float(x0[TrajectoryOptimizer.IDX_UY]) + float(
+            rng.uniform(-args.uy_perturb_mps, args.uy_perturb_mps)
+        )
+        r0 = float(x0[TrajectoryOptimizer.IDX_R]) + float(
+            rng.uniform(-args.r_perturb_radps, args.r_perturb_radps)
+        )
 
         hw = float(world.track_width_m_LUT(s0_abs % world.length_m)) / 2.0
         e0 = float(np.clip(e0, -hw + args.track_buffer_m, hw - args.track_buffer_m))
         x0[TrajectoryOptimizer.IDX_E] = e0
         x0[TrajectoryOptimizer.IDX_DPSI] = dpsi0
+        x0[TrajectoryOptimizer.IDX_UY] = uy0
+        x0[TrajectoryOptimizer.IDX_R] = r0
 
         X_init = X_seg.copy()
         X_init[TrajectoryOptimizer.IDX_E, 0] = e0
         X_init[TrajectoryOptimizer.IDX_DPSI, 0] = dpsi0
+        X_init[TrajectoryOptimizer.IDX_UY, 0] = uy0
+        X_init[TrajectoryOptimizer.IDX_R, 0] = r0
 
         term_state = X_seg[:, -1].copy()
 
         x0_masked = build_initial_masked_state(x0)
 
         result = optimizer.solve(
-            N=int(args.H),
+            N=int(H_cur),
             ds_m=float(s_m[1] - s_m[0]),
             x0=x0_masked,
             X_init=X_init,
@@ -344,6 +508,24 @@ def main() -> None:
         episode_id = f"{map_file.stem}_repair_{next_episode_idx:06d}"
         npz_path = episodes_dir / f"{episode_id}.npz"
 
+        metadata_dict = {
+            "hard_mode": bool(args.hard_mode),
+            "sampling_reason": hard_meta["sampling_reason"],
+            "start_e_abs_m": float(abs(e0)),
+            "start_dpsi_abs_rad": float(abs(dpsi0)),
+            "start_uy_abs_mps": float(abs(uy0)),
+            "start_r_abs_radps": float(abs(r0)),
+            "start_half_width_m": float(hw),
+            "start_min_obstacle_ds_m": float(hard_meta["start_min_obstacle_ds_m"]),
+            "start_min_hotspot_ds_m": float(hard_meta["start_min_hotspot_ds_m"]),
+            "near_obstacle_start": bool(hard_meta["near_obstacle_start"]),
+            "near_hotspot_start": bool(hard_meta["near_hotspot_start"]),
+            "min_clearance_result_m": float(getattr(result, "min_obstacle_clearance", float("inf"))),
+            "solver_iterations": int(result.iterations),
+            "solver_success": bool(result.success),
+            "H": int(H_cur),
+        }
+
         np.savez_compressed(
             npz_path,
             s_m=s_abs,
@@ -360,6 +542,7 @@ def main() -> None:
             grade=track_feat["grade"],
             bank=track_feat["bank"],
             s_offset_m=s0_abs,
+            metadata_json=np.array(json.dumps(metadata_dict)),
         )
 
         header = EpisodeHeader(
@@ -370,10 +553,11 @@ def main() -> None:
             base_id=base_id,
             solver_config=solver_config_seg,
             solver_config_hash=solver_config_hash,
-            discretization={"N": int(args.H), "ds_m": float(s_m[1] - s_m[0])},
+            discretization={"N": int(H_cur), "ds_m": float(s_m[1] - s_m[0])},
             obstacles=obstacles_list,
             s_offset_m=float(s0_abs),
             npz_path=str(npz_path),
+            metadata=metadata_dict,
         )
         manifest_f.write(json.dumps(header.to_dict()) + "\n")
         manifest_f.flush()

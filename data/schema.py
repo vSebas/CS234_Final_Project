@@ -8,7 +8,7 @@ canonical per-step arrays (reward/rtg).
 import hashlib
 import json
 from dataclasses import dataclass, asdict
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import numpy as np
 
@@ -45,6 +45,7 @@ class EpisodeHeader:
     obstacles: List[Dict[str, Any]]
     s_offset_m: float
     npz_path: str
+    metadata: Optional[Dict[str, Any]] = None
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

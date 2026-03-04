@@ -668,9 +668,9 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 ### 8.2 Immediate priorities
 
 1. Persist train/val/test split artifacts to disk instead of splitting only inside the loader at runtime.
-2. Add weighted sampling or balancing so repair segments are not drowned out by shift episodes.
-3. Run end-to-end DT-vs-baseline warm-start benchmarks.
-4. Add postprocessing for constraints-to-go / safety labels if obstacle-aware conditioning will use them.
+2. Build a separate hard-repair shard guided by the current DT obstacle diagnostics.
+3. Retrain the DT with `lambda_x = 0.0` using shifts + standard repairs + hard repairs, without global repair weighting.
+4. Re-run the fixed warm-start benchmark and rollout/wrapper diagnostics.
 5. If nonzero `vehicle_radius_m` is used in experiments, thread it through all DT warm-start evaluation/config paths.
 
 ### 8.3 Dataset
@@ -684,10 +684,48 @@ Remaining dataset work:
 1. Create explicit train/val/test manifests or equivalent split files on disk.
 2. Ensure split artifacts preserve split-by-`base_id` hygiene.
 3. Add constraints-to-go / safety label postprocessing if needed.
-4. Clean up obstacle metadata after the planned obstacle simplification:
+4. Build and evaluate the first `*_repairs_hard` shard using hotspot-guided obstacle-focused repairs.
+5. Clean up obstacle metadata after the planned obstacle simplification:
    - remove the redundant `margin` vs `clearance` split
    - store one final enforced obstacle inflation / clearance term
    - keep the effective enforced obstacle size explicit in metadata
+
+Hard-repair plan:
+- keep the existing shifts and standard repairs unchanged
+- add a separate `*_repairs_hard` shard
+- bias hard-repair starts toward:
+  - low-clearance / near-obstacle cases
+  - hotspot `s` regions derived from the DT diagnostic obstacle evals
+- perturb mainly:
+  - `e`
+  - `dpsi`
+- perturb more conservatively and more rarely:
+  - `uy`
+  - `r`
+- use mixed horizons for the hard subset:
+  - `60% H=20`
+  - `25% H=40`
+  - `15% H=60`
+- save hardness / solver metadata in the manifest and episode payload
+- retrain with:
+  - `lambda_x = 0.0`
+  - no global repair multiplier
+  - existing shifts + standard repairs + hard repairs
+- first target hard-repair shard size:
+  - about `1200` hard repairs total across all tracks
+  - about `3%` of the current dataset by transition count
+- first target training mix by sampled windows:
+  - `75%` shifts
+  - `10%` existing repairs
+  - `15%` hard repairs
+
+Current command path:
+- build hotspot JSON:
+  - `python data/build_hotspot_json.py --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv --map-file maps/Oval_Track_260m.mat --seed 42 --num-scenarios 3 --min-obstacles 1 --max-obstacles 1 --output-json data/hotspots/Oval_Track_260m_hotspots.json`
+- build hard repairs directly:
+  - `python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 80 --resume --hard-mode --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json --uy-perturb-mps 0.15 --r-perturb-radps 0.08`
+- or use the wrapper:
+  - `./data/run_full_dataset.sh hard_repairs`
 
 ### 8.4 Decision Transformer engineering
 
@@ -698,8 +736,8 @@ Already done:
 - loader computes normalization stats from the training split only
 
 Remaining DT engineering work:
-1. Add weighted sampling or shard balancing for repairs.
-2. Decide whether to persist dataset stats and split assignments alongside split artifacts.
+1. Decide whether to persist dataset stats and split assignments alongside split artifacts.
+2. Retrain on the upcoming hard-repair shard without reintroducing global repair weighting.
 3. Run full training smoke tests on the mixed dataset root, not just shard-level loader checks.
 4. Run model-level evaluation on held-out splits and store results in a reproducible output path.
 

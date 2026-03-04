@@ -35,19 +35,8 @@ case "${mode}" in
       lambda_x="0.0"
     fi
     ;;
-  full_action_repairs)
-    output_dir="${OUTPUT_DIR:-dt/checkpoints/full_run_lambda0_repairs}"
-    batch_size="${BATCH_SIZE:-64}"
-    num_epochs="${NUM_EPOCHS:-40}"
-    if [[ -z "${lambda_x}" ]]; then
-      lambda_x="0.0"
-    fi
-    if [[ -z "${repair_weight}" ]]; then
-      repair_weight="4.0"
-    fi
-    ;;
   *)
-    echo "Usage: $0 [smoke|full|full_action|full_action_repairs]"
+    echo "Usage: $0 [smoke|full|full_action]"
     echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X, REPAIR_WEIGHT"
     exit 1
     ;;

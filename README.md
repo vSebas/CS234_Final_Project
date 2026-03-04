@@ -237,6 +237,20 @@ To generate all circular shifts per base lap, pass `--all-shifts` to `data/make_
 
 The dataset config and defaults are captured in `data/DATASET_CONFIG.md`. The full generation plan (Fix A/Fix B) is documented in `PLAN.md`.
 
+Current hard-repair extension:
+- build hotspot anchors from the DT obstacle diagnostic evals:
+  - `python data/build_hotspot_json.py --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv --map-file maps/Oval_Track_260m.mat --seed 42 --num-scenarios 3 --min-obstacles 1 --max-obstacles 1 --output-json data/hotspots/Oval_Track_260m_hotspots.json`
+- build a separate hard-repair shard:
+  - `python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 80 --resume --hard-mode --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json --uy-perturb-mps 0.15 --r-perturb-radps 0.08`
+- or use:
+  - `./data/run_full_dataset.sh hard_repairs`
+
+The current hard-repair plan is:
+- separate `*_repairs_hard` shard
+- hotspot-guided and obstacle-focused start selection
+- perturb mainly `e` / `dpsi`, with smaller `uy` / `r`
+- mixed hard horizons: `60% H=20`, `25% H=40`, `15% H=60`
+
 Current saved episode schema:
 - node-aligned arrays: `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`
 - transition-aligned arrays: `dt`, `reward`, `rtg`

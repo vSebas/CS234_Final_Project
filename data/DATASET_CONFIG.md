@@ -45,6 +45,7 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
 - Base laps: `data/base_laps/<map_id>/*.npz`
 - Shifts: `data/datasets/<map_id>_shifts/episodes/*.npz`
 - Repairs: `data/datasets/<map_id>_repairs/episodes/*.npz`
+- Hard repairs: `data/datasets/<map_id>_repairs_hard/episodes/*.npz` (optional targeted shard)
 
 **Run provenance for the current generated dataset**
 - The canonical aggregate build log is:
@@ -73,3 +74,55 @@ remains a quick Stage A-only helper; the full pipeline uses base laps + shifts +
   - `episode_id`, `episode_type`, `base_id`, `map_id`, `map_hash`, `solver_config`, `solver_config_hash`, `obstacles`, `s_offset_m`, `npz_path`
 
 This is the current canonical on-disk schema for the repo. The DT loader in `dt/dataset.py` reads these field names directly.
+
+## Hard-Repair Workflow
+
+The repo now also supports a separate hard-repair workflow for obstacle-focused
+recovery data. This does not replace the existing dataset; it adds a new shard.
+
+**Scripts**
+- Build hotspot anchors from the DT diagnostic eval CSVs:
+  - `data/build_hotspot_json.py`
+- Generate hard repairs:
+  - `data/build_repair_segments.py --hard-mode`
+- Orchestrate hard repairs:
+  - `data/build_dataset.py --hard-repair-segments ...`
+- Convenience wrapper:
+  - `./data/run_full_dataset.sh hard_repairs`
+
+**Current hard-repair design**
+- separate shard:
+  - `data/datasets/<map_id>_repairs_hard`
+- biased starts toward:
+  - low-clearance / near-obstacle states
+  - optional hotspot `s` regions from the diagnostic obstacle runs
+- perturb mainly:
+  - `e`
+  - `dpsi`
+- add smaller / rarer:
+  - `uy`
+  - `r`
+- mixed horizons in hard mode:
+  - default `20,40,60`
+  - default probabilities `0.6,0.25,0.15`
+- per-episode hardness metadata is written into:
+  - manifest `metadata`
+  - `.npz` field `metadata_json`
+
+**Current first-pass sizing**
+- target about `1200` hard repairs total across all tracks
+- with the current mixed-horizon default, this is about `3%` of the current dataset by transition count
+
+**Current intended first training mix**
+- `75%` shifts
+- `10%` existing repairs
+- `15%` hard repairs
+- validation should remain unweighted / natural after the split
+
+**Current command path**
+- build Oval hotspots from the best obstacle diagnostic run:
+  - `python data/build_hotspot_json.py --csv dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/warmstart_eval_20260303_212627.csv --map-file maps/Oval_Track_260m.mat --seed 42 --num-scenarios 3 --min-obstacles 1 --max-obstacles 1 --output-json data/hotspots/Oval_Track_260m_hotspots.json`
+- build Oval hard repairs directly:
+  - `python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 80 --resume --hard-mode --hotspot-json data/hotspots/Oval_Track_260m_hotspots.json --uy-perturb-mps 0.15 --r-perturb-radps 0.08`
+- or use the wrapper:
+  - `./data/run_full_dataset.sh hard_repairs`

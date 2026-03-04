@@ -2,6 +2,37 @@
 
 This note summarizes the completed DT training runs and their downstream warm-start checks.
 
+## Current Status
+
+- Current best DT run:
+  - `dt/checkpoints/full_run_lambda0`
+- Current diagnosis:
+  - nominal no-obstacle warm starts can be useful
+  - obstacle-conditioned warm starts are still the main failure mode
+  - rollout/wrapper diagnostics show heavy intervention even in nominal cases, with more pressure in obstacle cases
+- Current next step:
+  - build a separate hard-repair shard
+  - retrain with `lambda_x = 0.0`
+  - no global repair multiplier
+
+## Brief Run History
+
+1. `full_run1`
+   - `lambda_x = 0.5`
+   - stable training, but DT warm-start was worse than baseline on both no-obstacle and obstacle benchmarks
+   - conclusion: auxiliary state loss was hurting the main objective
+2. `full_run_lambda0`
+   - `lambda_x = 0.0`
+   - improved nominal no-obstacle warm-starting
+   - last checkpoint beat baseline on the small no-obstacle benchmark
+   - obstacle-conditioned warm starts remained worse than baseline
+   - this is the current best run
+3. `full_run_lambda0_repairs`
+   - `lambda_x = 0.0`, `repair_weight = 4.0`
+   - negative result
+   - naive global repair upweighting hurt both nominal and obstacle performance
+   - conclusion: do not pursue global repair weighting as-is
+
 ## Run Bundles
 
 Use these run-local bundles when you want one self-contained folder per training run.
@@ -584,7 +615,10 @@ The current recommended program is:
      - hotspot guidance from the `s` regions where projection or fallback spikes
      - perturb mainly `e` and `dpsi`
      - keep `uy` and `r` perturbations smaller and rarer
-     - mixed horizons for the hard subset (for example `H=20/40/60`)
+     - mixed horizons for the hard subset with current default mix:
+       - `60% H=20`
+       - `25% H=40`
+       - `15% H=60`
      - save hardness and solver metadata with the shard
 5. **Only then revisit sampling**
    - if targeted data exists, revisit weighting with a more selective policy rather than a global repair multiplier
@@ -600,7 +634,10 @@ The next concrete experiment should target obstacle robustness with a new hard-r
    - uses the diagnostic hotspot regions in `s` where projection/fallback pressure is high
    - perturbs mainly `e` and `dpsi`
    - adds smaller and rarer `uy` / `r` perturbations
-   - uses mixed horizons for the hard subset instead of a single new horizon
+   - uses mixed horizons for the hard subset instead of a single new horizon:
+     - `60% H=20`
+     - `25% H=40`
+     - `15% H=60`
    - stores hardness and solver metadata
 3. Retrain with:
    - `lambda_x = 0.0`
@@ -608,6 +645,13 @@ The next concrete experiment should target obstacle robustness with a new hard-r
    - existing repairs
    - the new hard-repair shard
    - no global repair multiplier
+   - first intended training mix by sampled windows:
+     - `75%` shifts
+     - `10%` existing repairs
+     - `15%` hard repairs
+4. Current first-pass hard-repair scale:
+   - target about `1200` hard repairs total across all tracks
+   - with the current mixed-horizon default, this is about `3%` of the current dataset by transition count
 4. Re-run the same fixed benchmark sets and the same rollout diagnostics.
 5. Only if that still fails, consider more invasive additions later:
    - post-projection state training examples
