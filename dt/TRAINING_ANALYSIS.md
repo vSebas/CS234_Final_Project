@@ -440,13 +440,48 @@ Interpretation:
 - the best obstacle-side checkpoint is early, not late
 - the main remaining failure mode is now obstacle robustness, not nominal no-obstacle warm-start quality
 
+### Rollout / wrapper diagnostics
+
+To determine whether obstacle failures were coming only from the DT policy or
+also from the rollout wrapper, diagnostic reruns were added for:
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_best.pt`
+- `dt/checkpoints/full_run_lambda0/checkpoints/checkpoint_last.pt`
+
+Diagnostics recorded:
+- fallback count
+- projection count
+- projection total magnitude
+- projection max-step magnitude
+
+Diagnostic outputs:
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_noobs/`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_best_obs1/`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_last_noobs/`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/diag_last_obs1/`
+
+Summary:
+
+| Checkpoint | Scenario Set | Fallback Mean | Projection Count Mean | Projection Total Mean | Read |
+|-----------|--------------|--------------:|----------------------:|----------------------:|------|
+| best | no obstacles | 4.00 | 94.00 | 145.83 | wrapper intervenes heavily even in nominal case |
+| best | 1 obstacle | 4.00 | 97.33 | 156.05 | obstacle case needs even more correction |
+| last | no obstacles | 2.00 | 84.00 | 124.55 | nominal case is cleaner, but still heavily corrected |
+| last | 1 obstacle | 2.67 | 88.00 | 125.50 | obstacle case still needs more correction and solves worse |
+
+Interpretation:
+- the wrapper is intervening a lot even when DT warm-starting works nominally
+- obstacle cases generally increase projection pressure and worst-step correction size
+- that means the obstacle bottleneck is not purely “the model is bad” or purely “the wrapper is bad”
+- instead, the model is producing trajectories that already need heavy rescue, and obstacle cases amplify that rescue pressure
+
 ## Updated Conclusions
 
 1. The original `lambda_x = 0.5` run was being harmed by the auxiliary state objective.
 2. Removing the state-loss term materially improved no-obstacle warm-start behavior.
 3. With `lambda_x = 0.0`, the final checkpoint is now better than baseline on the small no-obstacle benchmark.
 4. Obstacle-conditioned warm starts remain clearly worse than baseline across the evaluated shortlist.
-5. The project bottleneck has narrowed: the next work should focus on obstacle robustness and off-manifold recovery, not more generic training cleanup.
+5. Rollout diagnostics show that the wrapper is intervening heavily even in nominal cases, and obstacle cases increase that intervention pressure further.
+6. The project bottleneck has narrowed: the next work should focus on obstacle robustness and off-manifold recovery, not more generic training cleanup.
 
 ## Follow-Up Run: Weighted Repair Sampling
 

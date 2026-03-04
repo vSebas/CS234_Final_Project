@@ -51,6 +51,43 @@ Important visualization groups:
 - `warmstarts/viz/full_run_lambda0_last_obs_compare/`
   - obstacle comparison for the last checkpoint
 
+## Rollout / Wrapper Diagnostics
+
+Additional diagnostic reruns were executed to measure how much the warm-start
+wrapper had to intervene during rollout.
+
+Diagnostic CSVs:
+- `warmstarts/eval/diag_best_noobs/`
+- `warmstarts/eval/diag_best_obs1/`
+- `warmstarts/eval/diag_last_noobs/`
+- `warmstarts/eval/diag_last_obs1/`
+
+Key readings:
+- best checkpoint, no obstacles:
+  - fallback mean `4.00`
+  - projection count mean `94.00`
+  - projection total magnitude mean `145.83`
+- best checkpoint, 1 obstacle:
+  - fallback mean `4.00`
+  - projection count mean `97.33`
+  - projection total magnitude mean `156.05`
+  - projection max-step overall `5.88`
+- last checkpoint, no obstacles:
+  - fallback mean `2.00`
+  - projection count mean `84.00`
+  - projection total magnitude mean `124.55`
+- last checkpoint, 1 obstacle:
+  - fallback mean `2.67`
+  - projection count mean `88.00`
+  - projection total magnitude mean `125.50`
+  - projection max-step overall `5.94`
+
+Read:
+- the wrapper intervenes heavily even in nominal no-obstacle cases
+- obstacle cases generally require more projections and larger corrections
+- this supports the idea that obstacle failures are partly a rollout/wrapper pressure problem, not only a pure policy-quality problem
+- the DT policy still is not clean enough on its own, because even no-obstacle cases need substantial rescue
+
 Main conclusion for this run:
 - the last checkpoint beat baseline on the small no-obstacle benchmark set
 - obstacle-conditioned warm starts were still clearly worse than baseline

@@ -54,6 +54,10 @@ class ScenarioResult:
     # Warm-start specific
     warmstart_time_s: float = 0.0
     warmstart_accepted: bool = True
+    ws_fallback_count: int = 0
+    ws_projection_count: int = 0
+    ws_projection_total_magnitude: float = 0.0
+    ws_projection_max_magnitude: float = 0.0
 
     # Obstacle info
     num_obstacles: int = 0
@@ -264,6 +268,10 @@ def run_dt_warmstart_solve(
         success, metrics = run_baseline_solve(optimizer, config, obstacles, verbose)
         metrics["warmstart_time_s"] = ws_result.inference_time_s
         metrics["warmstart_accepted"] = False
+        metrics["ws_fallback_count"] = ws_result.fallback_count
+        metrics["ws_projection_count"] = ws_result.projection_count
+        metrics["ws_projection_total_magnitude"] = ws_result.projection_total_magnitude
+        metrics["ws_projection_max_magnitude"] = ws_result.projection_max_magnitude
         return success, False, metrics
 
     # Run IPOPT with warm-start
@@ -295,6 +303,10 @@ def run_dt_warmstart_solve(
         "min_clearance_m": getattr(result, 'min_obstacle_clearance', float('inf')),
         "warmstart_time_s": ws_result.inference_time_s,
         "warmstart_accepted": True,
+        "ws_fallback_count": ws_result.fallback_count,
+        "ws_projection_count": ws_result.projection_count,
+        "ws_projection_total_magnitude": ws_result.projection_total_magnitude,
+        "ws_projection_max_magnitude": ws_result.projection_max_magnitude,
     }
 
 
@@ -394,7 +406,7 @@ def compute_summary_stats(results: List[ScenarioResult]) -> Dict:
 
         summary[method] = {
             "n_scenarios": n,
-            "success_rate": n_success / n if n > 0 else 0,
+            "success_rate": float(n_success / n) if n > 0 else 0.0,
             "n_success": n_success,
             "n_failed": n - n_success,
         }
@@ -405,24 +417,35 @@ def compute_summary_stats(results: List[ScenarioResult]) -> Dict:
             lap_times = [r.lap_time_s for r in successes]
 
             summary[method].update({
-                "solve_time_mean": np.mean(solve_times),
-                "solve_time_std": np.std(solve_times),
-                "solve_time_median": np.median(solve_times),
-                "iterations_mean": np.mean(iterations),
-                "iterations_std": np.std(iterations),
-                "iterations_median": np.median(iterations),
-                "lap_time_mean": np.mean(lap_times),
-                "lap_time_std": np.std(lap_times),
+                "solve_time_mean": float(np.mean(solve_times)),
+                "solve_time_std": float(np.std(solve_times)),
+                "solve_time_median": float(np.median(solve_times)),
+                "iterations_mean": float(np.mean(iterations)),
+                "iterations_std": float(np.std(iterations)),
+                "iterations_median": float(np.median(iterations)),
+                "lap_time_mean": float(np.mean(lap_times)),
+                "lap_time_std": float(np.std(lap_times)),
             })
 
             # DT-specific metrics
             if method == "dt_warmstart":
                 ws_times = [r.warmstart_time_s for r in method_results]
                 ws_accepted = sum(1 for r in method_results if r.warmstart_accepted)
+                ws_fallback_counts = [r.ws_fallback_count for r in method_results]
+                ws_projection_counts = [r.ws_projection_count for r in method_results]
+                ws_projection_totals = [r.ws_projection_total_magnitude for r in method_results]
+                ws_projection_maxes = [r.ws_projection_max_magnitude for r in method_results]
                 summary[method].update({
-                    "warmstart_time_mean": np.mean(ws_times),
-                    "warmstart_acceptance_rate": ws_accepted / n if n > 0 else 0,
-                    "total_time_mean": np.mean(solve_times) + np.mean(ws_times),
+                    "warmstart_time_mean": float(np.mean(ws_times)),
+                    "warmstart_acceptance_rate": float(ws_accepted / n) if n > 0 else 0.0,
+                    "total_time_mean": float(np.mean(solve_times) + np.mean(ws_times)),
+                    "fallback_count_mean": float(np.mean(ws_fallback_counts)),
+                    "fallback_count_max": int(np.max(ws_fallback_counts)),
+                    "projection_count_mean": float(np.mean(ws_projection_counts)),
+                    "projection_count_max": int(np.max(ws_projection_counts)),
+                    "projection_total_magnitude_mean": float(np.mean(ws_projection_totals)),
+                    "projection_max_magnitude_mean": float(np.mean(ws_projection_maxes)),
+                    "projection_max_magnitude_max": float(np.max(ws_projection_maxes)),
                 })
 
     return summary
@@ -463,6 +486,19 @@ def print_summary(summary: Dict) -> None:
         print(f"  Warm-start inference time: {s['warmstart_time_mean']:.3f}s")
         print(f"  Warm-start acceptance rate: {100*s['warmstart_acceptance_rate']:.1f}%")
         print(f"  Total time (ws + solve): {s['total_time_mean']:.2f}s")
+        print(
+            f"  Fallback count: mean {s['fallback_count_mean']:.2f}, "
+            f"max {int(s['fallback_count_max'])}"
+        )
+        print(
+            f"  Projection count: mean {s['projection_count_mean']:.2f}, "
+            f"max {int(s['projection_count_max'])}"
+        )
+        print(
+            f"  Projection magnitude: mean total {s['projection_total_magnitude_mean']:.3f}, "
+            f"mean max-step {s['projection_max_magnitude_mean']:.3f}, "
+            f"max-step overall {s['projection_max_magnitude_max']:.3f}"
+        )
 
     # Speedup calculation
     if "baseline" in summary and "dt_warmstart" in summary:

@@ -35,6 +35,10 @@ class WarmStartResult:
     rejection_reason: Optional[str] = None
     rtg_used: float = 0.0
     inference_time_s: float = 0.0
+    fallback_count: int = 0
+    projection_count: int = 0
+    projection_total_magnitude: float = 0.0
+    projection_max_magnitude: float = 0.0
 
 
 class DTWarmStarter:
@@ -312,8 +316,9 @@ class DTWarmStarter:
         obstacles: Optional[List[Dict]] = None,
         obstacle_clearance_m: float = 0.0,
         vehicle_radius_m: float = 0.0,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, float]:
         """Project a rollout state back to a conservative in-track envelope."""
+        x_before = x_full.copy()
         x_proj = x_full.copy()
         s_mod = s % self.world.length_m
         half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_mod])))
@@ -359,7 +364,8 @@ class DTWarmStarter:
 
         x_proj[6] = e_proj
         x_proj[7] = float(np.clip(x_proj[7], -0.75, 0.75))
-        return x_proj
+        projection_mag = float(np.linalg.norm(x_proj - x_before))
+        return x_proj, projection_mag
 
     def _fallback_step(
         self,
@@ -464,6 +470,10 @@ class DTWarmStarter:
         rtg = rtg_0
 
         # Rollout
+        fallback_count = 0
+        projection_count = 0
+        projection_total_magnitude = 0.0
+        projection_max_magnitude = 0.0
         for k in range(N):
             # Build DT observation: [ux, uy, r, e, dpsi, pos_E, pos_N, yaw_world]
             pose = self._get_global_pose(s, x_full[6], x_full[7])
@@ -566,6 +576,7 @@ class DTWarmStarter:
             # Propagate dynamics
             x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
             if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
+                fallback_count += 1
                 x_next, dt = self._fallback_step(x_full, action_pred, s, ds_m)
                 if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
                     return WarmStartResult(
@@ -575,14 +586,22 @@ class DTWarmStarter:
                         rejection_reason=f"Rollout unstable at step {k}",
                         rtg_used=rtg_0,
                         inference_time_s=time.time() - t_start,
+                        fallback_count=fallback_count,
+                        projection_count=projection_count,
+                        projection_total_magnitude=projection_total_magnitude,
+                        projection_max_magnitude=projection_max_magnitude,
                     )
-            x_next = self._project_state_to_track(
+            x_next, projection_mag = self._project_state_to_track(
                 x_next,
                 s + ds_m,
                 obstacles=obstacles,
                 obstacle_clearance_m=obstacle_clearance_m,
                 vehicle_radius_m=vehicle_radius_m,
             )
+            if projection_mag > 1e-9:
+                projection_count += 1
+                projection_total_magnitude += projection_mag
+                projection_max_magnitude = max(projection_max_magnitude, projection_mag)
             X_init[:, k + 1] = x_next
 
             # Update state and progress
@@ -611,6 +630,10 @@ class DTWarmStarter:
             rejection_reason=reason,
             rtg_used=rtg_0,
             inference_time_s=inference_time,
+            fallback_count=fallback_count,
+            projection_count=projection_count,
+            projection_total_magnitude=projection_total_magnitude,
+            projection_max_magnitude=projection_max_magnitude,
         )
 
     def _validate_warmstart(

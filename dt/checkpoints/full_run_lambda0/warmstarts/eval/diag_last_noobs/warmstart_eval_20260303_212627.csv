@@ -1,0 +1,10 @@
+scenario_id,method,success,accepted,rejection_reason,solve_time_s,ipopt_iterations,lap_time_s,warmstart_time_s,warmstart_accepted,ws_fallback_count,ws_projection_count,ws_projection_total_magnitude,ws_projection_max_magnitude,num_obstacles,min_clearance_m
+0,baseline,True,True,,67.41634130477905,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+0,baseline_retry,True,True,,67.41634130477905,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+0,dt_warmstart,True,True,,57.173675298690796,239,15.69398403786477,4.803007125854492,True,2,84,124.55194125370863,2.8400067370980535,0,inf
+1,baseline,True,True,,62.27345037460327,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+1,baseline_retry,True,True,,62.27345037460327,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+1,dt_warmstart,True,True,,55.651528120040894,239,15.69398403786477,1.8055529594421387,True,2,84,124.55194125370863,2.8400067370980535,0,inf
+2,baseline,True,True,,61.91257071495056,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+2,baseline_retry,True,True,,61.91257071495056,267,15.598643634464773,0.0,True,0,0,0.0,0.0,0,inf
+2,dt_warmstart,True,True,,55.83575892448425,239,15.69398403786477,1.8177731037139893,True,2,84,124.55194125370863,2.8400067370980535,0,inf

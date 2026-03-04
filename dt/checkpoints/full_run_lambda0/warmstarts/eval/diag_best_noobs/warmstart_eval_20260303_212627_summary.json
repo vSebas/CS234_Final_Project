@@ -1,0 +1,19 @@
+{
+  "dt_warmstart": {
+    "n_scenarios": 3,
+    "success_rate": 1.0,
+    "n_success": 3,
+    "n_failed": 0,
+    "solve_time_mean": 63.20178405443827,
+    "solve_time_std": 0.5640102394160793,
+    "solve_time_median": 63.2644259929657,
+    "iterations_mean": 272.0,
+    "iterations_std": 0.0,
+    "iterations_median": 272.0,
+    "lap_time_mean": 15.633136859774515,
+    "lap_time_std": 1.7763568394002505e-15,
+    "warmstart_time_mean": 2.822174628575643,
+    "warmstart_acceptance_rate": 1.0,
+    "total_time_mean": 66.02395868301392,
+    "fallback_count_mean": 4.0,
+    "fallback_count_max": 
