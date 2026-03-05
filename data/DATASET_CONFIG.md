@@ -165,3 +165,8 @@ them in a dedicated shard.
 - `data/datasets/<map_id>_repairs_postproj`
 - manifest `episode_type`:
   - `repair_postproj`
+
+**Current status (March 4, 2026)**
+- Current generated post-projection shard is effectively single-map:
+  - `data/datasets/Oval_Track_260m_repairs_postproj`
+- Other track post-projection shards are not populated yet because current trace inputs are Oval-focused.

@@ -57,6 +57,9 @@ Implementation status (now):
   - `./dt/run_postproj_train.sh`
 - DT loader source-mix now supports a 4th source:
   - `repair_postproj` via `--postproj-repair-fraction`
+- current post-projection data coverage note:
+  - current generated `repair_postproj` data is Oval-only
+  - treat current run as a single-map ablation, not all-track robustness evidence
 
 ### Practical guardrails
 
