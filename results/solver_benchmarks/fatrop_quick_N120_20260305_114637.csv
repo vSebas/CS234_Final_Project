@@ -1,0 +1,3 @@
+cost,error_snippet,iterations,name,returncode,solve_time_s,success,timeout,wall_time_s
+inf,timeout,-1,obstacle_fast_none,-999,inf,False,True,90.10949492454529
+inf,timeout,-1,fast_none,-999,inf,False,True,90.11014223098755

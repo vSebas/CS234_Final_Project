@@ -1,0 +1,7 @@
+name,preset,structure,timeout_s,success,timeout,iterations,solve_time_s,wall_time_s,cost,returncode,error_snippet
+obstacle_fast_none,obstacle_fast,none,60.0,True,False,80,10.737,12.941427946090698,15.652857,0,
+fast_none,fast,none,60.0,True,False,67,8.137,9.74348759651184,15.665454,0,
+balanced_none,balanced,none,60.0,True,False,96,11.037,12.960490942001343,15.591532,0,
+obstacle_fast_auto,obstacle_fast,auto,60.0,True,False,93,16.046,18.92898201942444,15.650086,0,
+fast_auto,fast,auto,60.0,True,False,72,11.347,14.165928840637207,15.665454,0,
+obstacle_fast_manual,obstacle_fast,manual,60.0,True,False,93,14.769,17.44816517829895,15.650086,0,

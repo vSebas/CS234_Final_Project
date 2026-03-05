@@ -1,0 +1,2 @@
+map,N,timeout_s,preset,structure,expand,fatrop_max_iter,fatrop_max_attempts,fatrop_stage_local_cost,fatrop_dynamics_scheme,timeout,returncode,wall_time_s,ipopt_success,ipopt_iterations,ipopt_cost,ipopt_solve_time_s,fatrop_success,fatrop_iterations,fatrop_cost,fatrop_solve_time_s,error_snippet
+Oval_Track_260m.mat,80,180.0,obstacle_fast,none,0,800,1,1,trapezoidal,True,-999,180.12333631515503,False,-1,inf,inf,False,-1,inf,inf,timeout>180.0s

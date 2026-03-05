@@ -13,7 +13,7 @@ from models import load_vehicle_from_yaml
 from planning import TrajectoryOptimizer
 from world.world import World
 
-from experiments.run_fatrop_trajopt import _load_obstacles_from_world, solve_fatrop_trajopt
+from experiments.run_fatrop_native_trajopt import _load_obstacles_from_world, solve_fatrop_native
 
 
 def _resolve_maps(mode: str, explicit_maps: List[str]) -> List[Path]:
@@ -35,6 +35,17 @@ def main() -> None:
     parser.add_argument("--mode", choices=("obstacles", "no_obstacles", "all"), default="obstacles")
     parser.add_argument("--map", action="append", dest="maps", default=[])
     parser.add_argument("--out-dir", type=str, default="results/solver_benchmarks")
+    parser.add_argument("--ux-min", type=float, default=3.0)
+    parser.add_argument("--lambda-u", type=float, default=0.005)
+    parser.add_argument("--track-buffer-m", type=float, default=0.0)
+    parser.add_argument("--eps-s", type=float, default=0.1)
+    parser.add_argument("--eps-kappa", type=float, default=0.05)
+    parser.add_argument("--obstacle-clearance-m", type=float, default=0.0)
+    parser.add_argument("--obs-subsamples", type=int, default=7)
+    parser.add_argument("--obs-enforce-midpoints", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--obs-use-slack", action=argparse.BooleanOptionalAction, default=False)
+    parser.add_argument("--obstacle-window-m", type=float, default=30.0)
+    parser.add_argument("--convergent-lap", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
 
     maps = _resolve_maps(args.mode, args.maps)
@@ -52,6 +63,9 @@ def main() -> None:
     # Use tuned FATROP defaults unless user overrides from shell.
     os.environ.setdefault("FATROP_PRESET", "obstacle_fast")
     os.environ.setdefault("FATROP_STRUCTURE_DETECTION", "none")
+    os.environ.setdefault("FATROP_DYNAMICS_SCHEME", "euler")
+    os.environ.setdefault("FATROP_CLOSURE_MODE", "soft")
+    os.environ.setdefault("FATROP_CLOSURE_SOFT_WEIGHT", "30")
     os.environ.setdefault("FATROP_PRINT_LEVEL", "0")
 
     for map_path in maps:
@@ -75,32 +89,33 @@ def main() -> None:
             ipopt_res = TrajectoryOptimizer(vehicle, world).solve(
                 N=int(args.N),
                 ds_m=ds_m,
-                lambda_u=0.005,
-                ux_min=0.5,
-                track_buffer_m=0.0,
-                eps_s=0.1,
-                eps_kappa=0.05,
+                lambda_u=float(args.lambda_u),
+                ux_min=float(args.ux_min),
+                track_buffer_m=float(args.track_buffer_m),
+                eps_s=float(args.eps_s),
+                eps_kappa=float(args.eps_kappa),
                 obstacles=obstacles,
-                obstacle_clearance_m=0.0,
-                obstacle_use_slack=False,
-                obstacle_enforce_midpoints=False,
-                obstacle_subsamples_per_segment=5,
-                convergent_lap=True,
+                obstacle_window_m=float(args.obstacle_window_m),
+                obstacle_clearance_m=float(args.obstacle_clearance_m),
+                obstacle_use_slack=bool(args.obs_use_slack),
+                obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+                obstacle_subsamples_per_segment=int(args.obs_subsamples),
+                convergent_lap=bool(args.convergent_lap),
                 verbose=False,
             )
-            fatrop_res = solve_fatrop_trajopt(
+            fatrop_res = solve_fatrop_native(
                 vehicle=vehicle,
                 world=world,
                 N=int(args.N),
                 ds_m=ds_m,
                 obstacles=obstacles,
-                lambda_u=0.005,
-                ux_min=0.5,
-                track_buffer_m=0.0,
-                obstacle_clearance_m=0.0,
-                eps_s=0.1,
-                eps_kappa=0.05,
-                convergent_lap=True,
+                lambda_u=float(args.lambda_u),
+                ux_min=float(args.ux_min),
+                track_buffer_m=float(args.track_buffer_m),
+                obstacle_window_m=float(args.obstacle_window_m),
+                obstacle_clearance_m=float(args.obstacle_clearance_m),
+                eps_s=float(args.eps_s),
+                eps_kappa=float(args.eps_kappa),
                 verbose=False,
             )
 

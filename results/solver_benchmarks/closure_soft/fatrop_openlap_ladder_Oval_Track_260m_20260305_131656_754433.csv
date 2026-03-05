@@ -1,0 +1,31 @@
+map,N,timeout_s,preset,structure,expand,fatrop_max_iter,fatrop_max_attempts,fatrop_stage_local_cost,fatrop_dynamics_scheme,fatrop_closure_mode,fatrop_closure_soft_weight,timeout,returncode,wall_time_s,ipopt_timeout,fatrop_timeout,ipopt_returncode,fatrop_returncode,ipopt_wall_time_s,fatrop_wall_time_s,ipopt_success,ipopt_iterations,ipopt_cost,ipopt_solve_time_s,fatrop_success,fatrop_iterations,fatrop_cost,fatrop_solve_time_s,error_snippet
+Oval_Track_260m.mat,40,120.0,obstacle_fast,none,0,800,1,1,trapezoidal,soft,100.0,False,1,26.943994760513306,False,False,1,0,16.5671443939209,10.376850366592407,True,233,14.509318,15.255,True,43,17.491983,8.439,"******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[ipopt] success=True iterations=233 cost=14.509318 solve_time=15.255s
+
+Traceback (most recent call last):
+  File ""/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_trajopt.py"", line 453, in <module>
+    main()
+  File ""/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_trajopt.py"", line 446, in main
+    f""[fatrop] success={fat.success} iterations={fat.iterations} ""
+                        ^^^
+UnboundLocalError: cannot access local variable 'fat' where it is not associated with a value"
+Oval_Track_260m.mat,60,120.0,obstacle_fast,none,0,800,1,1,trapezoidal,soft,100.0,False,1,43.84220337867737,False,False,1,0,21.968794107437134,21.873409271240234,True,208,14.754634,20.617,True,45,18.20734,19.551,"******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[ipopt] success=True iterations=208 cost=14.754634 solve_time=20.617s
+
+Traceback (most recent call last):
+  File ""/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_trajopt.py"", line 453, in <module>
+    main()
+  File ""/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_trajopt.py"", line 446, in main
+    f""[fatrop] success={fat.success} iterations={fat.iterations} ""
+                        ^^^
+UnboundLocalError: cannot access local variable 'fat' where it is not associated with a value"

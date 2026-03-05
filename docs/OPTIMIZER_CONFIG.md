@@ -1,9 +1,14 @@
-# Trajectory Optimizer Configuration
+# IPOPT Trajectory Optimizer Configuration
 
 This document summarizes the configuration knobs for the IPOPT trajectory optimizer
 (`planning/optimizer.py`) and the demo runner (`run_trajopt_demo.py`).
 
 It is intended to be read alongside `docs/DYNAMIC_MODEL.md`.
+
+Solver-specific docs are split as:
+- IPOPT status: [`docs/IPOPT_TRAJOPT_PROGRESS.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/IPOPT_TRAJOPT_PROGRESS.md)
+- FATROP status/config: [`docs/FATROP_TRAJOPT_PROGRESS.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/FATROP_TRAJOPT_PROGRESS.md), [`docs/FATROP_CONFIG.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/FATROP_CONFIG.md)
+- MadNLP status/config: [`docs/MADNLP_TRAJOPT_PROGRESS.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/MADNLP_TRAJOPT_PROGRESS.md), [`docs/MADNLP_CONFIG.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/MADNLP_CONFIG.md)
 
 ---
 

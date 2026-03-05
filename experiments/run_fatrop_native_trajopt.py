@@ -1,17 +1,21 @@
 #!/usr/bin/env python3
 """
-Standalone FATROP trajectory optimization runner.
+Dedicated FATROP-native trajectory optimization runner.
 
-This script keeps FATROP separate from the core IPOPT optimizer implementation.
+This formulation is intentionally stage-local:
+- multiple shooting style dynamics: x_{k+1} = F(x_k, u_k)
+- stage-local path constraints
+- stage-sum control regularization
+- optional soft terminal closure penalty (instead of hard periodic closure)
 """
 
 from __future__ import annotations
 
 import argparse
 import os
+import time
 from pathlib import Path
 from typing import List
-import time
 
 import casadi as ca
 import numpy as np
@@ -58,7 +62,7 @@ def _nearest_centerline_s(world: World, east_m: float, north_m: float) -> float:
     return float(world.data["s_m"][idx])
 
 
-def solve_fatrop_trajopt(
+def solve_fatrop_native(
     vehicle,
     world: World,
     N: int,
@@ -74,9 +78,11 @@ def solve_fatrop_trajopt(
     vehicle_radius_m: float = 0.0,
     eps_s: float = 0.1,
     eps_kappa: float = 0.05,
-    convergent_lap: bool = True,
     verbose: bool = False,
+    X_init: np.ndarray | None = None,
+    U_init: np.ndarray | None = None,
 ) -> OptimizationResult:
+    t_build0 = time.time()
     p = vehicle.params
     nx = 8
     nu = 2
@@ -121,39 +127,27 @@ def solve_fatrop_trajopt(
 
     opti = ca.Opti()
     x_vars = [opti.variable(nx) for _ in range(N + 1)]
-    u_vars = [opti.variable(nu) for _ in range(N + 1)]
+    u_vars = [opti.variable(nu) for _ in range(N)] + [opti.variable(0)]
+
     nx_list = [nx for _ in range(N + 1)]
-    nu_list = [nu for _ in range(N + 1)]
+    nu_list = [nu for _ in range(N)] + [0]
     ng_list: List[int] = [0 for _ in range(N + 1)]
 
-    # Objective
-    reg_terms = []
-    for k in range(N):
-        reg_terms.append(ca.sumsqr(u_vars[k + 1] - u_vars[k]))
-    reg_cost = lambda_u * ca.sum1(ca.vertcat(*reg_terms)) if reg_terms else 0.0
-    objective = x_vars[N][5] + reg_cost
-    opti.minimize(objective)
-
-    # Dynamics
+    # Stage-local dynamics (multiple shooting, Euler in path domain).
     for k in range(N):
         xk = x_vars[k]
         xkp1 = x_vars[k + 1]
         uk = u_vars[k]
-        ukp1 = u_vars[k + 1]
         dx_dt_k, sdot_k = vehicle.dynamics_dt_path_vec(xk, uk, kappa[k], theta[k], phi[k])
-        dx_dt_kp1, sdot_kp1 = vehicle.dynamics_dt_path_vec(xkp1, ukp1, kappa[k + 1], theta[k + 1], phi[k + 1])
-        opti.subject_to(xkp1 == xk + 0.5 * ds_m * (dx_dt_k / sdot_k + dx_dt_kp1 / sdot_kp1))
+        opti.subject_to(xkp1 == xk + ds_m * (dx_dt_k / sdot_k))
 
-    # Stage constraints and ng bookkeeping for FATROP manual structure mode
+    # Path constraints stage-by-stage.
     for k in range(N + 1):
         xk = x_vars[k]
-        uk = u_vars[k]
         ux_k = xk[0]
         uy_k = xk[1]
         e_k = xk[6]
         dpsi_k = xk[7]
-        delta_k = uk[0]
-        fx_k = uk[1]
 
         cons = []
         cons.append(ux_k >= ux_min)
@@ -166,10 +160,15 @@ def solve_fatrop_trajopt(
         cons.append(sdot_k >= eps_s)
         cons.append(e_k >= -track_hw[k] + track_buffer_m)
         cons.append(e_k <= track_hw[k] - track_buffer_m)
-        cons.append(delta_k >= -p.max_delta_rad)
-        cons.append(delta_k <= p.max_delta_rad)
-        cons.append(fx_k >= p.min_fx_kn)
-        cons.append(fx_k <= p.max_fx_kn)
+
+        if k < N:
+            uk = u_vars[k]
+            delta_k = uk[0]
+            fx_k = uk[1]
+            cons.append(delta_k >= -p.max_delta_rad)
+            cons.append(delta_k <= p.max_delta_rad)
+            cons.append(fx_k >= p.min_fx_kn)
+            cons.append(fx_k <= p.max_fx_kn)
 
         if len(obs_list) > 0:
             posE_k = posE_cl[k] - e_k * np.sin(psi_cl[k])
@@ -185,39 +184,66 @@ def solve_fatrop_trajopt(
         if k == 0:
             cons.append(xk[5] == 0.0)
 
-        if convergent_lap and k == N:
-            for idx_state in (0, 1, 2, 3, 4, 6, 7):
-                cons.append(xk[idx_state] == x_vars[0][idx_state])
-            cons.append(uk[0] == u_vars[0][0])
-            cons.append(uk[1] == u_vars[0][1])
-
         for c in cons:
             opti.subject_to(c)
             ng_list[k] += int(c.nnz())
 
-    # Initial guess
-    ux_init = max(5.0, ux_min + 1.0)
-    t_init = np.cumsum(np.ones(N + 1) * ds_m / ux_init) - ds_m / ux_init
-    for k in range(N + 1):
-        opti.set_initial(x_vars[k][0], ux_init)
-        opti.set_initial(x_vars[k][1], 0.0)
-        opti.set_initial(x_vars[k][2], 0.0)
-        opti.set_initial(x_vars[k][3], 0.0)
-        opti.set_initial(x_vars[k][4], 0.0)
-        opti.set_initial(x_vars[k][5], float(t_init[k]))
-        opti.set_initial(x_vars[k][6], 0.0)
-        opti.set_initial(x_vars[k][7], 0.0)
-        opti.set_initial(u_vars[k][0], 0.0)
-        opti.set_initial(u_vars[k][1], 0.5)
+    # Objective: terminal time + stage-local control magnitude + optional soft closure.
+    stage_local_cost = os.environ.get("FATROP_STAGE_LOCAL_COST", "1").strip() == "1"
+    reg_cost = 0.0
+    if stage_local_cost:
+        reg_terms = [ca.sumsqr(u_vars[k]) for k in range(N)]
+        if reg_terms:
+            reg_cost = lambda_u * ca.sum1(ca.vertcat(*reg_terms))
 
-    # Solve with FATROP
-    preset = os.environ.get("FATROP_PRESET", "fast").strip().lower()
+    closure_mode = os.environ.get("FATROP_CLOSURE_MODE", "soft").strip().lower()
+    closure_soft_weight = float(os.environ.get("FATROP_CLOSURE_SOFT_WEIGHT", "100.0"))
+    closure_cost = 0.0
+    if closure_mode == "soft":
+        xdiff_terms = [x_vars[N][i] - x_vars[0][i] for i in (0, 1, 2, 3, 4, 6, 7)]
+        closure_cost = closure_soft_weight * ca.sumsqr(ca.vertcat(*xdiff_terms))
+    elif closure_mode == "hard":
+        for idx_state in (0, 1, 2, 3, 4, 6, 7):
+            opti.subject_to(x_vars[N][idx_state] == x_vars[0][idx_state])
+        opti.subject_to(u_vars[N - 1][0] == u_vars[0][0])
+        opti.subject_to(u_vars[N - 1][1] == u_vars[0][1])
+
+    objective = x_vars[N][5] + reg_cost + closure_cost
+    opti.minimize(objective)
+
+    # Initial guess.
+    if X_init is not None and U_init is not None:
+        if X_init.shape != (nx, N + 1):
+            raise ValueError(f"X_init shape must be {(nx, N + 1)}, got {X_init.shape}")
+        if U_init.shape != (nu, N + 1):
+            raise ValueError(f"U_init shape must be {(nu, N + 1)}, got {U_init.shape}")
+        for k in range(N + 1):
+            opti.set_initial(x_vars[k], X_init[:, k])
+            if k < N:
+                opti.set_initial(u_vars[k], U_init[:, k])
+    else:
+        ux_seed = max(5.0, ux_min + 1.0)
+        t_init = np.cumsum(np.ones(N + 1) * ds_m / ux_seed) - ds_m / ux_seed
+        for k in range(N + 1):
+            opti.set_initial(x_vars[k][0], ux_seed)
+            opti.set_initial(x_vars[k][1], 0.0)
+            opti.set_initial(x_vars[k][2], 0.0)
+            opti.set_initial(x_vars[k][3], 0.0)
+            opti.set_initial(x_vars[k][4], 0.0)
+            opti.set_initial(x_vars[k][5], float(t_init[k]))
+            opti.set_initial(x_vars[k][6], 0.0)
+            opti.set_initial(x_vars[k][7], 0.0)
+            if k < N:
+                opti.set_initial(u_vars[k][0], 0.0)
+                opti.set_initial(u_vars[k][1], 0.5)
+
+    preset = os.environ.get("FATROP_PRESET", "obstacle_fast").strip().lower()
     preset_cfg = {
         "fast": {"mu_init": 0.2, "tol": 1e-4, "acceptable_tol": 1e-3},
         "obstacle_fast": {"mu_init": 0.3, "tol": 1e-4, "acceptable_tol": 1e-3},
         "balanced": {"mu_init": 0.1},
         "accurate": {"mu_init": 0.1, "tol": 1e-6, "acceptable_tol": 1e-6},
-    }.get(preset, {"mu_init": 0.2, "tol": 1e-4, "acceptable_tol": 1e-3})
+    }.get(preset, {"mu_init": 0.3, "tol": 1e-4, "acceptable_tol": 1e-3})
 
     fatrop_opts = {
         "mu_init": float(os.environ.get("FATROP_MU_INIT", str(preset_cfg["mu_init"]))),
@@ -227,91 +253,42 @@ def solve_fatrop_trajopt(
         fatrop_opts["tol"] = float(preset_cfg["tol"])
     if "acceptable_tol" in preset_cfg:
         fatrop_opts["acceptable_tol"] = float(preset_cfg["acceptable_tol"])
-    if "FATROP_TOL" in os.environ:
+    if "FATROP_MAX_ITER" in os.environ:
         try:
-            fatrop_opts["tol"] = float(os.environ["FATROP_TOL"])
+            fatrop_opts["max_iter"] = int(float(os.environ["FATROP_MAX_ITER"]))
         except ValueError:
             pass
-    if "FATROP_ACCEPTABLE_TOL" in os.environ:
-        try:
-            fatrop_opts["acceptable_tol"] = float(os.environ["FATROP_ACCEPTABLE_TOL"])
-        except ValueError:
-            pass
-    use_debug = os.environ.get("FATROP_DEBUG", "0") == "1"
-    prefer_structure_detection = os.environ.get("FATROP_STRUCTURE_DETECTION", "none").strip().lower()
-    convexify_strategy = os.environ.get("FATROP_CONVEXIFY_STRATEGY", "").strip()
-    convexify_margin_raw = os.environ.get("FATROP_CONVEXIFY_MARGIN", "").strip()
 
-    option_attempts = []
-    first_opts = {
+    structure_mode = os.environ.get("FATROP_STRUCTURE_DETECTION", "none").strip().lower()
+    opts = {
         "print_time": bool(verbose),
-        "expand": os.environ.get("FATROP_EXPAND", "1") != "0",
-        "debug": use_debug,
+        "expand": os.environ.get("FATROP_EXPAND", "0") != "0",
+        "structure_detection": structure_mode,
         "fatrop": dict(fatrop_opts),
     }
-    if convexify_strategy:
-        first_opts["convexify_strategy"] = convexify_strategy
-    if convexify_margin_raw:
-        try:
-            first_opts["convexify_margin"] = float(convexify_margin_raw)
-        except ValueError:
-            pass
-    if prefer_structure_detection:
-        first_opts["structure_detection"] = prefer_structure_detection
-    if prefer_structure_detection == "manual":
-        first_opts["nx"] = nx_list
-        first_opts["nu"] = nu_list
-        first_opts["ng"] = ng_list
-        first_opts["N"] = N
-    option_attempts.append(first_opts)
-    option_attempts.append(
-        {
-            "print_time": bool(verbose),
-            "expand": os.environ.get("FATROP_EXPAND", "1") != "0",
-            "debug": use_debug,
-            "structure_detection": "auto",
-            "fatrop": dict(fatrop_opts),
-        }
-    )
-    option_attempts.append(
-        {
-            "print_time": bool(verbose),
-            "expand": False,
-            "debug": use_debug,
-            "structure_detection": "none",
-            "fatrop": dict(fatrop_opts),
-        }
-    )
+    if structure_mode == "manual":
+        opts["nx"] = nx_list
+        opts["nu"] = nu_list
+        opts["ng"] = ng_list
+        opts["N"] = N
 
-    solve_time = 0.0
-    success = False
-    X_opt = None
-    U_opt = None
-    cost_opt = float("inf")
-    iterations = -1
-    errors = []
-    for idx, opts in enumerate(option_attempts):
-        t0 = time.time()
-        try:
-            opti.solver("fatrop", opts)
-            sol = opti.solve()
-            solve_time = time.time() - t0
-            success = True
-            X_opt = np.column_stack([np.asarray(sol.value(xk), dtype=float) for xk in x_vars])
-            U_opt = np.column_stack([np.asarray(sol.value(uk), dtype=float) for uk in u_vars])
-            cost_opt = float(sol.value(objective))
-            stats = sol.stats()
-            iterations = int(stats.get("iter_count", -1))
-            break
-        except RuntimeError as err:
-            solve_time = time.time() - t0
-            errors.append(f"attempt {idx+1}: {err}")
-            continue
+    t1 = time.time()
+    build_time_s = t1 - t_build0
+    t0 = time.time()
+    opti.solver("fatrop", opts)
+    sol = opti.solve()
+    solve_time = time.time() - t0
+    total_time_s = build_time_s + solve_time
 
-    if X_opt is None or U_opt is None:
-        raise RuntimeError(
-            "FATROP failed for all option attempts.\n" + "\n\n".join(errors)
-        )
+    X_opt = np.column_stack([np.asarray(sol.value(xk), dtype=float) for xk in x_vars])
+    U_opt = np.zeros((nu, N + 1), dtype=float)
+    for k in range(N):
+        U_opt[:, k] = np.asarray(sol.value(u_vars[k]), dtype=float).reshape(-1)
+    U_opt[:, N] = U_opt[:, N - 1]
+
+    cost_opt = float(sol.value(objective))
+    stats = sol.stats()
+    iterations = int(stats.get("iter_count", -1))
 
     min_clearance = float("inf")
     if len(obs_list) > 0:
@@ -328,8 +305,8 @@ def solve_fatrop_trajopt(
                     d = np.sqrt((posE_k - obs_east[j]) ** 2 + (posN_k - obs_north[j]) ** 2)
                     min_clearance = min(min_clearance, float(d - req_r))
 
-    return OptimizationResult(
-        success=success,
+    result = OptimizationResult(
+        success=True,
         s_m=s_grid,
         X=X_opt,
         U=U_opt,
@@ -342,16 +319,18 @@ def solve_fatrop_trajopt(
         max_obstacle_slack=0.0,
         min_obstacle_clearance=min_clearance,
     )
+    setattr(result, "build_time_s", float(build_time_s))
+    setattr(result, "total_time_s", float(total_time_s))
+    return result
 
 
 def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
-    parser.add_argument("--N", type=int, default=120)
-    parser.add_argument("--compare-ipopt", action="store_true")
-    parser.add_argument("--no-convergent-lap", action="store_true")
-    parser.add_argument("--verbose", action="store_true")
-    args = parser.parse_args()
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
+    ap.add_argument("--N", type=int, default=120)
+    ap.add_argument("--compare-ipopt", action="store_true")
+    ap.add_argument("--verbose", action="store_true")
+    args = ap.parse_args()
 
     map_file = Path(args.map_file)
     if not map_file.exists():
@@ -376,7 +355,7 @@ def main():
             obstacle_use_slack=False,
             obstacle_enforce_midpoints=False,
             obstacle_subsamples_per_segment=5,
-            convergent_lap=not bool(args.no_convergent_lap),
+            convergent_lap=False,
             verbose=False,
         )
         print(
@@ -384,7 +363,7 @@ def main():
             f"cost={base.cost:.6f} solve_time={base.solve_time:.3f}s"
         )
 
-    fat = solve_fatrop_trajopt(
+    fat = solve_fatrop_native(
         vehicle=vehicle,
         world=world,
         N=int(args.N),
@@ -396,13 +375,15 @@ def main():
         obstacle_clearance_m=0.0,
         eps_s=0.1,
         eps_kappa=0.05,
-        convergent_lap=not bool(args.no_convergent_lap),
         verbose=bool(args.verbose),
     )
+    closure_mode = os.environ.get("FATROP_CLOSURE_MODE", "soft").strip().lower()
     print(
-        f"[fatrop] success={fat.success} iterations={fat.iterations} "
+        f"[fatrop-native] success={fat.success} iterations={fat.iterations} "
         f"cost={fat.cost:.6f} solve_time={fat.solve_time:.3f}s "
-        f"min_clearance={fat.min_obstacle_clearance:.4f}"
+        f"build_time={getattr(fat, 'build_time_s', float('nan')):.3f}s "
+        f"total_time={getattr(fat, 'total_time_s', float('nan')):.3f}s "
+        f"min_clearance={fat.min_obstacle_clearance:.4f} closure={closure_mode}"
     )
 
 
