@@ -185,6 +185,9 @@ def solve_madnlp_trajopt(
             "acceptable_tol": float(os.environ.get("MADNLP_ACCEPTABLE_TOL", "1e-4")),
             "max_iter": int(os.environ.get("MADNLP_MAX_ITER", "1000")),
             "max_cpu_time": float(os.environ.get("MADNLP_MAX_CPU_TIME", "30.0")),
+            "linear_solver": os.environ.get("MADNLP_LINEAR_SOLVER", "").strip(),
+            "kkt_system": os.environ.get("MADNLP_KKT_SYSTEM", "").strip(),
+            "hsllib": os.environ.get("MADNLP_HSLIB", "").strip(),
             "enforce_periodic_controls": bool(int(os.environ.get("MADNLP_PERIODIC_CONTROLS", "1"))),
             "dynamics_mode": os.environ.get("MADNLP_DYNAMICS_MODE", "simple").strip().lower(),
         },
@@ -204,6 +207,12 @@ def solve_madnlp_trajopt(
 
     timeout_s = int(float(os.environ.get("MADNLP_EXA_TIMEOUT_S", "1800")))
     result = solve_with_julia_madnlp(payload=payload, timeout_s=timeout_s)
+    require_gpu = os.environ.get("MADNLP_REQUIRE_GPU", "0").strip() == "1"
+    if require_gpu and not bool(result.get("gpu_active", False)):
+        raise RuntimeError(
+            "MADNLP_REQUIRE_GPU=1 was set, but MadNLP did not run on GPU. "
+            "Check CUDA/MadNLPGPU/CUDSS setup."
+        )
     X = np.asarray(result.get("X", []), dtype=float)
     U = np.asarray(result.get("U", []), dtype=float)
     if X.shape != (8, N + 1) or U.shape != (2, N + 1):

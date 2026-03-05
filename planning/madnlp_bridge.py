@@ -7,6 +7,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import shlex
 import subprocess
 import tempfile
 from pathlib import Path
@@ -54,9 +55,10 @@ def solve_with_julia_madnlp(payload: Dict[str, Any], timeout_s: int = 1800) -> D
         with open(req, "w", encoding="utf-8") as f:
             json.dump(payload, f)
 
-        cmd = [
-            julia_bin,
-        ]
+        cmd = [julia_bin]
+        julia_flags = os.environ.get("MADNLP_EXA_JULIA_FLAGS", "").strip()
+        if julia_flags:
+            cmd.extend(shlex.split(julia_flags))
         if project_dir is not None:
             cmd.append("--project=" + str(project_dir))
         cmd.extend(
@@ -95,11 +97,20 @@ def solve_with_julia_madnlp(payload: Dict[str, Any], timeout_s: int = 1800) -> D
                 f"Partial STDERR:\n{err}\n"
             ) from e
         if proc.returncode != 0:
+            stderr_text = "" if stream_logs else (proc.stderr or "")
+            compat_hint = ""
+            if "CUDSSSolver" in stderr_text and "opt" in stderr_text:
+                compat_hint = (
+                    "\nHint: MadNLP and MadNLPGPU appear version-incompatible. "
+                    "Install matching versions from the same MadNLP release/commit "
+                    "(and matching CUDSS/CUDA stack).\n"
+                )
             if stream_logs:
                 raise RuntimeError(
                     "Julia MadNLP backend failed.\n"
                     f"Command: {' '.join(cmd)}\n"
                     f"Return code: {proc.returncode}\n"
+                    f"{compat_hint}"
                 )
             raise RuntimeError(
                 "Julia MadNLP backend failed.\n"
@@ -107,6 +118,7 @@ def solve_with_julia_madnlp(payload: Dict[str, Any], timeout_s: int = 1800) -> D
                 f"Return code: {proc.returncode}\n"
                 f"STDOUT:\n{proc.stdout}\n"
                 f"STDERR:\n{proc.stderr}\n"
+                f"{compat_hint}"
             )
 
         if not res.exists():

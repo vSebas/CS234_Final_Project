@@ -1,12 +1,31 @@
 #!/usr/bin/env julia
 
 using JSON3
-using JuMP
+using ExaModels
 using MadNLP
-const MOI = JuMP.MOI
+
+const HAS_CUDA = try
+    @eval using CUDA
+    true
+catch
+    false
+end
+
+const HAS_MADNLPGPU = try
+    @eval using MadNLPGPU
+    true
+catch
+    false
+end
+
+const HAS_HYBRIDKKT = try
+    @eval using HybridKKT
+    true
+catch
+    false
+end
 
 const G_MPS2 = 9.81
-
 const DEBUG_LOG = get(ENV, "MADNLP_EXA_DEBUG", "0") == "1"
 
 function dbg(msg::AbstractString)
@@ -78,21 +97,32 @@ function parse_args()
     return req, res
 end
 
-function solve_problem(payload)
-    dbg("[madnlp_exa] solve_problem:start")
-    to_f64_vec(a) = [Float64(v) for v in a]
-    function to_f64_mat(a)
-        rows = length(a)
-        cols = rows == 0 ? 0 : length(a[1])
-        m = Array{Float64}(undef, rows, cols)
-        for i in 1:rows
-            for j in 1:cols
-                m[i, j] = Float64(a[i][j])
-            end
-        end
-        return m
-    end
+to_f64_vec(a) = [Float64(v) for v in a]
 
+function to_f64_mat(a)
+    rows = length(a)
+    cols = rows == 0 ? 0 : length(a[1])
+    m = Array{Float64}(undef, rows, cols)
+    for i in 1:rows
+        for j in 1:cols
+            m[i, j] = Float64(a[i][j])
+        end
+    end
+    return m
+end
+
+function _to_backend(v, backend)
+    if backend === nothing
+        return v
+    end
+    if HAS_CUDA && backend isa CUDA.CUDABackend
+        return CUDA.CuArray(v)
+    end
+    return v
+end
+
+function _build_and_solve(payload; force_cpu::Bool = false)
+    dbg("[madnlp_exa] build:start force_cpu=$(force_cpu)")
     N = Int(payload["N"])
     ds_m = Float64(payload["ds_m"])
     n_nodes = N + 1
@@ -137,71 +167,75 @@ function solve_problem(payload)
     obstacle_clearance_m = Float64(get(opts, "obstacle_clearance_m", 0.0))
     vehicle_radius_m = Float64(get(opts, "vehicle_radius_m", 0.0))
     length_m = Float64(payload["world"]["length_m"])
+    convergent_lap = Bool(opts["convergent_lap"])
 
-    model = Model()
-    set_optimizer(model, MadNLP.Optimizer)
-    set_optimizer_attribute(model, "print_level", verbose ? MadNLP.INFO : MadNLP.ERROR)
-    if haskey(opts, "tol")
-        set_optimizer_attribute(model, "tol", Float64(opts["tol"]))
+    linear_solver_name = lowercase(String(get(opts, "linear_solver", "")))
+    kkt_name = lowercase(String(get(opts, "kkt_system", "")))
+    require_gpu = get(ENV, "MADNLP_REQUIRE_GPU", "0") == "1"
+    gpu_requested = !force_cpu && (
+        require_gpu ||
+        linear_solver_name in ("cudss", "lapackcuda", "lapack_cudasolver") ||
+        kkt_name in ("hybrid", "hybrid_condensed", "hybridcondensedkkt")
+    )
+    if gpu_requested && !HAS_CUDA
+        error("GPU solve requested, but CUDA.jl is unavailable in this Julia project.")
     end
-    if haskey(opts, "acceptable_tol")
-        set_optimizer_attribute(model, "acceptable_tol", Float64(opts["acceptable_tol"]))
+    if gpu_requested && !HAS_MADNLPGPU
+        error("GPU solve requested, but MadNLPGPU.jl is unavailable in this Julia project.")
     end
-    if haskey(opts, "max_iter")
-        set_optimizer_attribute(model, "max_iter", Int(opts["max_iter"]))
-    end
-    if haskey(opts, "max_cpu_time")
-        set_optimizer_attribute(model, "max_cpu_time", Float64(opts["max_cpu_time"]))
-    end
+    backend = gpu_requested ? CUDA.CUDABackend() : nothing
 
-    @variable(model, X[1:nx, 1:n_nodes])
-    @variable(model, U[1:nu, 1:n_nodes])
-
-    for i in 1:nx, k in 1:n_nodes
-        if X0 !== nothing
-            set_start_value(X[i, k], X0[i, k])
-        end
+    ux_init = max(5.0, ux_min + 1.0)
+    X_start = zeros(Float64, nx, n_nodes)
+    X_start[1, :] .= ux_init
+    X_start[6, :] .= cumsum(fill(ds_m / ux_init, n_nodes)) .- ds_m / ux_init
+    U_start = zeros(Float64, nu, n_nodes)
+    U_start[2, :] .= 0.5
+    if X0 !== nothing
+        X_start .= X0
     end
-    for i in 1:nu, k in 1:n_nodes
-        if U0 !== nothing
-            set_start_value(U[i, k], U0[i, k])
-        end
-    end
-
-    if X0 === nothing
-        ux_init = max(5.0, ux_min + 1.0)
-        for k in 1:n_nodes
-            set_start_value(X[1, k], ux_init)
-            set_start_value(X[2, k], 0.0)
-            set_start_value(X[3, k], 0.0)
-            set_start_value(X[4, k], 0.0)
-            set_start_value(X[5, k], 0.0)
-            set_start_value(X[6, k], (k - 1) * ds_m / ux_init)
-            set_start_value(X[7, k], 0.0)
-            set_start_value(X[8, k], 0.0)
-        end
-    end
-    if U0 === nothing
-        for k in 1:n_nodes
-            set_start_value(U[1, k], 0.0)
-            set_start_value(U[2, k], 0.5)
-        end
+    if U0 !== nothing
+        U_start .= U0
     end
 
+    X_l = fill(-Inf, nx, n_nodes)
+    X_u = fill(Inf, nx, n_nodes)
+    U_l = fill(-Inf, nu, n_nodes)
+    U_u = fill(Inf, nu, n_nodes)
     max_delta_rad = Float64(p["max_delta_deg"]) * pi / 180.0
     min_fx_kn = Float64(p["min_fx_kn"])
     max_fx_kn = Float64(p["max_fx_kn"])
+    for k in 1:n_nodes
+        X_l[1, k] = ux_min
+        if ux_max !== nothing
+            X_u[1, k] = ux_max
+        end
+        X_l[7, k] = -track_hw[k] + track_buffer_m
+        X_u[7, k] = track_hw[k] - track_buffer_m
+        U_l[1, k] = -max_delta_rad
+        U_u[1, k] = max_delta_rad
+        U_l[2, k] = min_fx_kn
+        U_u[2, k] = max_fx_kn
+    end
 
-    @objective(
-        model,
-        Min,
-        X[6, n_nodes] + lambda_u * sum(
-            (U[1, k + 1] - U[1, k])^2 + (U[2, k + 1] - U[2, k])^2 for k in 1:N
-        )
+    c = ExaModels.ExaCore(Float64; backend=backend)
+    X = ExaModels.variable(
+        c,
+        1:nx,
+        1:n_nodes;
+        start=_to_backend(X_start, backend),
+        lvar=_to_backend(X_l, backend),
+        uvar=_to_backend(X_u, backend),
     )
-    dbg("[madnlp_exa] model_constructed N=$(N)")
+    U = ExaModels.variable(
+        c,
+        1:nu,
+        1:n_nodes;
+        start=_to_backend(U_start, backend),
+        lvar=_to_backend(U_l, backend),
+        uvar=_to_backend(U_u, backend),
+    )
 
-    # Dynamics and path constraints.
     function dxdt(x, u, kpsi, th, ph)
         ux = x[1]
         uy = x[2]
@@ -212,18 +246,15 @@ function solve_problem(payload)
         delta = u[1]
         fx = u[2]
 
-        # Slip angles
         alpha_f = atan((uy + Float64(p["a_m"]) * r) / (ux + 1e-6)) - delta
         alpha_r = atan((uy - Float64(p["b_m"]) * r) / (ux + 1e-6))
 
-        # Normal loads
         l_m = Float64(p["a_m"]) + Float64(p["b_m"])
         wf_n = Float64(p["m_kg"]) * G_MPS2 * (Float64(p["b_m"]) / l_m)
         wr_n = Float64(p["m_kg"]) * G_MPS2 * (Float64(p["a_m"]) / l_m)
         fzf_kn = wf_n / 1000.0 - dfz_long
         fzr_kn = wr_n / 1000.0 + dfz_long
 
-        # Lightweight force model for first MadNLP backend pass.
         fxf_kn = 0.5 * fx
         fxr_kn = 0.5 * fx
         if use_full_dynamics || use_fiala
@@ -256,163 +287,196 @@ function solve_problem(payload)
             fyr_kn = -c_ar * alpha_r
         end
 
-        # N units
         fxf_n = fxf_kn * 1000.0
         fxr_n = fxr_kn * 1000.0
         fyf_n = fyf_kn * 1000.0
         fyr_n = fyr_kn * 1000.0
 
-        # Drag and road forces
         frr_n = -Float64(p["cd0_n"])
         faero_n = -(Float64(p["cd1_nspm"]) * ux + Float64(p["cd2_ns2pm2"]) * ux^2)
         f_grade_n = -Float64(p["m_kg"]) * G_MPS2 * sin(th)
         f_bank_n = -Float64(p["m_kg"]) * G_MPS2 * cos(th) * sin(ph)
         fd_n = frr_n + faero_n + f_grade_n
 
-        ax = (1.0 / Float64(p["m_kg"])) *
-             (fxf_n * cos(delta) - fyf_n * sin(delta) + fxr_n + fd_n)
-        ay = (1.0 / Float64(p["m_kg"])) *
-             (fyf_n * cos(delta) + fxf_n * sin(delta) + fyr_n + f_bank_n)
+        ax = (1.0 / Float64(p["m_kg"])) * (fxf_n * cos(delta) - fyf_n * sin(delta) + fxr_n + fd_n)
+        ay = (1.0 / Float64(p["m_kg"])) * (fyf_n * cos(delta) + fxf_n * sin(delta) + fyr_n + f_bank_n)
 
         dux = ax + r * uy
         duy = ay - r * ux
-        dr = (1.0 / Float64(p["iz_kgm2"])) *
-             (Float64(p["a_m"]) * fyf_n * cos(delta) +
-              Float64(p["a_m"]) * fxf_n * sin(delta) -
-              Float64(p["b_m"]) * fyr_n)
+        dr = (1.0 / Float64(p["iz_kgm2"])) * (
+            Float64(p["a_m"]) * fyf_n * cos(delta) +
+            Float64(p["a_m"]) * fxf_n * sin(delta) -
+            Float64(p["b_m"]) * fyr_n
+        )
 
         one_minus = 1.0 - e * kpsi
         sdot = (ux * cos(dpsi) - uy * sin(dpsi)) / one_minus
         de = ux * sin(dpsi) + uy * cos(dpsi)
         ddpsi = r - kpsi * sdot
-
-        return [dux, duy, dr, 0.0, 0.0, 1.0, de, ddpsi], sdot
+        return (dux, duy, dr, 0.0, 0.0, 1.0, de, ddpsi, sdot)
     end
 
     for k in 1:N
-        xk = X[:, k]
-        xkp1 = X[:, k + 1]
-        uk = U[:, k]
-        ukp1 = U[:, k + 1]
-        fk, sdot_k = dxdt(xk, uk, kappa[k], theta[k], phi[k])
-        fkp1, sdot_kp1 = dxdt(xkp1, ukp1, kappa[k + 1], theta[k + 1], phi[k + 1])
+        xk = [X[i, k] for i in 1:nx]
+        xkp1 = [X[i, k + 1] for i in 1:nx]
+        uk = [U[i, k] for i in 1:nu]
+        ukp1 = [U[i, k + 1] for i in 1:nu]
+        fk = dxdt(xk, uk, kappa[k], theta[k], phi[k])
+        fkp1 = dxdt(xkp1, ukp1, kappa[k + 1], theta[k + 1], phi[k + 1])
+        sdot_k = fk[9]
+        sdot_kp1 = fkp1[9]
         for i in 1:nx
-            @constraint(model, X[i, k + 1] == X[i, k] + 0.5 * ds_m * (fk[i] / sdot_k + fkp1[i] / sdot_kp1))
+            ExaModels.constraint(c, X[i, k + 1] - X[i, k] - 0.5 * ds_m * (fk[i] / sdot_k + fkp1[i] / sdot_kp1))
         end
     end
 
     for k in 1:n_nodes
-        @constraint(model, X[1, k] >= ux_min)
-        if ux_max !== nothing
-            @constraint(model, X[1, k] <= ux_max)
-        end
         one_minus = 1.0 - kappa[k] * X[7, k]
-        @constraint(model, one_minus >= eps_kappa)
-        @constraint(model, (X[1, k] * cos(X[8, k]) - X[2, k] * sin(X[8, k])) / one_minus >= eps_s)
-        @constraint(model, X[7, k] >= -track_hw[k] + track_buffer_m)
-        @constraint(model, X[7, k] <= track_hw[k] - track_buffer_m)
-        @constraint(model, U[1, k] >= -max_delta_rad)
-        @constraint(model, U[1, k] <= max_delta_rad)
-        @constraint(model, U[2, k] >= min_fx_kn)
-        @constraint(model, U[2, k] <= max_fx_kn)
+        ExaModels.constraint(c, one_minus; lcon=eps_kappa)
+        sdot_k = (X[1, k] * cos(X[8, k]) - X[2, k] * sin(X[8, k])) / one_minus
+        ExaModels.constraint(c, sdot_k; lcon=eps_s)
+    end
 
-        if n_obs > 0
-            posE_k = posE_cl[k] - X[7, k] * sin(psi_cl[k])
-            posN_k = posN_cl[k] + X[7, k] * cos(psi_cl[k])
-            for j in 1:n_obs
-                if abs(wrap_s_dist(s_grid[k], obs_s_center[j], length_m)) <= obstacle_window_m
-                    req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
-                    @constraint(
-                        model,
-                        (posE_k - obs_east[j])^2 + (posN_k - obs_north[j])^2 >= req_r^2
-                    )
-                end
+    active_obs = Tuple{Int,Int}[]
+    for k in 1:n_nodes
+        for j in 1:n_obs
+            if abs(wrap_s_dist(s_grid[k], obs_s_center[j], length_m)) <= obstacle_window_m
+                push!(active_obs, (k, j))
             end
         end
     end
+    for (k, j) in active_obs
+        req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
+        posE_k = posE_cl[k] - X[7, k] * sin(psi_cl[k])
+        posN_k = posN_cl[k] + X[7, k] * cos(psi_cl[k])
+        d2 = (posE_k - obs_east[j])^2 + (posN_k - obs_north[j])^2
+        ExaModels.constraint(c, d2 - req_r^2; lcon=0.0)
+    end
 
-    @constraint(model, X[6, 1] == 0.0)
-    if Bool(opts["convergent_lap"])
+    ExaModels.constraint(c, X[6, 1]; lcon=0.0, ucon=0.0)
+    if convergent_lap
         for i in (1, 2, 3, 4, 5, 7, 8)
-            @constraint(model, X[i, 1] == X[i, n_nodes])
+            ExaModels.constraint(c, X[i, 1] - X[i, n_nodes])
         end
         if enforce_periodic_controls
             for i in 1:nu
-                @constraint(model, U[i, 1] == U[i, n_nodes])
+                ExaModels.constraint(c, U[i, 1] - U[i, n_nodes])
             end
         end
     end
 
-    optimize!(model)
-    dbg("[madnlp_exa] optimize_done")
-    term = termination_status(model)
-    success = term == MOI.LOCALLY_SOLVED || term == MOI.OPTIMAL
+    ExaModels.objective(c, X[6, n_nodes])
+    ExaModels.objective(
+        c,
+        lambda_u * ((U[1, k + 1] - U[1, k])^2 + (U[2, k + 1] - U[2, k])^2) for k in 1:N
+    )
 
-    X_out = Array{Float64}(undef, nx, n_nodes)
-    U_out = Array{Float64}(undef, nu, n_nodes)
-    if has_values(model)
-        for i in 1:nx, k in 1:n_nodes
-            X_out[i, k] = value(X[i, k])
+    nlp = ExaModels.ExaModel(c)
+    kwargs = Dict{Symbol,Any}()
+    kwargs[:print_level] = verbose ? MadNLP.INFO : MadNLP.ERROR
+    if haskey(opts, "tol")
+        kwargs[:tol] = Float64(opts["tol"])
+    end
+    if haskey(opts, "acceptable_tol")
+        kwargs[:acceptable_tol] = Float64(opts["acceptable_tol"])
+    end
+    if haskey(opts, "max_iter")
+        kwargs[:max_iter] = Int(opts["max_iter"])
+    end
+    if haskey(opts, "max_cpu_time")
+        kwargs[:max_wall_time] = Float64(opts["max_cpu_time"])
+    end
+
+    gpu_active = gpu_requested
+    if gpu_requested
+        kwargs[:equality_treatment] = MadNLP.EnforceEquality
+        kwargs[:fixed_variable_treatment] = MadNLP.MakeParameter
+        if linear_solver_name == "cudss"
+            kwargs[:linear_solver] = MadNLPGPU.CUDSSSolver
+            kwargs[:cudss_algorithm] = MadNLP.LDL
+        elseif linear_solver_name in ("lapackcuda", "lapack_cudasolver")
+            kwargs[:linear_solver] = MadNLPGPU.LapackCUDASolver
         end
-        for i in 1:nu, k in 1:n_nodes
-            U_out[i, k] = value(U[i, k])
-        end
-    else
-        for i in 1:nx, k in 1:n_nodes
-            X_out[i, k] = start_value(X[i, k]) === nothing ? 0.0 : Float64(start_value(X[i, k]))
-        end
-        for i in 1:nu, k in 1:n_nodes
-            U_out[i, k] = start_value(U[i, k]) === nothing ? 0.0 : Float64(start_value(U[i, k]))
+        if isempty(kkt_name)
+            if HAS_HYBRIDKKT
+                kwargs[:kkt_system] = HybridKKT.HybridCondensedKKTSystem
+            else
+                error("GPU solve requires HybridKKT.jl in this environment. Install HybridKKT or set MADNLP_REQUIRE_GPU=0.")
+            end
+        elseif kkt_name in ("hybrid", "hybrid_condensed", "hybridcondensedkkt")
+            if HAS_HYBRIDKKT
+                kwargs[:kkt_system] = HybridKKT.HybridCondensedKKTSystem
+            else
+                error("MADNLP_KKT_SYSTEM=$(kkt_name) requested, but HybridKKT.jl is unavailable.")
+            end
+        elseif kkt_name in ("sparse_condensed", "sparsecondensedkkt", "condensed")
+            error("MADNLP_KKT_SYSTEM=$(kkt_name) is not supported with GPU equality constraints in this setup. Use 'hybrid'.")
+        elseif kkt_name in ("sparse", "sparsekkt")
+            error("MADNLP_KKT_SYSTEM=$(kkt_name) is not supported with current MadNLPGPU build (SparseKKT GPU incompatibility). Use 'hybrid'.")
         end
     end
 
-    iter = -1
-    try
-        iter = Int(round(MOI.get(model, MOI.BarrierIterations())))
-    catch
-    end
-    solve_time = 0.0
-    try
-        solve_time = Float64(MOI.get(model, MOI.SolveTimeSec()))
-    catch
-    end
-    cost = has_values(model) ? objective_value(model) : Inf
+    solver = MadNLP.MadNLPSolver(nlp; kwargs...)
+    stats = MadNLP.solve!(solver)
+    success = stats.status == MadNLP.SOLVE_SUCCEEDED || stats.status == MadNLP.SOLVED_TO_ACCEPTABLE_LEVEL
+
+    X_out = Array(ExaModels.solution(stats, X))
+    U_out = Array(ExaModels.solution(stats, U))
+    iter = Int(stats.iter)
+    solve_time = Float64(stats.counters.total_time)
+    cost = Float64(stats.objective)
     if !isfinite(cost)
         cost = 1e30
     end
+
     min_clearance = 1e30
     if n_obs > 0
-        for k in 1:n_nodes
+        for (k, j) in active_obs
+            req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
             posE_k = posE_cl[k] - X_out[7, k] * sin(psi_cl[k])
             posN_k = posN_cl[k] + X_out[7, k] * cos(psi_cl[k])
-            for j in 1:n_obs
-                if abs(wrap_s_dist(s_grid[k], obs_s_center[j], length_m)) <= obstacle_window_m
-                    req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
-                    d = sqrt((posE_k - obs_east[j])^2 + (posN_k - obs_north[j])^2)
-                    c = d - req_r
-                    if c < min_clearance
-                        min_clearance = c
-                    end
-                end
+            d = sqrt((posE_k - obs_east[j])^2 + (posN_k - obs_north[j])^2)
+            cmin = d - req_r
+            if cmin < min_clearance
+                min_clearance = cmin
             end
         end
     end
+
     X_json = [[X_out[i, j] for j in 1:n_nodes] for i in 1:nx]
     U_json = [[U_out[i, j] for j in 1:n_nodes] for i in 1:nu]
 
     return Dict(
         "success" => success,
-        "status" => string(term),
+        "status" => string(stats.status),
         "mode_used" => dynamics_mode,
-        "cost" => Float64(cost),
-        "iterations" => Int(iter),
-        "solve_time" => Float64(solve_time),
+        "cost" => cost,
+        "iterations" => iter,
+        "solve_time" => solve_time,
         "max_obstacle_slack" => 0.0,
         "min_obstacle_clearance" => Float64(min_clearance),
+        "gpu_requested" => gpu_requested,
+        "gpu_active" => gpu_active,
         "X" => X_json,
         "U" => U_json,
-        "backend" => "madnlp_jump",
+        "backend" => gpu_requested ? "madnlp_examodels_gpu" : "madnlp_examodels_cpu",
     )
+end
+
+function solve_problem(payload)
+    require_gpu = get(ENV, "MADNLP_REQUIRE_GPU", "0") == "1"
+    allow_gpu_fallback = get(ENV, "MADNLP_GPU_FALLBACK", "1") == "1"
+    try
+        return _build_and_solve(payload; force_cpu=false)
+    catch err
+        if !require_gpu && allow_gpu_fallback
+            dbg("[madnlp_exa] GPU/primary solve failed; retrying CPU fallback")
+            cpu_res = _build_and_solve(payload; force_cpu=true)
+            cpu_res["gpu_active"] = false
+            return cpu_res
+        end
+        rethrow(err)
+    end
 end
 
 function main()
