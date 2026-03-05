@@ -1,0 +1,30 @@
+[dt/run_postproj_train] wrapper_log=results/dataset_runs/run_postproj_train_20260304_141717.log
+[dt/run_postproj_train] step=postproj_repairs
+[dt/run_postproj_train] postproj_repairs=600
+[dt/run_postproj_train] postproj_per_map=0
+[dt/run_postproj_train] seed=0
+Logging to results/dataset_runs/postproj_repairs_20260304_141717.log
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 10/4800] accepted=0/600 elapsed=36.7s
+[Oval_Track_260m attempt 20/4800] accepted=3/600 elapsed=121.1s
+[Oval_Track_260m attempt 30/4800] accepted=3/600 elapsed=191.4s
+[Oval_Track_260m attempt 40/4800] accepted=3/600 elapsed=264.7s
+[Oval_Track_260m attempt 50/4800] accepted=5/600 elapsed=335.0s
+[Oval_Track_260m attempt 60/4800] accepted=5/600 elapsed=402.3s
+[Oval_Track_260m attempt 70/4800] accepted=6/600 elapsed=468.7s
+[Oval_Track_260m attempt 80/4800] accepted=8/600 elapsed=541.3s
+[Oval_Track_260m attempt 90/4800] accepted=9/600 elapsed=602.6s
+[Oval_Track_260m attempt 100/4800] accepted=9/600 elapsed=670.8s
+[Oval_Track_260m accepted 10/600] attempts=105/4800 elapsed=708.4s
+[Oval_Track_260m attempt 110/4800] accepted=10/600 elapsed=733.7s
+[Oval_Track_260m attempt 120/4800] accepted=10/600 elapsed=798.3s
+[Oval_Track_260m attempt 130/4800] accepted=10/600 elapsed=859.2s
+[Oval_Track_260m attempt 140/4800] accepted=11/600 elapsed=915.3s
+[Oval_Track_260m attempt 150/4800] accepted=14/600 elapsed=976.2s
+[Oval_Track_260m attempt 160/4800] accepted=17/600 elapsed=1057.2s

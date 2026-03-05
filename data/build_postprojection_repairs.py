@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import time
+import gc
 from collections import defaultdict
 from pathlib import Path
 from typing import Dict, List, Tuple
@@ -154,6 +155,12 @@ def main() -> None:
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
     parser.add_argument("--max-attempts-factor", type=float, default=8.0)
     parser.add_argument("--save-every", type=int, default=10)
+    parser.add_argument(
+        "--clear-cache-every",
+        type=int,
+        default=5,
+        help="Clear optimizer NLP cache every N attempts to avoid memory growth.",
+    )
     parser.add_argument("--max-trace-rows", type=int, default=0)
     parser.add_argument(
         "--only-triggered",
@@ -250,22 +257,33 @@ def main() -> None:
             if rng_state is not None:
                 rng.bit_generator.state = rng_state
 
-        max_attempts = max(
-            int(np.ceil(float(target) * float(args.max_attempts_factor))),
-            target,
+        remaining = max(0, int(target - existing_count))
+        max_additional_attempts = max(
+            int(np.ceil(float(max(1, remaining)) * float(args.max_attempts_factor))),
+            remaining,
+            1,
         )
+        attempts_start = int(attempts)
         successes = existing_count
         trace_rows = rows_by_map[map_stem]
         manifest_f = open(manifest_path, "a", encoding="utf-8")
         t_start = time.time()
 
         base_cache: Dict[str, Dict] = {}
-        while successes < target and attempts < max_attempts:
+        while successes < target and (attempts - attempts_start) < max_additional_attempts:
             attempts += 1
+            if args.clear_cache_every > 0 and attempts % int(args.clear_cache_every) == 0:
+                # Obstacles vary per trace row; clearing cached NLP templates prevents
+                # unbounded memory growth from per-obstacle cache keys.
+                optimizer._nlp_cache.clear()
+                gc.collect()
             if attempts > 1 and attempts % max(1, args.save_every) == 0:
                 elapsed = time.time() - t_start
                 print(
-                    f"[{map_stem} attempt {attempts}/{max_attempts}] accepted={successes}/{target} elapsed={elapsed:.1f}s",
+                    (
+                        f"[{map_stem} attempt {attempts - attempts_start}/{max_additional_attempts}] "
+                        f"accepted={successes}/{target} elapsed={elapsed:.1f}s"
+                    ),
                     flush=True,
                 )
 
@@ -477,7 +495,10 @@ def main() -> None:
             if successes % max(1, args.save_every) == 0:
                 elapsed = time.time() - t_start
                 print(
-                    f"[{map_stem} accepted {successes}/{target}] attempts={attempts}/{max_attempts} elapsed={elapsed:.1f}s",
+                    (
+                        f"[{map_stem} accepted {successes}/{target}] "
+                        f"attempts={attempts - attempts_start}/{max_additional_attempts} elapsed={elapsed:.1f}s"
+                    ),
                     flush=True,
                 )
 
@@ -486,7 +507,10 @@ def main() -> None:
         total_attempts += attempts
         elapsed = time.time() - t_start
         print(
-            f"[{map_stem}] done accepted={successes}/{target} attempts={attempts}/{max_attempts} elapsed={elapsed:.1f}s",
+            (
+                f"[{map_stem}] done accepted={successes}/{target} "
+                f"attempts={attempts - attempts_start}/{max_additional_attempts} elapsed={elapsed:.1f}s"
+            ),
             flush=True,
         )
 

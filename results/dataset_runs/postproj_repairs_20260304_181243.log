@@ -1,0 +1,26 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 10/141] accepted=73/120 elapsed=37.4s
+[Oval_Track_260m attempt 20/141] accepted=75/120 elapsed=82.3s
+[Oval_Track_260m attempt 30/141] accepted=77/120 elapsed=129.3s
+[Oval_Track_260m accepted 80/120] attempts=39/141 elapsed=179.0s
+[Oval_Track_260m attempt 40/141] accepted=80/120 elapsed=179.7s
+[Oval_Track_260m attempt 50/141] accepted=83/120 elapsed=230.1s
+[Oval_Track_260m attempt 60/141] accepted=85/120 elapsed=280.5s
+[Oval_Track_260m attempt 70/141] accepted=86/120 elapsed=337.4s
+[Oval_Track_260m attempt 80/141] accepted=86/120 elapsed=390.3s
+[Oval_Track_260m attempt 90/141] accepted=87/120 elapsed=435.5s
+[Oval_Track_260m attempt 100/141] accepted=87/120 elapsed=486.5s
+[Oval_Track_260m attempt 110/141] accepted=87/120 elapsed=533.9s
+CasADi - 2026-03-04 18:21:42 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 1, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 120/141] accepted=88/120 elapsed=588.0s
+[Oval_Track_260m attempt 130/141] accepted=89/120 elapsed=642.1s
+[Oval_Track_260m accepted 90/120] attempts=137/141 elapsed=680.2s
+[Oval_Track_260m attempt 140/141] accepted=90/120 elapsed=692.9s
+[Oval_Track_260m] done accepted=90/120 attempts=141/141 elapsed=700.5s
+Done. total_accepted=90 total_attempts=741 elapsed=700.5s

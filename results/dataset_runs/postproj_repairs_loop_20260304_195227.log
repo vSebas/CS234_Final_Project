@@ -1,0 +1,358 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260304_195227.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=600
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=300
+[postproj_loop] start_count=179
+[postproj_loop] loop=1/50 current=179/600
+Logging to results/dataset_runs/postproj_repairs_20260304_195227.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m accepted 180/300] attempts=6/363 elapsed=25.7s
+CasADi - 2026-03-04 19:53:05 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 19:53:05 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 10/363] accepted=180/300 elapsed=36.6s
+[Oval_Track_260m attempt 20/363] accepted=183/300 elapsed=72.7s
+[Oval_Track_260m attempt 30/363] accepted=185/300 elapsed=126.3s
+[Oval_Track_260m attempt 40/363] accepted=185/300 elapsed=171.8s
+[Oval_Track_260m attempt 50/363] accepted=185/300 elapsed=237.2s
+[Oval_Track_260m attempt 60/363] accepted=186/300 elapsed=289.5s
+[Oval_Track_260m attempt 70/363] accepted=187/300 elapsed=342.2s
+[Oval_Track_260m attempt 80/363] accepted=189/300 elapsed=396.8s
+[Oval_Track_260m accepted 190/300] attempts=83/363 elapsed=416.1s
+[Oval_Track_260m attempt 90/363] accepted=191/300 elapsed=454.6s
+[Oval_Track_260m attempt 100/363] accepted=193/300 elapsed=9907.4s
+[Oval_Track_260m attempt 110/363] accepted=195/300 elapsed=9976.8s
+[Oval_Track_260m attempt 120/363] accepted=196/300 elapsed=10048.0s
+[Oval_Track_260m attempt 130/363] accepted=197/300 elapsed=10106.9s
+[Oval_Track_260m attempt 140/363] accepted=198/300 elapsed=10177.0s
+[Oval_Track_260m attempt 150/363] accepted=199/300 elapsed=10259.0s
+[Oval_Track_260m attempt 160/363] accepted=199/300 elapsed=10315.9s
+[Oval_Track_260m accepted 200/300] attempts=165/363 elapsed=10356.5s
+[Oval_Track_260m attempt 170/363] accepted=202/300 elapsed=10373.2s
+[Oval_Track_260m attempt 180/363] accepted=204/300 elapsed=10413.8s
+[Oval_Track_260m attempt 190/363] accepted=204/300 elapsed=10456.8s
+[Oval_Track_260m attempt 200/363] accepted=205/300 elapsed=10504.4s
+[Oval_Track_260m attempt 210/363] accepted=205/300 elapsed=10551.0s
+[Oval_Track_260m attempt 220/363] accepted=206/300 elapsed=10589.7s
+[Oval_Track_260m attempt 230/363] accepted=207/300 elapsed=10629.9s
+[Oval_Track_260m attempt 240/363] accepted=207/300 elapsed=10669.9s
+[Oval_Track_260m attempt 250/363] accepted=207/300 elapsed=10727.9s
+[Oval_Track_260m attempt 260/363] accepted=207/300 elapsed=10784.4s
+CasADi - 2026-03-04 22:52:32 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 270/363] accepted=207/300 elapsed=10830.5s
+[Oval_Track_260m attempt 280/363] accepted=207/300 elapsed=10884.3s
+[Oval_Track_260m attempt 290/363] accepted=209/300 elapsed=10924.1s
+[Oval_Track_260m attempt 300/363] accepted=209/300 elapsed=10964.1s
+[Oval_Track_260m attempt 310/363] accepted=209/300 elapsed=11012.1s
+[Oval_Track_260m accepted 210/300] attempts=319/363 elapsed=11051.6s
+[Oval_Track_260m attempt 320/363] accepted=210/300 elapsed=11052.2s
+[Oval_Track_260m attempt 330/363] accepted=210/300 elapsed=11111.9s
+[Oval_Track_260m attempt 340/363] accepted=212/300 elapsed=11159.5s
+[Oval_Track_260m attempt 350/363] accepted=215/300 elapsed=11198.0s
+[Oval_Track_260m attempt 360/363] accepted=216/300 elapsed=11244.8s
+[Oval_Track_260m] done accepted=216/300 attempts=363/363 elapsed=11260.5s
+Done. total_accepted=216 total_attempts=1983 elapsed=11260.5s
+[postproj_loop] loop=1 finished current=216/600 delta=37
+[postproj_loop] loop=2/50 current=216/600
+Logging to results/dataset_runs/postproj_repairs_20260304_230012.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 7/252] accepted=216/300 elapsed=28.9s
+CasADi - 2026-03-04 23:01:36 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 17/252] accepted=217/300 elapsed=83.6s
+[Oval_Track_260m attempt 27/252] accepted=218/300 elapsed=128.4s
+[Oval_Track_260m attempt 37/252] accepted=219/300 elapsed=177.2s
+[Oval_Track_260m accepted 220/300] attempts=37/252 elapsed=180.2s
+[Oval_Track_260m attempt 47/252] accepted=220/300 elapsed=233.5s
+[Oval_Track_260m attempt 57/252] accepted=221/300 elapsed=268.9s
+[Oval_Track_260m attempt 67/252] accepted=223/300 elapsed=311.2s
+[Oval_Track_260m attempt 77/252] accepted=223/300 elapsed=359.5s
+[Oval_Track_260m attempt 87/252] accepted=224/300 elapsed=400.7s
+[Oval_Track_260m attempt 97/252] accepted=224/300 elapsed=451.5s
+[Oval_Track_260m attempt 107/252] accepted=225/300 elapsed=502.2s
+[Oval_Track_260m attempt 117/252] accepted=226/300 elapsed=553.4s
+[Oval_Track_260m attempt 127/252] accepted=226/300 elapsed=604.3s
+[Oval_Track_260m attempt 137/252] accepted=227/300 elapsed=645.4s
+[Oval_Track_260m attempt 147/252] accepted=229/300 elapsed=701.8s
+[Oval_Track_260m accepted 230/300] attempts=149/252 elapsed=712.2s
+[Oval_Track_260m attempt 157/252] accepted=231/300 elapsed=750.1s
+[Oval_Track_260m attempt 167/252] accepted=231/300 elapsed=802.0s
+[Oval_Track_260m attempt 177/252] accepted=232/300 elapsed=842.0s
+[Oval_Track_260m attempt 187/252] accepted=233/300 elapsed=890.3s
+CasADi - 2026-03-04 23:15:49 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:49 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:49 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:49 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:49 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:50 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:50 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:50 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-04 23:15:50 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 197/252] accepted=233/300 elapsed=940.9s
+[Oval_Track_260m attempt 207/252] accepted=234/300 elapsed=980.3s
+[Oval_Track_260m attempt 217/252] accepted=234/300 elapsed=1024.0s
+[Oval_Track_260m attempt 227/252] accepted=235/300 elapsed=1087.4s
+[Oval_Track_260m attempt 237/252] accepted=237/300 elapsed=1143.0s
+[Oval_Track_260m attempt 247/252] accepted=237/300 elapsed=1190.7s
+[Oval_Track_260m] done accepted=239/300 attempts=252/252 elapsed=1216.2s
+Done. total_accepted=239 total_attempts=2235 elapsed=1216.2s
+[postproj_loop] loop=2 finished current=239/600 delta=23
+[postproj_loop] loop=3/50 current=239/600
+Logging to results/dataset_runs/postproj_repairs_20260304_232032.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m accepted 240/300] attempts=4/183 elapsed=17.2s
+[Oval_Track_260m attempt 5/183] accepted=240/300 elapsed=17.8s
+[Oval_Track_260m attempt 15/183] accepted=242/300 elapsed=55.5s
+[Oval_Track_260m attempt 25/183] accepted=242/300 elapsed=102.3s
+[Oval_Track_260m attempt 35/183] accepted=243/300 elapsed=139.8s
+[Oval_Track_260m attempt 45/183] accepted=244/300 elapsed=181.5s
+[Oval_Track_260m attempt 55/183] accepted=245/300 elapsed=220.3s
+[Oval_Track_260m attempt 65/183] accepted=246/300 elapsed=265.9s
+[Oval_Track_260m attempt 75/183] accepted=247/300 elapsed=304.3s
+[Oval_Track_260m attempt 85/183] accepted=248/300 elapsed=346.9s
+[Oval_Track_260m attempt 95/183] accepted=248/300 elapsed=387.2s
+[Oval_Track_260m attempt 105/183] accepted=249/300 elapsed=432.6s
+[Oval_Track_260m accepted 250/300] attempts=108/183 elapsed=446.6s
+[Oval_Track_260m attempt 115/183] accepted=250/300 elapsed=477.1s
+[Oval_Track_260m attempt 125/183] accepted=250/300 elapsed=523.1s
+[Oval_Track_260m attempt 135/183] accepted=252/300 elapsed=557.6s
+[Oval_Track_260m attempt 145/183] accepted=254/300 elapsed=604.1s
+[Oval_Track_260m attempt 155/183] accepted=255/300 elapsed=658.5s
+[Oval_Track_260m attempt 165/183] accepted=257/300 elapsed=700.7s
+[Oval_Track_260m attempt 175/183] accepted=258/300 elapsed=750.0s
+[Oval_Track_260m accepted 260/300] attempts=176/183 elapsed=758.6s
+[Oval_Track_260m] done accepted=261/300 attempts=183/183 elapsed=787.6s
+Done. total_accepted=261 total_attempts=2418 elapsed=787.6s
+[postproj_loop] loop=3 finished current=261/600 delta=22
+[postproj_loop] loop=4/50 current=261/600
+Logging to results/dataset_runs/postproj_repairs_20260304_233343.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 2/117] accepted=261/300 elapsed=5.9s
+[Oval_Track_260m attempt 12/117] accepted=264/300 elapsed=48.3s
+[Oval_Track_260m attempt 22/117] accepted=266/300 elapsed=88.3s
+[Oval_Track_260m attempt 32/117] accepted=267/300 elapsed=130.8s
+[Oval_Track_260m attempt 42/117] accepted=267/300 elapsed=174.8s
+[Oval_Track_260m attempt 52/117] accepted=267/300 elapsed=223.2s
+[Oval_Track_260m attempt 62/117] accepted=267/300 elapsed=275.1s
+CasADi - 2026-03-04 23:38:31 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 72/117] accepted=267/300 elapsed=323.2s
+[Oval_Track_260m attempt 82/117] accepted=268/300 elapsed=366.8s
+[Oval_Track_260m attempt 92/117] accepted=269/300 elapsed=424.9s
+[Oval_Track_260m accepted 270/300] attempts=97/117 elapsed=447.1s
+[Oval_Track_260m attempt 102/117] accepted=270/300 elapsed=465.8s
+[Oval_Track_260m attempt 112/117] accepted=272/300 elapsed=501.2s
+[Oval_Track_260m] done accepted=272/300 attempts=117/117 elapsed=529.0s
+Done. total_accepted=272 total_attempts=2535 elapsed=529.0s
+[postproj_loop] loop=4 finished current=272/600 delta=11
+[postproj_loop] loop=5/50 current=272/600
+Logging to results/dataset_runs/postproj_repairs_20260304_234236.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 5/84] accepted=272/300 elapsed=17.7s
+[Oval_Track_260m attempt 15/84] accepted=272/300 elapsed=67.2s
+[Oval_Track_260m attempt 25/84] accepted=272/300 elapsed=110.3s
+[Oval_Track_260m attempt 35/84] accepted=275/300 elapsed=155.3s
+CasADi - 2026-03-04 23:45:24 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 1, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 45/84] accepted=277/300 elapsed=196.2s
+[Oval_Track_260m attempt 55/84] accepted=279/300 elapsed=238.1s
+[Oval_Track_260m accepted 280/300] attempts=62/84 elapsed=273.0s
+[Oval_Track_260m attempt 65/84] accepted=280/300 elapsed=283.8s
+[Oval_Track_260m attempt 75/84] accepted=283/300 elapsed=319.9s
+[Oval_Track_260m] done accepted=284/300 attempts=84/84 elapsed=364.7s
+Done. total_accepted=284 total_attempts=2619 elapsed=364.7s
+[postproj_loop] loop=5 finished current=284/600 delta=12
+[postproj_loop] loop=6/50 current=284/600
+Logging to results/dataset_runs/postproj_repairs_20260304_234845.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m attempt 1/48] accepted=284/300 elapsed=0.0s
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 11/48] accepted=287/300 elapsed=36.7s
+[Oval_Track_260m attempt 21/48] accepted=288/300 elapsed=75.1s
+[Oval_Track_260m attempt 31/48] accepted=288/300 elapsed=123.8s
+[Oval_Track_260m attempt 41/48] accepted=289/300 elapsed=169.6s
+[Oval_Track_260m accepted 290/300] attempts=45/48 elapsed=186.1s
+[Oval_Track_260m] done accepted=290/300 attempts=48/48 elapsed=196.8s
+Done. total_accepted=290 total_attempts=2667 elapsed=196.8s
+[postproj_loop] loop=6 finished current=290/600 delta=6
+[postproj_loop] loop=7/50 current=290/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235205.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 3/30] accepted=290/300 elapsed=8.0s
+[Oval_Track_260m attempt 13/30] accepted=291/300 elapsed=54.5s
+[Oval_Track_260m attempt 23/30] accepted=293/300 elapsed=96.5s
+[Oval_Track_260m] done accepted=294/300 attempts=30/30 elapsed=134.7s
+Done. total_accepted=294 total_attempts=2697 elapsed=134.7s
+[postproj_loop] loop=7 finished current=294/600 delta=4
+[postproj_loop] loop=8/50 current=294/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235424.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 3/18] accepted=295/300 elapsed=6.9s
+[Oval_Track_260m attempt 13/18] accepted=295/300 elapsed=44.2s
+[Oval_Track_260m] done accepted=295/300 attempts=18/18 elapsed=71.6s
+Done. total_accepted=295 total_attempts=2715 elapsed=71.6s
+[postproj_loop] loop=8 finished current=295/600 delta=1
+[postproj_loop] loop=9/50 current=295/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235539.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 5/15] accepted=295/300 elapsed=13.7s
+[Oval_Track_260m attempt 15/15] accepted=295/300 elapsed=55.3s
+[Oval_Track_260m] done accepted=295/300 attempts=15/15 elapsed=62.4s
+Done. total_accepted=295 total_attempts=2730 elapsed=62.4s
+[postproj_loop] loop=9 finished current=295/600 delta=0
+[postproj_loop] no progress (1/5)
+[postproj_loop] loop=10/50 current=295/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235645.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 10/15] accepted=296/300 elapsed=41.3s
+[Oval_Track_260m] done accepted=296/300 attempts=15/15 elapsed=66.4s
+Done. total_accepted=296 total_attempts=2745 elapsed=66.4s
+[postproj_loop] loop=10 finished current=296/600 delta=1
+[postproj_loop] loop=11/50 current=296/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235755.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 5/12] accepted=296/300 elapsed=14.8s
+[Oval_Track_260m] done accepted=296/300 attempts=12/12 elapsed=46.7s
+Done. total_accepted=296 total_attempts=2757 elapsed=46.7s
+[postproj_loop] loop=11 finished current=296/600 delta=0
+[postproj_loop] no progress (1/5)
+[postproj_loop] loop=12/50 current=296/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235845.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 3/12] accepted=297/300 elapsed=6.6s
+[Oval_Track_260m] done accepted=299/300 attempts=12/12 elapsed=49.2s
+Done. total_accepted=299 total_attempts=2769 elapsed=49.2s
+[postproj_loop] loop=12 finished current=299/600 delta=3
+[postproj_loop] loop=13/50 current=299/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235938.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m attempt 1/3] accepted=299/300 elapsed=0.0s
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m accepted 300/300] attempts=1/3 elapsed=3.2s
+[Oval_Track_260m] done accepted=300/300 attempts=1/3 elapsed=3.2s
+Done. total_accepted=300 total_attempts=2770 elapsed=3.3s
+[postproj_loop] loop=13 finished current=300/600 delta=1
+[postproj_loop] loop=14/50 current=300/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235945.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m] already complete: accepted=300/300
+Done. total_accepted=300 total_attempts=0 elapsed=0.0s
+[postproj_loop] loop=14 finished current=300/600 delta=0
+[postproj_loop] no progress (1/5)
+[postproj_loop] loop=15/50 current=300/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235948.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m] already complete: accepted=300/300
+Done. total_accepted=300 total_attempts=0 elapsed=0.0s
+[postproj_loop] loop=15 finished current=300/600 delta=0
+[postproj_loop] no progress (2/5)
+[postproj_loop] loop=16/50 current=300/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235952.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m] already complete: accepted=300/300
+Done. total_accepted=300 total_attempts=0 elapsed=0.0s
+[postproj_loop] loop=16 finished current=300/600 delta=0
+[postproj_loop] no progress (3/5)
+[postproj_loop] loop=17/50 current=300/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235955.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m] already complete: accepted=300/300
+Done. total_accepted=300 total_attempts=0 elapsed=0.0s
+[postproj_loop] loop=17 finished current=300/600 delta=0
+[postproj_loop] no progress (4/5)
+[postproj_loop] loop=18/50 current=300/600
+Logging to results/dataset_runs/postproj_repairs_20260304_235959.log
+[run_postprojection_repairs] Single-map trace detected; capping POSTPROJ_REPAIRS 600 -> 300 for safety.
+[Oval_Track_260m] already complete: accepted=300/300
+Done. total_accepted=300 total_attempts=0 elapsed=0.0s
+[postproj_loop] loop=18 finished current=300/600 delta=0
+[postproj_loop] no progress (5/5)
+[postproj_loop] stopping due to repeated no-progress loops.

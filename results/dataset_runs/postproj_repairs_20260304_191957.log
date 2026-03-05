@@ -1,0 +1,35 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 4/435] accepted=155/300 elapsed=13.6s
+[Oval_Track_260m attempt 14/435] accepted=157/300 elapsed=63.4s
+[Oval_Track_260m attempt 24/435] accepted=159/300 elapsed=111.4s
+[Oval_Track_260m accepted 160/300] attempts=33/435 elapsed=159.4s
+[Oval_Track_260m attempt 34/435] accepted=160/300 elapsed=160.1s
+[Oval_Track_260m attempt 44/435] accepted=162/300 elapsed=209.9s
+[Oval_Track_260m attempt 54/435] accepted=162/300 elapsed=253.9s
+[Oval_Track_260m attempt 64/435] accepted=162/300 elapsed=298.7s
+[Oval_Track_260m attempt 74/435] accepted=162/300 elapsed=347.1s
+[Oval_Track_260m attempt 84/435] accepted=163/300 elapsed=401.7s
+[Oval_Track_260m attempt 94/435] accepted=163/300 elapsed=456.0s
+[Oval_Track_260m attempt 104/435] accepted=163/300 elapsed=511.6s
+[Oval_Track_260m attempt 114/435] accepted=165/300 elapsed=558.5s
+[Oval_Track_260m attempt 124/435] accepted=166/300 elapsed=598.5s
+[Oval_Track_260m attempt 134/435] accepted=166/300 elapsed=642.1s
+[Oval_Track_260m attempt 144/435] accepted=168/300 elapsed=682.7s
+[Oval_Track_260m attempt 154/435] accepted=168/300 elapsed=725.9s
+[Oval_Track_260m attempt 164/435] accepted=169/300 elapsed=770.9s
+[Oval_Track_260m accepted 170/300] attempts=167/435 elapsed=789.6s
+[Oval_Track_260m attempt 174/435] accepted=170/300 elapsed=817.2s
+[Oval_Track_260m attempt 184/435] accepted=170/300 elapsed=871.3s
+[Oval_Track_260m attempt 194/435] accepted=171/300 elapsed=916.1s
+[Oval_Track_260m attempt 204/435] accepted=171/300 elapsed=961.3s
+[Oval_Track_260m attempt 214/435] accepted=173/300 elapsed=1004.1s
+[Oval_Track_260m attempt 224/435] accepted=174/300 elapsed=1054.9s
+[Oval_Track_260m attempt 234/435] accepted=174/300 elapsed=1103.9s
+[Oval_Track_260m attempt 244/435] accepted=176/300 elapsed=1156.8s
+[Oval_Track_260m attempt 254/435] accepted=179/300 elapsed=1194.0s
