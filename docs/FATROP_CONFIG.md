@@ -3,6 +3,7 @@
 ## Scope
 This file lists FATROP-specific runtime knobs used by:
 - [`experiments/run_fatrop_native_trajopt.py`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_native_trajopt.py)
+- [`experiments/run_rockit_fatrop_trajopt.py`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_rockit_fatrop_trajopt.py)
 - [`experiments/benchmark_ipopt_vs_fatrop.py`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/benchmark_ipopt_vs_fatrop.py)
 - [`experiments/tune_fatrop_configs.py`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/tune_fatrop_configs.py)
 - [`experiments/benchmark_fatrop_open_lap_ladder.py`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/benchmark_fatrop_open_lap_ladder.py)
@@ -74,6 +75,13 @@ FATROP_MAX_ITER=800 \
   --map-file maps/Oval_Track_260m.mat --N 40 --compare-ipopt
 ```
 
+Rockit-style dedicated entrypoint:
+```bash
+PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python \
+  experiments/run_rockit_fatrop_trajopt.py --map-file maps/Oval_Track_260m.mat --N 40 --compare-ipopt
+```
+This runner uses the same stage-structured FATROP formulation but keeps a separate CLI for Rockit+FATROP experiments.
+
 ## CLI benchmarking controls
 `experiments/benchmark_ipopt_vs_fatrop.py` supports matched-problem controls:
 - `--N`, `--repeats`
@@ -138,32 +146,61 @@ When using closure reformulation or homotopy:
 - closure mode and soft weight (`FATROP_CLOSURE_MODE`, `FATROP_CLOSURE_SOFT_WEIGHT`)
 - whether warm-start arrays were used (`X_init/U_init`)
 
-## Current practical note
-- At `N=120` on Oval tuning sweep (latest run), all tested preset/structure combinations timed out at 120s:
-  - file: `results/solver_benchmarks/fatrop_tune_N120_Oval_Track_260m_20260305_115251.csv`
-- This means current FATROP path is not yet a drop-in replacement for production IPOPT at high horizon in this codepath.
+## Current practical note (updated 2026-03-05)
+- `N=120` on Oval now **solves in ~8s / 93 iterations** using `run_fatrop_native_trajopt_v2.py`.
+- Previous timeouts were caused by two formulation bugs (see below) — now fixed in v2.
+- `run_fatrop_native_trajopt.py` (v1) retains the old formulation for reference.
 
-Additional supporting run:
-- `results/solver_benchmarks/fatrop_quick_N120_20260305_114637.csv`
-- both tested configs timed out at 90s.
+## Root causes of previous N=120 timeouts (fixed in v2)
 
-## Known pain points at high horizon (`N=120`)
-- Structure warnings appear in manual mode on obstacle runs:
-  - `Constraint found depending on a state of the previous interval.`
-- Current formulation includes periodic lap-closure equality at `k=N` coupling back to `k=0`; this can interfere with FATROP stage-structure assumptions in manual mode.
-- `FATROP_MAX_ITER` should be set for high-horizon sweeps to avoid long solves.
-- There is no confirmed FATROP native max wall-time option in current exposed interface; use process-level timeout in sweep scripts when strict wall-time cutoff is required.
+1. **Non-interleaved variable creation** — v1 created all `x_vars` first, then all `u_vars`.
+   FATROP auto structure detection assigns stages by variable creation order and expects
+   `x_0, u_0, x_1, u_1, ...`. The grouped ordering caused structure detection to fail on
+   every stage, forcing FATROP into generic (O(N³)) NLP mode.
 
-## Best-known stable FATROP config (current)
-For reformulated open-lap diagnosis runs:
-- `FATROP_PRESET=obstacle_fast`
-- `FATROP_STRUCTURE_DETECTION=none`
-- `FATROP_EXPAND=0`
-- `FATROP_STAGE_LOCAL_COST=1`
-- `FATROP_DYNAMICS_SCHEME=trapezoidal`
-- `FATROP_CLOSURE_MODE=soft`
-- `FATROP_CLOSURE_SOFT_WEIGHT=100`
-- `FATROP_MAX_ITER=800`
+2. **Pre-loop boundary condition** — v1 added `opti.subject_to(x_vars[0][5] == 0.0)`
+   before the stage loop. This created a "pre-stage 0" constraint that made all subsequent
+   dynamics (`x_1 = F(x_0, u_0)`) appear to depend on the previous interval.
+
+3. **Soft/hard closure** — `||x_N - x_0||²` in the objective (soft closure) or
+   `x_N == x_0` as a constraint (hard closure) couples stage 0 and stage N, breaking
+   FATROP's banded Hessian/Riccati structure. Since periodicity is not required for
+   single-lap time minimization, `FATROP_CLOSURE_MODE=open` is both correct and necessary.
+
+4. **Euler integration accuracy** — Demanding `tol=1e-4` fights against the O(ds²) Euler
+   discretization error. `tol=0.01` matches the integration accuracy and converges reliably.
+
+## Known pain points at high horizon (`N=120`) — historical, now resolved in v2
+- ~~Structure warnings: `Constraint found depending on a state of the previous interval.`~~ fixed
+- ~~Periodic lap-closure coupling breaking stage structure~~ fixed (open closure)
+- `FATROP_MAX_ITER` should still be set; max allowed value is ~800 (3000 rejected as out of bounds).
+- No confirmed FATROP native wall-time limit; use process-level timeout when needed.
+
+## Best-known stable FATROP config (v2, current)
+Script: `experiments/run_fatrop_native_trajopt_v2.py`
+
+```bash
+FATROP_PRESET=obstacle_fast
+FATROP_STRUCTURE_DETECTION=auto
+FATROP_EXPAND=0
+FATROP_STAGE_LOCAL_COST=1
+FATROP_DYNAMICS_SCHEME=euler
+FATROP_CLOSURE_MODE=open
+FATROP_MAX_ITER=800
+FATROP_TOL=0.01
+FATROP_ACCEPTABLE_TOL=0.01
+```
+
+Result on Oval_Track_260m N=120: **success=True, 93 iter, cost=18.05, solve_time~8s**
+
+Example command:
+```bash
+PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 \
+FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_CLOSURE_MODE=open \
+FATROP_MAX_ITER=800 FATROP_TOL=0.01 FATROP_ACCEPTABLE_TOL=0.01 \
+/home/saveas/.conda/envs/DT_trajopt/bin/python experiments/run_fatrop_native_trajopt_v2.py \
+  --map-file maps/Oval_Track_260m.mat --N 120
+```
 
 ## Related docs
 - Progress log: [`docs/FATROP_TRAJOPT_PROGRESS.md`](/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/docs/FATROP_TRAJOPT_PROGRESS.md)

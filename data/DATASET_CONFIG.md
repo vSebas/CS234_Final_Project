@@ -3,6 +3,24 @@
 This dataset is generated using the staged scripts below. `data/generate_dataset.py`
 remains a quick Stage A-only helper; the full pipeline uses base laps + shifts + repairs.
 
+## Current Focus (March 6, 2026)
+
+To unblock DT training/evaluation quickly, current dataset work is:
+- **Oval-first**
+- **IPOPT-only** for repair generation/fixing
+- keep nonlinear dynamics
+- avoid solver-stack switching for production dataset jobs
+
+Active post-projection target (Oval):
+- target accepted episodes: `600`
+- current shard: `data/datasets/Oval_Track_260m_repairs_postproj`
+- recommended resumable command:
+  - `TOTAL_TARGET=600 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+
+Why `SINGLE_MAP_CAP=0`:
+- default safety cap can stop single-map runs early
+- setting to `0` disables that cap for intentional Oval-only completion
+
 **Scripts**
 - Build base laps (no obstacles + obstacle scenarios):
   - `data/build_base_laps.py`

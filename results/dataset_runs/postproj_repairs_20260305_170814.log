@@ -1,0 +1,38 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 4/660] accepted=381/600 elapsed=14.2s
+[Oval_Track_260m attempt 14/660] accepted=381/600 elapsed=52.9s
+[Oval_Track_260m attempt 24/660] accepted=384/600 elapsed=89.5s
+[Oval_Track_260m attempt 34/660] accepted=384/600 elapsed=129.1s
+[Oval_Track_260m attempt 44/660] accepted=386/600 elapsed=163.8s
+[Oval_Track_260m attempt 54/660] accepted=386/600 elapsed=204.5s
+[Oval_Track_260m attempt 64/660] accepted=388/600 elapsed=247.2s
+[Oval_Track_260m attempt 74/660] accepted=389/600 elapsed=282.1s
+[Oval_Track_260m accepted 390/600] attempts=79/660 elapsed=310.7s
+[Oval_Track_260m attempt 84/660] accepted=390/600 elapsed=335.7s
+[Oval_Track_260m attempt 94/660] accepted=392/600 elapsed=374.1s
+[Oval_Track_260m attempt 104/660] accepted=392/600 elapsed=421.7s
+[Oval_Track_260m attempt 114/660] accepted=394/600 elapsed=464.7s
+[Oval_Track_260m attempt 124/660] accepted=396/600 elapsed=506.0s
+[Oval_Track_260m attempt 134/660] accepted=398/600 elapsed=562.5s
+[Oval_Track_260m attempt 144/660] accepted=398/600 elapsed=607.3s
+[Oval_Track_260m attempt 154/660] accepted=398/600 elapsed=648.3s
+[Oval_Track_260m attempt 164/660] accepted=399/600 elapsed=705.3s
+[Oval_Track_260m accepted 400/600] attempts=166/660 elapsed=720.1s
+[Oval_Track_260m attempt 174/660] accepted=400/600 elapsed=756.6s
+CasADi - 2026-03-05 17:21:37 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+CasADi - 2026-03-05 17:21:37 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 184/660] accepted=402/600 elapsed=805.6s
+[Oval_Track_260m attempt 194/660] accepted=405/600 elapsed=848.6s
+[Oval_Track_260m attempt 204/660] accepted=405/600 elapsed=895.4s
+[Oval_Track_260m attempt 214/660] accepted=405/600 elapsed=946.1s
+[Oval_Track_260m attempt 224/660] accepted=406/600 elapsed=991.7s
+[Oval_Track_260m attempt 234/660] accepted=407/600 elapsed=1046.4s
+[Oval_Track_260m attempt 244/660] accepted=407/600 elapsed=1099.3s
+[Oval_Track_260m attempt 254/660] accepted=407/600 elapsed=1150.0s
+[Oval_Track_260m attempt 264/660] accepted=408/600 elapsed=1194.0s

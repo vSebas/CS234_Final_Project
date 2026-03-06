@@ -2,6 +2,23 @@
 
 This plan is written against the current repo state (IPOPT direct-collocation is the production optimizer; SCP is archived).
 
+## Focus Update (March 6, 2026)
+
+Current execution focus is narrowed to unblock DT progress quickly:
+- scope: **Oval-first** (single-map iteration loop)
+- solver for dataset generation/fixing: **IPOPT only**
+- keep nonlinear dynamics in the generation stack
+- FATROP/MadNLP/Rockit remain experimental tracks and are **not** the active path for dataset production
+
+Immediate dataset objective:
+- finish Oval post-projection repairs to `600` accepted episodes
+- command:
+  - `TOTAL_TARGET=600 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+
+Immediate training objective:
+- retrain/evaluate DT on Oval with downstream benchmark gating
+- continue using validation loss only as shortlist signal, not final checkpoint criterion
+
 Pinned cleanup:
 - Remove the redundant obstacle `margin` vs `clearance` split. Keep a single obstacle inflation / clearance parameter across map generation, optimizer constraints, dataset generation, and docs.
 - Store or recover the final effective obstacle radius explicitly in dataset metadata, so the enforced obstacle size does not need to be reconstructed indirectly from `radius + margin + clearance (+ vehicle radius)`.

@@ -133,21 +133,36 @@ def solve_fatrop_native(
     nu_list = [nu for _ in range(N)] + [0]
     ng_list: List[int] = [0 for _ in range(N + 1)]
 
-    # Stage-local dynamics (multiple shooting, Euler in path domain).
+    # Boundary condition (not part of stage path-constraint structure).
+    opti.subject_to(x_vars[0][5] == 0.0)
+
+    dynamics_scheme = os.environ.get("FATROP_DYNAMICS_SCHEME", "euler").strip().lower()
+    if dynamics_scheme not in {"euler", "trapezoidal"}:
+        raise ValueError(f"Unsupported FATROP_DYNAMICS_SCHEME={dynamics_scheme!r}; expected 'euler' or 'trapezoidal'.")
+
+    # Constraint ordering for FATROP manual structure:
+    # stage k: dynamics_k, then path_constraints_k.
     for k in range(N):
         xk = x_vars[k]
         xkp1 = x_vars[k + 1]
         uk = u_vars[k]
-        dx_dt_k, sdot_k = vehicle.dynamics_dt_path_vec(xk, uk, kappa[k], theta[k], phi[k])
-        opti.subject_to(xkp1 == xk + ds_m * (dx_dt_k / sdot_k))
 
-    # Path constraints stage-by-stage.
-    for k in range(N + 1):
-        xk = x_vars[k]
+        # Discrete dynamics at stage k.
+        dx_dt_k, sdot_dyn_k = vehicle.dynamics_dt_path_vec(xk, uk, kappa[k], theta[k], phi[k])
+        if dynamics_scheme == "trapezoidal":
+            ukp1 = u_vars[k + 1] if (k + 1) < N else uk
+            dx_dt_kp1, sdot_dyn_kp1 = vehicle.dynamics_dt_path_vec(xkp1, ukp1, kappa[k + 1], theta[k + 1], phi[k + 1])
+            opti.subject_to(xkp1 == xk + 0.5 * ds_m * ((dx_dt_k / sdot_dyn_k) + (dx_dt_kp1 / sdot_dyn_kp1)))
+        else:
+            opti.subject_to(xkp1 == xk + ds_m * (dx_dt_k / sdot_dyn_k))
+
+        # Path constraints at stage k.
         ux_k = xk[0]
         uy_k = xk[1]
         e_k = xk[6]
         dpsi_k = xk[7]
+        delta_k = uk[0]
+        fx_k = uk[1]
 
         cons = []
         cons.append(ux_k >= ux_min)
@@ -160,15 +175,10 @@ def solve_fatrop_native(
         cons.append(sdot_k >= eps_s)
         cons.append(e_k >= -track_hw[k] + track_buffer_m)
         cons.append(e_k <= track_hw[k] - track_buffer_m)
-
-        if k < N:
-            uk = u_vars[k]
-            delta_k = uk[0]
-            fx_k = uk[1]
-            cons.append(delta_k >= -p.max_delta_rad)
-            cons.append(delta_k <= p.max_delta_rad)
-            cons.append(fx_k >= p.min_fx_kn)
-            cons.append(fx_k <= p.max_fx_kn)
+        cons.append(delta_k >= -p.max_delta_rad)
+        cons.append(delta_k <= p.max_delta_rad)
+        cons.append(fx_k >= p.min_fx_kn)
+        cons.append(fx_k <= p.max_fx_kn)
 
         if len(obs_list) > 0:
             posE_k = posE_cl[k] - e_k * np.sin(psi_cl[k])
@@ -181,12 +191,40 @@ def solve_fatrop_native(
                     req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
                     cons.append((posE_k - obs_east[j]) ** 2 + (posN_k - obs_north[j]) ** 2 >= req_r**2)
 
-        if k == 0:
-            cons.append(xk[5] == 0.0)
-
         for c in cons:
             opti.subject_to(c)
             ng_list[k] += int(c.nnz())
+
+    # Terminal path constraints at stage N.
+    xN = x_vars[N]
+    ux_N = xN[0]
+    uy_N = xN[1]
+    e_N = xN[6]
+    dpsi_N = xN[7]
+    cons_N = []
+    cons_N.append(ux_N >= ux_min)
+    if ux_max is not None:
+        cons_N.append(ux_N <= ux_max)
+    one_minus_N = 1 - kappa[N] * e_N
+    if abs(float(kappa[N])) > 1e-12:
+        cons_N.append(one_minus_N >= eps_kappa)
+    sdot_N = (ux_N * ca.cos(dpsi_N) - uy_N * ca.sin(dpsi_N)) / one_minus_N
+    cons_N.append(sdot_N >= eps_s)
+    cons_N.append(e_N >= -track_hw[N] + track_buffer_m)
+    cons_N.append(e_N <= track_hw[N] - track_buffer_m)
+    if len(obs_list) > 0:
+        posE_N = posE_cl[N] - e_N * np.sin(psi_cl[N])
+        posN_N = posN_cl[N] + e_N * np.cos(psi_cl[N])
+        for j in range(len(obs_list)):
+            ds_wrap = (s_grid[N] - obs_s_center[j]) % world.length_m
+            if ds_wrap > 0.5 * world.length_m:
+                ds_wrap -= world.length_m
+            if abs(ds_wrap) <= obstacle_window_m:
+                req_r = obs_r_tilde[j] + obstacle_clearance_m + vehicle_radius_m
+                cons_N.append((posE_N - obs_east[j]) ** 2 + (posN_N - obs_north[j]) ** 2 >= req_r**2)
+    for c in cons_N:
+        opti.subject_to(c)
+        ng_list[N] += int(c.nnz())
 
     # Objective: terminal time + stage-local control magnitude + optional soft closure.
     stage_local_cost = os.environ.get("FATROP_STAGE_LOCAL_COST", "1").strip() == "1"
@@ -253,6 +291,10 @@ def solve_fatrop_native(
         fatrop_opts["tol"] = float(preset_cfg["tol"])
     if "acceptable_tol" in preset_cfg:
         fatrop_opts["acceptable_tol"] = float(preset_cfg["acceptable_tol"])
+    if "FATROP_TOL" in os.environ:
+        fatrop_opts["tol"] = float(os.environ["FATROP_TOL"])
+    if "FATROP_ACCEPTABLE_TOL" in os.environ:
+        fatrop_opts["acceptable_tol"] = float(os.environ["FATROP_ACCEPTABLE_TOL"])
     if "FATROP_MAX_ITER" in os.environ:
         try:
             fatrop_opts["max_iter"] = int(float(os.environ["FATROP_MAX_ITER"]))

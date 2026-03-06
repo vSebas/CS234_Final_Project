@@ -1,0 +1,24 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260305_190832.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=600
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=516
+[postproj_loop] loop=1/50 current=516/600
+Logging to results/dataset_runs/postproj_repairs_20260305_190832.log
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 7/252] accepted=519/600 elapsed=25.7s
+[Oval_Track_260m attempt 17/252] accepted=519/600 elapsed=72.8s
+[Oval_Track_260m accepted 520/600] attempts=19/252 elapsed=86.5s
+[Oval_Track_260m attempt 27/252] accepted=521/600 elapsed=116.3s
+[Oval_Track_260m attempt 37/252] accepted=523/600 elapsed=169.7s
+[Oval_Track_260m attempt 47/252] accepted=523/600 elapsed=215.7s
+[Oval_Track_260m attempt 57/252] accepted=526/600 elapsed=252.7s

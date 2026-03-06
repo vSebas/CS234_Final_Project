@@ -6,6 +6,10 @@ This note summarizes the completed DT training runs and their downstream warm-st
 
 - Current best DT run:
   - `dt/checkpoints/full_run_lambda0`
+- Current execution focus:
+  - Oval-first iteration loop
+  - keep dataset generation/fixing on IPOPT (nonlinear dynamics)
+  - pause solver migration work (FATROP/MadNLP/Rockit) for training-data production decisions
 - Current diagnosis:
   - nominal no-obstacle warm starts can be useful
   - obstacle-conditioned warm starts are still the main failure mode
@@ -16,7 +20,10 @@ This note summarizes the completed DT training runs and their downstream warm-st
 - Current next step:
   - keep `full_run_lambda0` as the current best run
   - treat validation loss as a weak shortlist signal only
-  - if continuing, move to post-projection labeled data (DAGGER-like) rather than more naive repair-mix tuning
+  - complete Oval post-projection repairs to `600` accepted episodes, then retrain/evaluate
+  - command used for completion:
+    - `TOTAL_TARGET=600 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+  - continue post-projection labeled data (DAGGER-like) rather than naive repair-mix tuning
 
 ## Next Program: Post-Projection Labeled Data (DAGGER-Lite)
 
