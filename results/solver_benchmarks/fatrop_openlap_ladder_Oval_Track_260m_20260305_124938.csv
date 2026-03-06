@@ -1,3 +1,0 @@
-map,N,timeout_s,preset,structure,expand,fatrop_max_iter,fatrop_max_attempts,fatrop_stage_local_cost,timeout,returncode,wall_time_s,ipopt_success,ipopt_iterations,ipopt_cost,ipopt_solve_time_s,fatrop_success,fatrop_iterations,fatrop_cost,fatrop_solve_time_s,error_snippet
-Oval_Track_260m.mat,40,120.0,obstacle_fast,none,0,800,1,1,False,0,45.399763107299805,True,233,14.509318,15.704,True,135,16.11803,27.398,
-Oval_Track_260m.mat,60,120.0,obstacle_fast,none,0,800,1,1,False,0,104.63026332855225,True,208,14.754634,21.481,True,163,16.668106,80.096,
