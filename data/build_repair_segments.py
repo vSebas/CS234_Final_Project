@@ -17,8 +17,9 @@ project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
-from planning import TrajectoryOptimizer
+from planning import ObstacleCircle, TrajectoryOptimizer
 from world.world import World
+from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 
 from data.schema import EpisodeHeader, compute_rtg, sha256_file, sha256_json
 
@@ -87,6 +88,25 @@ def build_initial_masked_state(x_state: np.ndarray) -> List[float | None]:
     ):
         masked[idx] = float(x_state[idx])
     return masked
+
+
+def normalize_obstacles(raw_obstacles: List[dict | ObstacleCircle]) -> List[ObstacleCircle]:
+    out: List[ObstacleCircle] = []
+    for obs in raw_obstacles:
+        if isinstance(obs, ObstacleCircle):
+            out.append(obs)
+        elif isinstance(obs, dict):
+            out.append(
+                ObstacleCircle(
+                    s_m=obs.get("s_m"),
+                    e_m=obs.get("e_m"),
+                    east_m=obs.get("east_m"),
+                    north_m=obs.get("north_m"),
+                    radius_m=float(obs.get("radius_m", 1.0)),
+                    margin_m=float(obs.get("margin_m", 0.0)),
+                )
+            )
+    return out
 
 
 def load_existing_repairs(manifest_path: Path) -> Tuple[int, int]:
@@ -235,6 +255,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=str, default="data/datasets/repair_segments")
     parser.add_argument("--num-segments", type=int, default=200, help="Target number of accepted repair segments.")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
     parser.add_argument("--H", type=int, default=20)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)
@@ -379,6 +400,7 @@ def main() -> None:
         solver_config_seg = dict(solver_config) if isinstance(solver_config, dict) else {}
         solver_config_seg.update(
             {
+                "solver": str(args.solver),
                 "H": int(args.H),
                 "lambda_u": float(args.lambda_u),
                 "ux_min": float(args.ux_min),
@@ -396,6 +418,7 @@ def main() -> None:
             }
         )
         obstacles_list = list(obstacles) if isinstance(obstacles, (list, tuple)) else []
+        obstacles_norm = normalize_obstacles(obstacles_list)
 
         H_cur = int(args.H)
         if args.hard_mode:
@@ -453,40 +476,69 @@ def main() -> None:
 
         x0_masked = build_initial_masked_state(x0)
 
-        result = optimizer.solve(
-            N=int(H_cur),
-            ds_m=float(s_m[1] - s_m[0]),
-            x0=x0_masked,
-            X_init=X_init,
-            U_init=U_seg,
-            lambda_u=float(args.lambda_u),
-            ux_min=float(args.ux_min),
-            track_buffer_m=float(args.track_buffer_m),
-            obstacles=obstacles_list if obstacles_list else None,
-            obstacle_window_m=float(args.obs_window_m),
-            obstacle_clearance_m=0.3 if obstacles_list else 0.0,
-            obstacle_use_slack=False,
-            obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
-            obstacle_subsamples_per_segment=int(args.obs_subsamples),
-            obstacle_slack_weight=1e4,
-            obstacle_aware_init=True,
-            obstacle_init_sigma_m=float(args.obs_init_sigma_m),
-            obstacle_init_margin_m=float(args.obs_init_margin_m),
-            vehicle_radius_m=0.0,
-            eps_s=float(args.eps_s),
-            eps_kappa=float(args.eps_kappa),
-            convergent_lap=False,
-            s0_offset_m=s0_abs,
-            terminal_state=term_state,
-            terminal_mask=term_mask,
-            terminal_weight=float(args.terminal_weight),
-            verbose=False,
-        )
+        try:
+            if args.solver == "fatrop":
+                result = solve_fatrop_native(
+                    vehicle=vehicle,
+                    world=world,
+                    N=int(H_cur),
+                    ds_m=float(s_m[1] - s_m[0]),
+                    x0=x0_masked,
+                    X_init=X_init,
+                    U_init=U_seg,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacles=obstacles_norm if obstacles_norm else None,
+                    obstacle_window_m=float(args.obs_window_m),
+                    obstacle_clearance_m=0.3 if obstacles_list else 0.0,
+                    vehicle_radius_m=0.0,
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    s0_offset_m=s0_abs,
+                    terminal_state=term_state,
+                    terminal_mask=term_mask,
+                    terminal_weight=float(args.terminal_weight),
+                    verbose=False,
+                )
+            else:
+                result = optimizer.solve(
+                    N=int(H_cur),
+                    ds_m=float(s_m[1] - s_m[0]),
+                    x0=x0_masked,
+                    X_init=X_init,
+                    U_init=U_seg,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacles=obstacles_norm if obstacles_norm else None,
+                    obstacle_window_m=float(args.obs_window_m),
+                    obstacle_clearance_m=0.3 if obstacles_list else 0.0,
+                    obstacle_use_slack=False,
+                    obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+                    obstacle_subsamples_per_segment=int(args.obs_subsamples),
+                    obstacle_slack_weight=1e4,
+                    obstacle_aware_init=True,
+                    obstacle_init_sigma_m=float(args.obs_init_sigma_m),
+                    obstacle_init_margin_m=float(args.obs_init_margin_m),
+                    vehicle_radius_m=0.0,
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    convergent_lap=False,
+                    s0_offset_m=s0_abs,
+                    terminal_state=term_state,
+                    terminal_mask=term_mask,
+                    terminal_weight=float(args.terminal_weight),
+                    verbose=False,
+                )
+        except Exception:
+            save_repair_state(state_path, attempts, rng)
+            continue
 
         if not result.success:
             save_repair_state(state_path, attempts, rng)
             continue
-        if obstacles_list and result.min_obstacle_clearance < float(args.accept_min_clearance_m):
+        if obstacles_norm and result.min_obstacle_clearance < float(args.accept_min_clearance_m):
             save_repair_state(state_path, attempts, rng)
             continue
 

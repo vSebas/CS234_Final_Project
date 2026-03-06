@@ -108,6 +108,7 @@ recovery data. This does not replace the existing dataset; it adds a new shard.
   - `data/build_dataset.py --hard-repair-segments ...`
 - Convenience wrapper:
   - `./data/run_full_dataset.sh hard_repairs`
+  - `./data/run_hard_repairs_fatrop.sh` (experimental FATROP backend)
 
 **Current hard-repair design**
 - separate shard:
@@ -144,8 +145,15 @@ recovery data. This does not replace the existing dataset; it adds a new shard.
   - `./data/build_all_hotspots.sh`
 - build the all-track hard-repair shard:
   - `./data/run_hard_repairs.sh`
+- build the all-track hard-repair shard with FATROP:
+  - `./data/run_hard_repairs_fatrop.sh`
 - or use the broader dataset wrapper:
   - `./data/run_full_dataset.sh hard_repairs`
+
+FATROP hard-repair note:
+- current repair formulation requires `FATROP_STRUCTURE_DETECTION=none` for robustness
+- in current tests on Oval (`H=20`, hard mode), FATROP was slower than IPOPT overall
+  for accepted hard-repair generation, so IPOPT remains the default production path
 
 Hotspot note:
 - the current hotspot files store a small set of per-track anchor `s` positions

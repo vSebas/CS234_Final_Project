@@ -35,7 +35,7 @@ import casadi as ca
 import numpy as np
 
 from models import load_vehicle_from_yaml
-from planning import ObstacleCircle, OptimizationResult, TrajectoryOptimizer
+from planning import ObstacleCircle, OptimizationResult
 from utils.visualization import TrajectoryVisualizer, create_animation
 from world.world import World
 
@@ -135,6 +135,11 @@ def solve_fatrop_native(
     verbose: bool = False,
     X_init: np.ndarray | None = None,
     U_init: np.ndarray | None = None,
+    x0: list[float | None] | None = None,
+    s0_offset_m: float = 0.0,
+    terminal_state: np.ndarray | None = None,
+    terminal_mask: list[bool] | tuple[bool, ...] | np.ndarray | None = None,
+    terminal_weight: float = 0.0,
 ) -> OptimizationResult:
     t_build0 = time.time()
     p = vehicle.params
@@ -145,7 +150,7 @@ def solve_fatrop_native(
     # ---------------------------------------------------------------------------
     # Road geometry at grid nodes
     # ---------------------------------------------------------------------------
-    s_grid = np.linspace(0.0, N * ds_m, N + 1)
+    s_grid = float(s0_offset_m) + np.linspace(0.0, N * ds_m, N + 1)
     s_mod = np.mod(s_grid, world.length_m)
     kappa = np.array(world.psi_s_radpm_LUT(s_mod)).astype(float).squeeze()
     theta = (
@@ -306,6 +311,9 @@ def solve_fatrop_native(
     # Stage loop: dynamics + path constraints
     # Constraint ordering for FATROP manual structure: dynamics_k, path_k.
     # ---------------------------------------------------------------------------
+    if x0 is not None and len(x0) < nx:
+        raise ValueError(f"x0 must have at least {nx} entries, got {len(x0)}")
+
     for k in range(N):
         xk   = x_vars[k]
         xkp1 = x_vars[k + 1]
@@ -356,8 +364,16 @@ def solve_fatrop_native(
         # Initial-time boundary condition inside stage 0: treats it as a stage-0
         # path constraint so FATROP auto structure detection does not see it as a
         # "pre-stage" constraint (which would make all downstream dynamics cross-stage).
+        # x0 masked initial-state constraints are also placed here for the same reason:
+        # adding them after the stage loop causes the structure detector to see x_vars[0]
+        # referenced at stage N, which triggers "depending on a state of the previous
+        # interval" errors and forces O(N³) generic NLP mode.
         if k == 0:
             cons.append(xk[5] == 0.0)
+            if x0 is not None:
+                for i in range(nx):
+                    if x0[i] is not None:
+                        cons.append(xk[i] == float(x0[i]))
 
         # Speed and forward-progress constraints.
         cons.append(ux_k >= ux_min)
@@ -451,7 +467,8 @@ def solve_fatrop_native(
         ng_list[N] += int(c.nnz())
 
     # ---------------------------------------------------------------------------
-    # Objective: terminal time + stage-local control regularization + soft closure.
+    # Objective: terminal time + stage-local control regularization + optional
+    # terminal-mask penalty + optional closure term.
     # When smooth_controls=1, u_k = [dδ/ds, dFx/ds], so ||u_k||^2 penalizes rates.
     # ---------------------------------------------------------------------------
     stage_local_cost = os.environ.get("FATROP_STAGE_LOCAL_COST", "1").strip() == "1"
@@ -473,7 +490,22 @@ def solve_fatrop_native(
         opti.subject_to(u_vars[N - 1][0] == u_vars[0][0])
         opti.subject_to(u_vars[N - 1][1] == u_vars[0][1])
 
-    objective = x_vars[N][5] + reg_cost + closure_cost
+    terminal_cost = 0.0
+    if terminal_state is not None and terminal_mask is not None and float(terminal_weight) > 0.0:
+        term_arr = np.asarray(terminal_state, dtype=float).reshape(-1)
+        mask_arr = np.asarray(terminal_mask, dtype=bool).reshape(-1)
+        if term_arr.size < nx:
+            raise ValueError(f"terminal_state must have at least {nx} entries, got {term_arr.size}")
+        if mask_arr.size < nx:
+            raise ValueError(f"terminal_mask must have at least {nx} entries, got {mask_arr.size}")
+        term_terms = []
+        for i in range(nx):
+            if bool(mask_arr[i]):
+                term_terms.append((x_vars[N][i] - float(term_arr[i])) ** 2)
+        if term_terms:
+            terminal_cost = float(terminal_weight) * ca.sum1(ca.vertcat(*term_terms))
+
+    objective = x_vars[N][5] + reg_cost + terminal_cost + closure_cost
     opti.minimize(objective)
 
     # ---------------------------------------------------------------------------
@@ -674,7 +706,6 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     ap.add_argument("--N", type=int, default=120)
-    ap.add_argument("--compare-ipopt", action="store_true")
     ap.add_argument("--verbose", action="store_true")
     ap.add_argument("--output-dir", type=str, default="results/trajectory_optimization/fatrop")
     ap.add_argument("--animate", action="store_true")
@@ -688,28 +719,6 @@ def main():
     vehicle = load_vehicle_from_yaml("models/config/vehicle_params_gti.yaml")
     obstacles = _load_obstacles_from_world(world)
     ds_m = float(world.length_m / int(args.N))
-
-    if args.compare_ipopt:
-        base = TrajectoryOptimizer(vehicle, world).solve(
-            N=int(args.N),
-            ds_m=ds_m,
-            lambda_u=0.005,
-            ux_min=0.5,
-            track_buffer_m=0.0,
-            eps_s=0.1,
-            eps_kappa=0.05,
-            obstacles=obstacles,
-            obstacle_clearance_m=0.0,
-            obstacle_use_slack=False,
-            obstacle_enforce_midpoints=False,
-            obstacle_subsamples_per_segment=5,
-            convergent_lap=False,
-            verbose=False,
-        )
-        print(
-            f"[ipopt] success={base.success} iterations={base.iterations} "
-            f"cost={base.cost:.6f} solve_time={base.solve_time:.3f}s"
-        )
 
     fat = solve_fatrop_native(
         vehicle=vehicle,

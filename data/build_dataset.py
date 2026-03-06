@@ -62,6 +62,13 @@ def main() -> None:
     parser.add_argument("--H", type=int, default=20)
     parser.add_argument("--hard-repair-hotspot-json", type=str, default=None)
     parser.add_argument(
+        "--hard-repair-solver",
+        type=str,
+        choices=("ipopt", "fatrop"),
+        default="ipopt",
+        help="Solver backend for Stage B2 hard-repair generation.",
+    )
+    parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -235,6 +242,8 @@ def main() -> None:
                     "10",
                     "--resume",
                     "--hard-mode",
+                    "--solver",
+                    str(args.hard_repair_solver),
                     "--uy-perturb-mps",
                     "0.15",
                     "--r-perturb-radps",
