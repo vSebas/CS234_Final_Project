@@ -1,0 +1,2 @@
+N,obs_subsamples,lambda_u,ux_min,obstacle_clearance_m,success,accepted,cost_s,solve_time_s,iterations,max_obstacle_slack,min_obstacle_clearance_m,tv_delta,tv_fx,max_abs_ddelta,max_abs_dfx
+120,7,0.005,3.0,0.0,True,True,15.598643634464773,44.86319541931152,267,0.0,inf,4.634811061781619,34.866973571625934,0.9424556971889444,0.8385273864768248

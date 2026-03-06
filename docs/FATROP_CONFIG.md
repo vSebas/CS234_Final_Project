@@ -147,8 +147,11 @@ When using closure reformulation or homotopy:
 - whether warm-start arrays were used (`X_init/U_init`)
 
 ## Current practical note (updated 2026-03-05)
-- `N=120` on Oval now **solves in ~8s / 93 iterations** using `run_fatrop_native_trajopt_v2.py`.
-- Previous timeouts were caused by two formulation bugs (see below) — now fixed in v2.
+- `N=120` on Oval solves in ~8s / 93 iter using `run_fatrop_native_trajopt_v2.py`.
+- **Best config after fine-tuning: `N=150, tol=5e-3`** — cost=17.14 (-5.1% vs baseline), 87 iter, 13.4s.
+- `N=150, tol=0.01` is also a free win over N=120: 8.6s, 56 iter, cost=17.84.
+- `N=200` is not worth it: needs tol≤1e-3 to avoid premature exit, then 54s with no gain.
+- Previous timeouts at N=120 were caused by two formulation bugs — now fixed in v2.
 - `run_fatrop_native_trajopt.py` (v1) retains the old formulation for reference.
 
 ## Root causes of previous N=120 timeouts (fixed in v2)
@@ -176,9 +179,10 @@ When using closure reformulation or homotopy:
 - `FATROP_MAX_ITER` should still be set; max allowed value is ~800 (3000 rejected as out of bounds).
 - No confirmed FATROP native wall-time limit; use process-level timeout when needed.
 
-## Best-known stable FATROP config (v2, current)
+## Best-known stable FATROP configs (v2, current)
 Script: `experiments/run_fatrop_native_trajopt_v2.py`
 
+### Fast config — dataset generation (N=150, tol=0.01)
 ```bash
 FATROP_PRESET=obstacle_fast
 FATROP_STRUCTURE_DETECTION=auto
@@ -190,16 +194,30 @@ FATROP_MAX_ITER=800
 FATROP_TOL=0.01
 FATROP_ACCEPTABLE_TOL=0.01
 ```
+Result on Oval_Track_260m N=150: **success=True, 56 iter, cost=17.84, solve_time~8.6s**
 
-Result on Oval_Track_260m N=120: **success=True, 93 iter, cost=18.05, solve_time~8s**
+### Balanced config — best quality/speed (N=150, tol=5e-3)
+```bash
+FATROP_PRESET=obstacle_fast
+FATROP_STRUCTURE_DETECTION=auto
+FATROP_EXPAND=0
+FATROP_STAGE_LOCAL_COST=1
+FATROP_DYNAMICS_SCHEME=euler
+FATROP_CLOSURE_MODE=open
+FATROP_MAX_ITER=800
+FATROP_TOL=5e-3
+FATROP_ACCEPTABLE_TOL=5e-3
+```
+Result on Oval_Track_260m N=150: **success=True, 87 iter, cost=17.14, solve_time~13.4s**
+That is -5.1% lap time vs the N=120/tol=0.01 baseline.
 
-Example command:
+Example command (balanced):
 ```bash
 PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 \
 FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_CLOSURE_MODE=open \
-FATROP_MAX_ITER=800 FATROP_TOL=0.01 FATROP_ACCEPTABLE_TOL=0.01 \
+FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_TOL=5e-3 \
 /home/saveas/.conda/envs/DT_trajopt/bin/python experiments/run_fatrop_native_trajopt_v2.py \
-  --map-file maps/Oval_Track_260m.mat --N 120
+  --map-file maps/Oval_Track_260m.mat --N 150
 ```
 
 ## Related docs

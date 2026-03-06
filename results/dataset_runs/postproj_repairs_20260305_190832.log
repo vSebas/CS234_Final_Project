@@ -12,3 +12,29 @@ This program contains Ipopt, a library for large-scale nonlinear optimization.
 [Oval_Track_260m attempt 37/252] accepted=523/600 elapsed=169.7s
 [Oval_Track_260m attempt 47/252] accepted=523/600 elapsed=215.7s
 [Oval_Track_260m attempt 57/252] accepted=526/600 elapsed=252.7s
+[Oval_Track_260m attempt 67/252] accepted=529/600 elapsed=296.7s
+[Oval_Track_260m accepted 530/600] attempts=71/252 elapsed=317.4s
+[Oval_Track_260m attempt 77/252] accepted=531/600 elapsed=337.3s
+[Oval_Track_260m attempt 87/252] accepted=533/600 elapsed=377.1s
+[Oval_Track_260m attempt 97/252] accepted=534/600 elapsed=425.5s
+[Oval_Track_260m attempt 107/252] accepted=535/600 elapsed=475.4s
+[Oval_Track_260m attempt 117/252] accepted=537/600 elapsed=521.5s
+[Oval_Track_260m attempt 127/252] accepted=537/600 elapsed=561.4s
+[Oval_Track_260m attempt 137/252] accepted=538/600 elapsed=610.6s
+[Oval_Track_260m accepted 540/600] attempts=146/252 elapsed=656.4s
+[Oval_Track_260m attempt 147/252] accepted=540/600 elapsed=656.8s
+[Oval_Track_260m attempt 157/252] accepted=540/600 elapsed=699.7s
+[Oval_Track_260m attempt 167/252] accepted=541/600 elapsed=742.0s
+[Oval_Track_260m attempt 177/252] accepted=541/600 elapsed=785.8s
+CasADi - 2026-03-05 19:22:03 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 187/252] accepted=542/600 elapsed=831.8s
+[Oval_Track_260m attempt 197/252] accepted=543/600 elapsed=870.1s
+[Oval_Track_260m attempt 207/252] accepted=544/600 elapsed=917.7s
+[Oval_Track_260m attempt 217/252] accepted=547/600 elapsed=951.1s
+[Oval_Track_260m accepted 550/600] attempts=220/252 elapsed=967.2s
+CasADi - 2026-03-05 19:24:43 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 227/252] accepted=551/600 elapsed=995.5s
+[Oval_Track_260m attempt 237/252] accepted=553/600 elapsed=1037.6s
+[Oval_Track_260m attempt 247/252] accepted=555/600 elapsed=1076.4s
+[Oval_Track_260m] done accepted=555/600 attempts=252/252 elapsed=1106.7s
+Done. total_accepted=555 total_attempts=4935 elapsed=1106.7s

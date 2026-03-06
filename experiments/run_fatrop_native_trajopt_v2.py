@@ -17,11 +17,15 @@ import time
 from pathlib import Path
 from typing import List
 
+import matplotlib
+matplotlib.use("Agg")
+
 import casadi as ca
 import numpy as np
 
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, OptimizationResult, TrajectoryOptimizer
+from utils.visualization import TrajectoryVisualizer, create_animation
 from world.world import World
 
 
@@ -381,6 +385,8 @@ def main():
     ap.add_argument("--N", type=int, default=120)
     ap.add_argument("--compare-ipopt", action="store_true")
     ap.add_argument("--verbose", action="store_true")
+    ap.add_argument("--output-dir", type=str, default="results/trajectory_optimization/fatrop_v2")
+    ap.add_argument("--animate", action="store_true")
     args = ap.parse_args()
 
     map_file = Path(args.map_file)
@@ -436,6 +442,25 @@ def main():
         f"total_time={getattr(fat, 'total_time_s', float('nan')):.3f}s "
         f"min_clearance={fat.min_obstacle_clearance:.4f} closure={closure_mode}"
     )
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    prefix = f"fatrop_N{args.N}"
+    visualizer = TrajectoryVisualizer(world, output_dir=str(output_dir))
+    plots = visualizer.generate_full_report(fat, prefix=prefix)
+    for kind, path in plots.items():
+        print(f"  [{kind}] {path}")
+
+    if args.animate:
+        try:
+            anim_path = create_animation(
+                visualizer, fat,
+                filename=f"{prefix}_animation.gif",
+                fps=15,
+            )
+            print(f"  [animation] {anim_path}")
+        except Exception as e:
+            print(f"  [animation] skipped: {e}")
 
 
 if __name__ == "__main__":

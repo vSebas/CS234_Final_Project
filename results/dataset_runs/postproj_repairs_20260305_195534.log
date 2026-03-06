@@ -1,0 +1,10 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 6/12] accepted=596/600 elapsed=23.6s
+[Oval_Track_260m] done accepted=597/600 attempts=12/12 elapsed=71.1s
+Done. total_accepted=597 total_attempts=5316 elapsed=71.2s
