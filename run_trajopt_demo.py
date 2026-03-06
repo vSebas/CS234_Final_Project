@@ -208,7 +208,7 @@ def run_demo(args):
             optimizer = TrajectoryOptimizer(vehicle, world)
 
             # Default discretization tuned for faster solves on the oval (N=120).
-            # See docs/OPTIMIZER_CONFIG.md for the selected defaults.
+            # See docs/TRAJOPT_HISTORY.md for current selected defaults/history.
             N = int(args.n if args.n is not None else os.environ.get("N", "120"))
             ds_m = world.length_m / N
             obstacle_subsamples = int(args.obs_subsamples if args.obs_subsamples is not None else os.environ.get("OBS_SUBSAMPLES", "11"))

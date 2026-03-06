@@ -1,6 +1,8 @@
 # Trajectory Optimization History
 
-This is the single trajectory-optimization document for the project.
+This is the trajectory-optimization history summary for the project.
+Current FATROP runtime knobs and canonical command are documented in
+`docs/FATROP_CONFIG.md`.
 
 ## Current status (what to use now)
 
