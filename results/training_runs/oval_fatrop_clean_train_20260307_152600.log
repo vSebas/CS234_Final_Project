@@ -1,0 +1,20 @@
+[dt/run_train] mode=full_action
+[dt/run_train] data_dir=data/datasets/Oval_Track_260m_shifts_fatrop_clean,data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean
+[dt/run_train] output_dir=dt/checkpoints/oval_fatrop_clean_train20
+[dt/run_train] batch_size=64
+[dt/run_train] num_epochs=20
+[dt/run_train] num_workers=4
+[dt/run_train] context_length=30
+[dt/run_train] device=cuda
+[dt/run_train] python_bin=/home/saveas/.conda/envs/DT_trajopt/bin/python
+[dt/run_train] lambda_x=0.0
+[dt/run_train] repair_weight=1.0
+[dt/run_train] resume=auto
+/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/site-packages/torch/cuda/__init__.py:184: UserWarning: CUDA initialization: Unexpected error from cudaGetDeviceCount(). Did you run some cuda functions before calling NumCudaDevices() that might have already set an error? Error 304: OS call failed or operation not supported on this OS (Triggered internally at /pytorch/c10/cuda/CUDAFunctions.cpp:119.)
+  return torch._C._cuda_getDeviceCount() > 0
+Traceback (most recent call last):
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/dt/train.py", line 875, in <module>
+    main()
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/dt/train.py", line 773, in main
+    raise RuntimeError(
+RuntimeError: Requested --device cuda, but torch.cuda.is_available() is False in this shell. Verify your CUDA environment or use --device cpu.

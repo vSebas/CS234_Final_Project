@@ -77,8 +77,19 @@ case "${mode}" in
       postproj_repair_fraction="0.05"
     fi
     ;;
+  oval_fatrop_clean)
+    output_dir="${OUTPUT_DIR:-dt/checkpoints/oval_fatrop_clean_train20}"
+    batch_size="${BATCH_SIZE:-64}"
+    num_epochs="${NUM_EPOCHS:-20}"
+    data_dir="${DATA_DIR:-data/datasets/Oval_Track_260m_shifts_fatrop_clean,data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean}"
+    num_workers="${NUM_WORKERS:-0}"
+    device="${DEVICE:-cuda}"
+    if [[ -z "${lambda_x}" ]]; then
+      lambda_x="0.0"
+    fi
+    ;;
   *)
-    echo "Usage: $0 [smoke|full|full_action|full_action_hard|full_action_postproj]"
+    echo "Usage: $0 [smoke|full|full_action|full_action_hard|full_action_postproj|oval_fatrop_clean]"
     echo "Optional env overrides: OUTPUT_DIR, DATA_DIR, BATCH_SIZE, NUM_EPOCHS, NUM_WORKERS, CONTEXT_LENGTH, DEVICE, LAMBDA_X, REPAIR_WEIGHT, SHIFT_FRACTION, REPAIR_FRACTION, HARD_REPAIR_FRACTION, POSTPROJ_REPAIR_FRACTION"
     exit 1
     ;;
