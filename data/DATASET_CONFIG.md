@@ -172,6 +172,15 @@ Post-projection defaults:
 - optional long horizon: `H=40` at configured probability
 - trigger filter uses trace rows marked `triggered=true`
 
+Active split defaults (code-aligned):
+- hard-repair horizon mix (`data/build_repair_segments.py --hard-horizon-probs`):
+  - `H=20`: `0.60`
+  - `H=40`: `0.25`
+  - `H=60`: `0.15`
+- DT training source-mix presets (`dt/run_train.sh`):
+  - `full_action_hard`: `shift=0.75`, `repair=0.10`, `hard=0.15`
+  - `full_action_postproj`: `shift=0.85`, `repair=0.10`, `hard=0.00`, `postproj=0.05`
+
 ## On-Disk Outputs
 
 Shard patterns:

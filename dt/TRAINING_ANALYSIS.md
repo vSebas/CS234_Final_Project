@@ -29,6 +29,24 @@ This note summarizes the completed DT training runs and their downstream warm-st
     - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
   - continue post-projection labeled data (DAGGER-like) rather than naive repair-mix tuning
 
+## Active Split Defaults
+
+Current code-level default source mixes (`dt/run_train.sh`):
+- `full_action_hard`:
+  - `shift=0.75`
+  - `repair=0.10`
+  - `hard=0.15`
+- `full_action_postproj`:
+  - `shift=0.85`
+  - `repair=0.10`
+  - `hard=0.00`
+  - `postproj=0.05`
+
+Current hard-repair horizon mix default (`data/build_repair_segments.py`):
+- `H=20`: `0.60`
+- `H=40`: `0.25`
+- `H=60`: `0.15`
+
 ## Next Program: Post-Projection Labeled Data (DAGGER-Lite)
 
 This is the new primary plan after the negative `full_run_lambda0_hard` downstream result.
