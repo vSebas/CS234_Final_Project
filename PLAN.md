@@ -2,41 +2,41 @@
 
 This plan is written against the current repo state (IPOPT direct-collocation is the production optimizer; SCP is archived).
 
-## Focus Update (March 6, 2026)
+## Focus Update (March 7, 2026)
 
 Current execution focus is narrowed to unblock DT progress quickly:
-- scope: **Oval-first** (single-map iteration loop)
-- solver for dataset generation/fixing: **IPOPT only**
+- scope: **Oval-first** (single-map iteration loop with/without obstacles)
 - keep nonlinear dynamics in the generation stack
-- FATROP/MadNLP/Rockit remain experimental tracks and are **not** the active path for dataset production
+- solver policy for this phase:
+  - hard-repair generation: **FATROP**
+  - post-projection generation: **IPOPT default** (`POSTPROJ_SOLVER=ipopt`)
+  - keep FATROP as optional post-proj override only for targeted experiments
 
-Immediate dataset objective:
-- finish Oval post-projection repairs to `600` accepted episodes
-- command:
-  - `TOTAL_TARGET=600 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+Current dataset status (Oval-only training phase):
+- `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes (target `400`, complete for this phase)
+- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` accepted episodes (target `1000`, in progress)
 
-Immediate training objective:
-- retrain/evaluate DT on Oval with downstream benchmark gating
-- continue using validation loss only as shortlist signal, not final checkpoint criterion
+Current training status:
+- latest run: `dt/checkpoints/oval_hard400_train20`
+- best validation action loss: `0.007035`
+- downstream fixed-gate benchmark improved strongly vs prior checkpoints, but DT warm-start is still slightly slower than baseline on the current 3-scenario Oval gates
 
-### Oval-only dataset expansion (current execution)
+Immediate objective:
+1. Finish Oval post-projection repairs to `1000`.
+2. Retrain on Oval-only shards.
+3. Re-run downstream benchmark gate and select checkpoints by benchmark metrics first (val loss second).
 
-For the current training cycle, use only Oval with and without obstacles and
-increase recovery-style data before retraining.
+### Why post-projection data is in scope
 
-Targets:
-- `data/datasets/Oval_Track_260m_repairs_hard`: `400` accepted episodes
-- `data/datasets/Oval_Track_260m_repairs_postproj`: `1000` accepted episodes
+The main failure mode is rollout distribution shift:
+- DT rollout repeatedly triggers projection/fallback edits in difficult states.
+- Those states are underrepresented in clean expert trajectories.
+- Post-projection repairs provide optimizer-labeled data exactly on those off-manifold states.
 
-Execution order:
-1. Resume hard-repair generation to `400` (`--resume`).
-2. Resume post-projection generation loop to `1000` (`TOTAL_TARGET=1000`, `SINGLE_MAP_CAP=0`).
-3. Recompute shard counts/timesteps and retrain DT on Oval-only shards.
-
-Solver policy for current Oval-only run:
-- hard-repair: FATROP profile
-- post-projection: IPOPT default (`POSTPROJ_SOLVER=ipopt`)
-- keep FATROP as an optional post-proj override only for targeted experiments
+So this phase emphasizes:
+- keeping hard-repair data (broad recovery coverage),
+- adding post-projection data (wrapper-triggered state coverage),
+- evaluating by downstream solve-time/iterations/success, not by validation loss alone.
 
 Pinned cleanup:
 - Remove the redundant obstacle `margin` vs `clearance` split. Keep a single obstacle inflation / clearance parameter across map generation, optimizer constraints, dataset generation, and docs.
@@ -52,8 +52,8 @@ Pinned cleanup:
 - `models/`: unified single-track model + Fiala brush tires.
 - `world/`: track geometry, Frenet/ENU utilities.
 - `planning/optimizer.py`: direct collocation (trapezoidal in spatial domain) + IPOPT.
-- `run_trajopt_demo.py`: single-scenario run with acceptance-gated retries.
-- `run_trajopt_batch_eval.py`: randomized obstacle scenarios + JSON/CSV reports.
+- `experiments/run_ipopt_trajopt_demo.py`: single-scenario run with acceptance-gated retries.
+- `experiments/ipopt_trajopt_cli.py batch`: randomized obstacle scenarios + JSON/CSV reports.
 - `docs/`: background + papers + reference repos.
 
 ### What the optimizer currently solves
@@ -333,7 +333,7 @@ Obstacle conditioning is the point of the project, so we want a lot of obstacle-
 
 **Approach:** solve a moderate number of *distinct obstacle scenarios* per track (periodic full-lap), then multiply each accepted solution into many shift episodes (A2).
 
-Obstacle sampling should reuse your existing `run_trajopt_batch_eval.py` distributions:
+Obstacle sampling should reuse your existing `experiments/ipopt_trajopt_cli.py batch` distributions:
 - obstacle count curriculum: `{1,2}` → `{3..6}`
 - radius `r ~ Uniform(1.2, 1.8)` m
 - margin `m ~ Uniform(0.6, 0.9)` m
@@ -369,7 +369,7 @@ We currently have **6 tracks**:
 
 **Do you need more than 6 tracks?**
 - If the 6 tracks are reasonably diverse (different curvature/width profiles): **no** for the first trainable baseline.
-- If they’re all “oval-like”: generate ~5–10 more using `create_tracks.py` seeds. This helps DT not overfit a single geometry family, but it’s not required to start training.
+- If they’re all “oval-like”: generate ~5–10 more using `maps/create_tracks.py` seeds. This helps DT not overfit a single geometry family, but it’s not required to start training.
 
 ### 2.6 Concrete counts to hit the trainable baseline (example)
 
@@ -392,25 +392,22 @@ Then add repair segments as a small augmentation:
 
 This hits the baseline without needing thousands of full-lap non-periodic solves.
 
-### 2.7 Implementation checklist (dataset-only)
+### 2.7 Implementation checklist (dataset-only, current status)
 
-Create these scripts/modules (dataset-only scope):
-- `data/schema.py` (episode header + arrays contract)
-- `data/build_base_laps.py`
-  - solve periodic no-obstacle base laps per track
-  - solve periodic obstacle base laps per track (curriculum)
-  - store as `base_laps/<map_id>/<base_id>.npz`
-- `data/make_shift_episodes.py`
-  - for each base lap in split, generate up to N unique `k0` shifts
-  - recompute `rtg` after shifting
-- `data/build_repair_segments.py`
-  - sample `(base_id, k0)`, perturb `x0`, solve `H`-step segment with terminal anchor
-- `data/write_shards.py`
-  - write to `data/datasets/<name>/{train,val,test}_*.npz` + `manifest.jsonl`
+Completed:
+- `data/schema.py`-style stable episode schema is implemented and used by DT loader.
+- `data/build_base_laps.py` and `data/make_shift_episodes.py` are in use.
+- `data/build_repair_segments.py` supports hard-repair generation (`--hard-mode`) and solver choice.
+- `data/build_postprojection_repairs.py` and `data/run_postprojection_repairs.sh` are implemented.
+- hard-repair timeout/resume controls and long-run wrappers are in place for practical dataset completion.
 
-Required optimizer tweaks to support segments cleanly:
-- add `s0_offset_m` (absolute s) support for track geometry queries
-- allow parameterized initial condition constraints (`x0_param`, `x0_mask`) so caching works
+In progress:
+- complete `Oval_Track_260m_repairs_postproj` to target `1000`.
+- keep checkpoint-local warmstart evaluation artifacts aligned with run folders.
+
+Pending:
+- persist explicit train/val/test split artifacts on disk (currently split at loader runtime).
+- finalize dataset balancing strategy for retraining once post-proj target is reached.
 
 ## 3) Decision Transformer design for this repo
 
@@ -642,253 +639,122 @@ Plot:
 
 ---
 
-## 7) Concrete checklist of code to add/modify
+## 7) Concrete checklist (current phase)
 
-### Must modify
-- `planning/optimizer.py` (Tier 1)
-  - simplify objective to **minimum time + \(\Delta u\) regularizer**
-  - add constraints:
-    - `sdot_k >= eps_s`
-    - `1 - kappa(s_k) * e_k >= eps_kappa`
-  - keep obstacle constraints **node-only** in the NLP
-  - keep dense post-solve obstacle checking + retries
-  - inflate obstacle radius by a conservative vehicle footprint radius `vehicle_radius_m`
-
-- `planning/config.py` (or wherever solver hyperparams live)
-  - add `lambda_u`, `eps_s`, `eps_kappa`, and `vehicle_radius_m`
-
-### Must add
-- `data/schema.py`
-- `data/generate_dataset.py`
-- `data/datasets/<name>/...`
-- `dt/` (or `models_dt/`): DT model + trainer
+### Implemented
+- `dt/` training/eval stack:
   - `dt/model.py`
   - `dt/dataset.py`
   - `dt/train.py`
   - `dt/eval.py`
-- `planning/dt_warmstart.py`
-- `experiments/eval_warmstart.py`
+- warm-start integration and evaluation:
+  - `planning/dt_warmstart.py`
+  - `experiments/eval_warmstart.py`
+- dataset generation stack:
+  - `data/build_base_laps.py`
+  - `data/make_shift_episodes.py`
+  - `data/build_repair_segments.py`
+  - `data/build_postprojection_repairs.py`
+  - `data/run_postprojection_repairs.sh`
 
-### Definition of done
-- On a held-out batch of randomized obstacle scenarios (and held-out maps if enabled):
-  - DT warm-start reduces median IPOPT iterations and solve time vs baseline
-  - success/acceptance does not drop (or improves)
-  - final lap time is within a small gap of baseline (or improves)
+### Remaining for this phase
+- complete Oval post-projection shard to target `1000`
+- retrain DT with updated recovery-data mix
+- re-run benchmark gates and checkpoint selection
+
+### Definition of done (phase gate)
+- On deterministic held-out obstacle scenarios:
+  - DT warm-start shows a clear practical benefit (or explicitly justified tradeoff) on solve metrics vs baseline
+  - success/acceptance does not regress materially
+  - lap-time objective remains close to baseline
 
 ---
 
 ## 8) Live Backlog
 
-This section is the active consolidated backlog for the repo. Treat `PLAN.md` as the single planning source of truth going forward.
+This section is the active consolidated backlog for the repo. Treat `PLAN.md` as the single planning source of truth.
 
 ### 8.1 Current state
 
 - Production optimizer path: IPOPT direct collocation with hard obstacle constraints.
-- Dataset generation is complete for 6 tracks using Fix A + Fix B.
-- The on-disk dataset schema is stable and documented in `data/DATASET_CONFIG.md`.
-- DT code is implemented in:
-  - `dt/dataset.py`
-  - `dt/model.py`
-  - `dt/train.py`
-  - `dt/eval.py`
-  - `planning/dt_warmstart.py`
-- DT data handling already supports:
-  - multi-shard loading
-  - split-by-`base_id` train/validation splitting
-  - train-only normalization statistics
-  - consistent obstacle wrap-around features
-- DT warm-start currently uses:
-  - model-consistent path dynamics rollout
-  - optimizer-consistent obstacle validation based on the current obstacle inflation rule
+- Active data-generation policy:
+  - hard repairs via FATROP
+  - post-projection repairs via IPOPT (default)
+- Current Oval-only recovery shards:
+  - `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
+  - `data/datasets/Oval_Track_260m_repairs_postproj`: `602` episodes
+- Latest training run:
+  - `dt/checkpoints/oval_hard400_train20`
+  - best validation action loss: `0.007035`
+- Latest fixed-gate benchmark outcome:
+  - large improvement vs older checkpoints
+  - DT warm-start still slightly slower than baseline on current 3-scenario Oval gates
 
 ### 8.2 Immediate priorities
 
-1. Persist train/val/test split artifacts to disk instead of splitting only inside the loader at runtime.
-2. Keep `dt/checkpoints/full_run_lambda0` as the current best run-family baseline.
-3. Implement post-projection labeled data generation (DAGGER-lite):
-   - export per-step wrapper traces
-   - trigger-select problematic states
-   - label with short repair solves
-   - save as a dedicated post-projection shard
-   - status:
-     - trace export is implemented in `experiments/eval_warmstart.py`
-     - labeling script is implemented in `data/build_postprojection_repairs.py`
-     - wrapper script is implemented in `data/run_postprojection_repairs.sh`
-4. Retrain with conservative first mix:
-   - `85%` shifts
-   - `10%` standard repairs
-   - `0%` hard repairs
-   - `5%` post-projection repairs
-5. Evaluate with two-tier benchmark gates:
-   - `3/3` smoke gate
-   - `10/10` decision gate
-6. If nonzero `vehicle_radius_m` is used in experiments, thread it through all DT warm-start evaluation/config paths.
+1. Complete `Oval_Track_260m_repairs_postproj` to `1000` accepted episodes.
+2. Retrain DT on Oval-only shards using updated recovery-data mix.
+3. Re-run downstream benchmark gates and choose checkpoint by benchmark first.
+4. Keep warmstart outputs checkpoint-local under:
+   - `dt/checkpoints/<run>/warmstarts/eval/...`
+   - `dt/checkpoints/<run>/warmstarts/viz/...`
 
-### 8.3 Dataset
+### 8.3 Dataset actions
 
-Already done:
-- base laps, shifts, and repairs are generated
-- dataset manifests and saved arrays are internally consistent
-- current saved schema is documented and consumed directly by DT code
+Done:
+- base laps + shifts + standard repairs are available.
+- hard-repair generation pipeline and resumable wrappers are implemented.
+- post-projection labeling pipeline is implemented:
+  - trace export: `experiments/eval_warmstart.py --export-rollout-trace`
+  - label build: `data/build_postprojection_repairs.py`
+  - wrappers: `data/run_postprojection_repairs.sh`, `data/run_postprojection_repairs_loop.sh`
 
-Remaining dataset work:
-1. Create explicit train/val/test manifests or equivalent split files on disk.
-2. Ensure split artifacts preserve split-by-`base_id` hygiene.
-3. Add constraints-to-go / safety label postprocessing if needed.
-4. Build and evaluate the first `*_repairs_postproj` shard from wrapper-triggered traces.
-5. Clean up obstacle metadata after the planned obstacle simplification:
-   - remove the redundant `margin` vs `clearance` split
-   - store one final enforced obstacle inflation / clearance term
-   - keep the effective enforced obstacle size explicit in metadata
+In progress:
+- grow post-projection shard from `602` to `1000`.
 
-Hard-repair plan:
-- keep the existing shifts and standard repairs unchanged
-- add a separate `*_repairs_hard` shard
-- bias hard-repair starts toward:
-  - low-clearance / near-obstacle cases
-  - hotspot `s` regions derived from the DT diagnostic obstacle evals
-  - note: current hotspots are anchor points, not a continuous heatmap
-- perturb mainly:
-  - `e`
-  - `dpsi`
-- perturb more conservatively and more rarely:
-  - `uy`
-  - `r`
-- use mixed horizons for the hard subset:
-  - `60% H=20`
-  - `25% H=40`
-  - `15% H=60`
-- save hardness / solver metadata in the manifest and episode payload
-- retrain with:
-  - `lambda_x = 0.0`
-  - no global repair multiplier
-  - existing shifts + standard repairs + hard repairs
-- first target hard-repair shard size:
-  - about `1200` hard repairs total across all tracks
-  - about `3%` of the current dataset by transition count
-- first target training mix by sampled windows:
-  - `75%` shifts
-  - `10%` existing repairs
-  - `15%` hard repairs
+Pending cleanup:
+1. Persist explicit split artifacts (train/val/test) on disk.
+2. Keep obstacle metadata simplification plan:
+   - collapse `margin` vs `clearance` split
+   - keep final enforced obstacle radius explicit in metadata
 
-Current command path:
-- build symmetric hotspot JSON for all tracks:
-  - `./data/build_all_hotspots.sh`
-- build the all-track hard-repair shard:
-  - `./data/run_hard_repairs.sh`
-- or use the broader wrapper:
-  - `./data/run_full_dataset.sh hard_repairs`
-- build post-projection repairs from rollout traces:
-  - `./data/run_postprojection_repairs.sh`
-- one-shot post-projection data + training wrapper:
-  - `./dt/run_postproj_train.sh`
+### 8.4 Training and model
 
-Hotspot interpretation:
-- the current all-track hotspot JSON is a practical proxy, not a full failure-density map
-- it stores a few anchor `s` locations per track taken from bad obstacle scenarios
-- this is sufficient for first-pass hard-repair biasing
-- if needed later, replace it with a true per-step heatmap from rollout event logging
+1. Use benchmark-gated checkpoint selection:
+   - primary: solve time / iterations / success rate
+   - secondary: validation action loss
+2. Keep current DT baseline architecture for near-term runs; defer architecture ablations until post-proj completion.
+3. Run at least one retrain after post-proj target completion and compare against `oval_hard400_train20`.
 
-### 8.4 Decision Transformer engineering
+### 8.5 Benchmarking
 
-Already done:
-- DT loader, model, train script, eval script, and warm-start rollout exist
-- loader supports one shard, comma-separated shard lists, and full dataset roots
-- loader splits by `base_id`
-- loader computes normalization stats from the training split only
+Required reporting for each run:
+1. `baseline`, `baseline_retry`, `dt_warmstart`
+2. success rate
+3. IPOPT solve time and iterations
+4. lap time objective
+5. warm-start wrapper diagnostics (fallback/projection counts)
 
-Remaining DT engineering work:
-1. Decide whether to persist dataset stats and split assignments alongside split artifacts.
-2. Retrain on the upcoming hard-repair shard without reintroducing global repair weighting.
-3. Run full training smoke tests on the mixed dataset root, not just shard-level loader checks.
-4. Run model-level evaluation on held-out splits and store results in a reproducible output path.
+Gate policy:
+1. smoke gate: small fixed deterministic set
+2. decision gate: larger deterministic set
 
-### 8.5 DT architecture checks
+### 8.6 Optimizer and integration cleanup
 
-The current architecture is acceptable as the baseline architecture. The next architecture-level checks are:
+1. Keep warm-start evaluation path conventions consistent across scripts.
+2. Keep `vehicle_radius_m` threaded consistently in obstacle feasibility checks when enabled.
+3. Remove inactive obstacle-slack branches only after confirming no current workflow depends on them.
 
-1. Replace raw obstacle radius in DT obstacle features with the enforced effective obstacle radius if that improves alignment with the optimizer.
-2. Consider adding `dfz_long` and `dfz_lat` to DT inputs if warm-start quality stalls.
-3. Keep the current next-observation auxiliary head unless experiments show it is too weak.
-4. Consider feasibility-conditioning or constraints-to-go only after the baseline benchmark is established.
-5. After a clean baseline run is confirmed, test a larger DT capacity setting as an ablation.
-   The current baseline is intentionally small: `4` layers, `4` heads, `d_model=128`, about `0.84M` parameters.
-   A likely next scale is `6` layers, `8` heads, `d_model=256`, with batch size adjusted to fit GPU memory.
+### 8.7 Stretch goals
 
-Note:
-- `grade` and `bank` are effectively zero for the current tracks and are not a priority DT input change right now.
+1. Expand beyond Oval-only to multi-track robustness.
+2. Feasibility-conditioned DT / constraints-to-go conditioning.
+3. Multi-objective conditioning (lap time + safety margin).
 
-### 8.6 Warm-start integration
-
-Already done:
-- warm-start rollout no longer uses the earlier kinematic placeholder
-- warm-start validation now uses the current optimizer-consistent obstacle rule:
-  - `radius_m + margin_m + obstacle_clearance_m + vehicle_radius_m`
-
-Remaining warm-start work:
-1. Thread `vehicle_radius_m` through all experiment/evaluation code paths if footprint inflation is enabled.
-2. Keep warm-start validation logic aligned when the repo collapses `margin_m` into a single clearance term.
-3. Run realistic warm-start experiments to check whether the new rollout remains numerically stable over full laps and obstacle scenarios.
-
-### 8.7 Evaluation and benchmarking
-
-This is the main missing proof step.
-
-Benchmark goals:
-1. Compare:
-   - baseline initializer only
-   - baseline + acceptance retry schedule
-   - DT warm-start + IPOPT
-2. Report:
-   - IPOPT success rate
-   - warm-start acceptance rate
-   - solve time
-   - IPOPT iteration count
-   - final lap time / objective
-   - minimum obstacle clearance
-3. Report results:
-   - overall
-   - per map
-   - per obstacle difficulty if useful
-
-Evaluation checks:
-1. Verify benchmark claims only after end-to-end evaluation is run on held-out scenarios.
-2. Check that DT warm-start reduces median iterations and solve time without hurting acceptance.
-3. Check that final objective stays close to or better than baseline.
-4. Save outputs in a repeatable experiment directory.
-
-Ablations to run:
-1. Remove obstacle features.
-2. Remove track features.
-3. Vary obstacle slot count `M`.
-4. Vary context length `K`.
-5. Sweep `lambda_x`.
-6. Optionally compare current DT inputs against a version with `dfz_*`.
-
-### 8.8 Optimizer / obstacle cleanup
-
-These are still on the roadmap:
-1. Remove the redundant `margin` vs `clearance` split.
-2. Keep a single obstacle inflation / clearance parameter across:
-   - map generation
-   - optimizer constraints
-   - dataset generation
-   - docs
-3. Keep or store the final enforced obstacle radius explicitly.
-4. Remove obstacle slack support if the active path remains hard-constrained only.
-5. Keep `vehicle_radius_m` handling consistent anywhere obstacle feasibility is checked.
-
-### 8.9 Stretch goals
-
-1. Multi-track generalization.
-2. Feasibility-conditioned DT / constraint-to-go conditioning.
-3. Multi-objective conditioning with lap time and safety margin.
-
-### 8.10 Done criteria
+### 8.8 Done criteria
 
 The project is in a defensible finished state when:
-1. DT warm-start is benchmarked against baseline on held-out randomized obstacle scenarios.
-2. DT warm-start reduces median IPOPT iterations and solve time, or provides another clearly defensible benefit.
-3. Success / acceptance does not regress materially.
-4. Final lap time remains within a small gap of baseline, or improves.
-5. Dataset splits, evaluation outputs, and key preprocessing choices are reproducible from disk artifacts and docs.
+1. DT warm-start is benchmarked against baseline on deterministic held-out obstacle scenarios.
+2. DT warm-start provides a clear practical benefit (or an explicitly justified tradeoff) on solve performance.
+3. Success/acceptance does not regress materially.
+4. Dataset, splits, and benchmark outputs are reproducible from disk artifacts and docs.

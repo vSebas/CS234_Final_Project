@@ -94,16 +94,19 @@ Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
 - `planning/scp_solver.py` is frozen for regular development.
 - SCP remains an experimental/archival branch.
 - See:
-  - `docs/SCP_TRAJECTORY_OPTIMIZER_STATUS.md`
-  - `docs/SCP_EXPLANATION.md`
-  - `docs/scp_archive/`
+  - `docs/scp/SCP_TRAJECTORY_OPTIMIZER_STATUS.md`
+  - `docs/scp/SCP_EXPLANATION.md`
+  - `docs/scp/`
 
 ---
 
 ## Optimization Status
 
-- Current robust path: IPOPT direct collocation.
-- Current project direction: obstacle-aware IPOPT formulation and DT warm-starting of the IPOPT solver.
+- Current robust trajopt baseline path: IPOPT direct collocation.
+- Current dataset generation policy:
+  - hard-repair shards: FATROP (`obstacle_fast` profile)
+  - post-projection shards: IPOPT default (FATROP optional)
+- Current project direction: obstacle-aware warm-starting and benchmarked DT-vs-baseline trajectory quality/latency.
 - Current demo/production configuration solves a **full lap** with periodic boundary conditions.
 - Obstacle overlap visualization bug was fixed by unifying `world.map_match_vectorized` with optimizer Frenet-to-ENU convention.
 - SCP is not the active production path.
@@ -126,10 +129,8 @@ CS234_Final_Project/
 │   ├── optimizer.py          # Direct collocation + IPOPT (production)
 │   └── scp_solver.py         # SCP solver (frozen experimental)
 │
-├── world/
-│   └── world.py              # Track geometry and boundaries
-│
 ├── utils/
+│   ├── world.py              # Track geometry and boundaries
 │   └── visualization.py      # Visualization (saves to files)
 │
 ├── maps/
@@ -143,10 +144,14 @@ CS234_Final_Project/
 │           ├── ipopt_single_stage_controls.png
 │           └── ipopt_single_stage_animation.gif
 │
-├── run_trajopt_demo.py       # Trajectory optimization demo (IPOPT production path)
-├── simulate_vehicle.py       # Vehicle dynamics simulation & visualization
-├── test_dynamic_model.py     # Model verification script
-├── create_tracks.py          # Unified track generation script
+├── experiments/ipopt_trajopt_cli.py            # Unified IPOPT CLI: single | batch | tune
+├── experiments/run_ipopt_trajopt_demo.py       # IPOPT single-scenario runner
+├── experiments/_ipopt_batch_eval_impl.py       # IPOPT batch benchmark implementation (CLI-backed)
+├── experiments/_ipopt_tuning_grid_impl.py      # IPOPT tuning-grid implementation (CLI-backed)
+├── experiments/simulate_vehicle.py       # Vehicle dynamics simulation & visualization
+├── experiments/test_dynamic_model.py     # Model verification script
+├── experiments/legacy/                   # Archived experimental backends (MadNLP, etc.)
+├── maps/create_tracks.py     # Unified track generation script
 └── README.md                 # This file
 ```
 
@@ -172,7 +177,7 @@ pip install numpy scipy matplotlib casadi PyYAML
 
 ```bash
 cd CS234_Final_Project
-python run_trajopt_demo.py
+python experiments/ipopt_trajopt_cli.py single
 ```
 
 This will:
@@ -195,18 +200,27 @@ Default acceptance gates:
 
 Run demo with defaults:
 ```bash
-python run_trajopt_demo.py
+python experiments/ipopt_trajopt_cli.py single
 ```
 
 Run strict acceptance (no negative dense clearance allowed):
 ```bash
-ACCEPT_MIN_CLEARANCE_M=0.0 python run_trajopt_demo.py
+python experiments/ipopt_trajopt_cli.py single -- --accept-min-clearance-m 0.0
 ```
 
 Batch evaluate randomized obstacle scenarios:
 ```bash
-python run_trajopt_batch_eval.py --num-scenarios 20 --seed 42
+python experiments/ipopt_trajopt_cli.py batch -- --num-scenarios 20 --seed 42
 ```
+
+Run tuning grid:
+```bash
+python experiments/ipopt_trajopt_cli.py tune -- --map-file maps/Oval_Track_260m.mat
+```
+
+Compatibility note:
+- `experiments/run_ipopt_trajopt_demo.py` is still callable directly.
+- Batch and tuning are now CLI entrypoints only (`experiments/ipopt_trajopt_cli.py batch|tune`).
 
 Batch outputs are written to `results/trajectory_optimization/`:
 - `trajopt_batch_eval_<timestamp>.json` (summary)
@@ -237,19 +251,26 @@ To generate all circular shifts per base lap, pass `--all-shifts` to `data/make_
 
 The dataset config and defaults are captured in `data/DATASET_CONFIG.md`. The full generation plan (Fix A/Fix B) is documented in `PLAN.md`.
 
-Current hard-repair extension:
-- build symmetric hotspot anchors for all tracks:
-  - `./data/build_all_hotspots.sh`
-- build the all-track hard-repair shard:
-  - `./data/run_hard_repairs.sh`
-- or use:
-  - `./data/run_full_dataset.sh hard_repairs`
+Current active phase (March 2026) is Oval-first:
+- train/eval focus:
+  - `Oval_Track_260m` no-obstacle + obstacle variants
+- current solver policy:
+  - hard repairs: FATROP
+  - post-projection repairs: IPOPT default (`POSTPROJ_SOLVER=ipopt`)
 
-The current hard-repair plan is:
-- separate `*_repairs_hard` shard
-- hotspot-guided and obstacle-focused start selection
-- perturb mainly `e` / `dpsi`, with smaller `uy` / `r`
-- mixed hard horizons: `60% H=20`, `25% H=40`, `15% H=60`
+Current Oval recovery shard status:
+- `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
+- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` episodes (target `1000`, in progress)
+
+Resumable commands used in current phase:
+- hard repairs (FATROP):
+  - `PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_SMOOTH_CONTROLS=1 FATROP_CLOSURE_MODE=open FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_TOL=5e-3 /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 400 --seed 0 --H 20 --hard-mode --save-every 10 --solver fatrop --resume`
+- post-projection repairs loop:
+  - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+
+Important scope note:
+- multi-track shift/repair datasets still exist under `data/datasets/*_shifts` and `data/datasets/*_repairs`
+- Oval-only is the current iteration strategy, not a data-availability limitation
 
 Current saved episode schema:
 - node-aligned arrays: `s_m`, `X_full`, `U`, `pos_E`, `pos_N`, `yaw_world`, `kappa`, `half_width`, `grade`, `bank`
@@ -305,21 +326,26 @@ python dt/eval.py \
 Current training limitations:
 - train/validation splitting is done inside the loader; explicit persisted train/val/test split artifacts are still missing
 - repair segments are still a small minority of the data and may need weighted sampling or balancing during training
-- end-to-end benchmark results are still pending; the code path is implemented, but not yet fully characterized
+- benchmark coverage is still limited to a small fixed gate (`N=120`) and should be expanded before final conclusions
 
 Recommended current usage:
 - use the generated shard structure as-is
 - treat `data/DATASET_CONFIG.md` as the canonical description of the on-disk dataset schema
-- use the full `data/datasets` root for current multi-shard training unless you are intentionally running a shard-specific experiment
+- for current Oval-phase iteration, prefer explicit Oval shard lists; use full `data/datasets` root when running multi-track experiments
 - keep one `--output-dir` per training run so auto-resume behavior is unambiguous
 - treat benchmark claims as provisional until baseline-vs-DT warm-start evaluation is run end-to-end
+
+Warm-start artifact convention:
+- checkpoint-local outputs are preferred:
+  - `dt/checkpoints/<run>/warmstarts/eval/...`
+  - `dt/checkpoints/<run>/warmstarts/viz/...`
 
 ### Vehicle Simulation
 
 Simulate the vehicle dynamics with custom throttle and steering inputs (no track required):
 
 ```bash
-python simulate_vehicle.py --scenario constant_turn --duration 5
+python experiments/simulate_vehicle.py --scenario constant_turn --duration 5
 ```
 
 **Predefined Scenarios:**
@@ -335,10 +361,10 @@ python simulate_vehicle.py --scenario constant_turn --duration 5
 **Custom Inputs:**
 ```bash
 # Constant steering and throttle
-python simulate_vehicle.py --steering 5.0 --throttle 2.0 --duration 10
+python experiments/simulate_vehicle.py --steering 5.0 --throttle 2.0 --duration 10
 
 # Adjust initial speed
-python simulate_vehicle.py --scenario lane_change --initial-speed 20 --duration 8
+python experiments/simulate_vehicle.py --scenario lane_change --initial-speed 20 --duration 8
 ```
 
 **Options:**
@@ -357,13 +383,13 @@ Outputs are saved to `results/dynamic_simulations/`:
 ```python
 from models import SingleTrackModel, VehicleParams, FialaBrushTire
 from planning import TrajectoryOptimizer
-from world.world import World
+from utils.world import World
 
 # Load track
 world = World("maps/Oval_Track_260m.mat", "Oval", diagnostic_plotting=False)
 
 # Create vehicle
-params = VehicleParams(...)  # See run_trajopt_demo.py for example
+params = VehicleParams(...)  # See experiments/run_ipopt_trajopt_demo.py for example
 f_tire = FialaBrushTire(c0_alpha_nprad=0, c1_alpha_1prad=8.0, mu_none=0.9)
 r_tire = FialaBrushTire(c0_alpha_nprad=0, c1_alpha_1prad=13.0, mu_none=0.9)
 vehicle = SingleTrackModel(params, f_tire, r_tire)
@@ -401,9 +427,9 @@ print(f"Collocation solve time: {dc_result.solve_time:.2f}s")
 - [x] Build Fix A + Fix B dataset generation pipeline
 - [x] Implement Decision Transformer dataset loader, model, training, and evaluation scripts
 - [x] Implement DT warm-start integration with model-consistent rollout and obstacle-aware validation
-- [ ] IPOPT obstacle-avoidance constraints (slack + staged solve)
-- [ ] Evaluation benchmarks
+- [x] Benchmark DT-vs-baseline warm-start (fixed evaluation gate)
 - [ ] Train/val/test split artifacts with split-by-`base_id` hygiene
 - [ ] Weighted sampling / balancing for shifts vs repairs
-- [ ] End-to-end DT-vs-baseline warm-start benchmark
-- [ ] Multi-track generalization
+- [ ] Scale post-projection data toward target (`1000`) for Oval phase
+- [ ] Re-run 20-epoch Oval training after post-proj expansion and compare benchmark deltas
+- [ ] Multi-track generalization refresh once Oval metrics stabilize

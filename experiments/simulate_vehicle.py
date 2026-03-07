@@ -6,11 +6,11 @@ Simulate the vehicle model with user-specified throttle and steering inputs,
 then visualize the resulting motion as a video/gif.
 
 Usage:
-    python simulate_vehicle.py --scenario constant_turn
-    python simulate_vehicle.py --scenario lane_change
-    python simulate_vehicle.py --scenario acceleration
-    python simulate_vehicle.py --throttle 2.0 --steering 5.0 --duration 10
-    python simulate_vehicle.py --interactive
+    python experiments/simulate_vehicle.py --scenario constant_turn
+    python experiments/simulate_vehicle.py --scenario lane_change
+    python experiments/simulate_vehicle.py --scenario acceleration
+    python experiments/simulate_vehicle.py --throttle 2.0 --steering 5.0 --duration 10
+    python experiments/simulate_vehicle.py --interactive
 
 The script supports predefined maneuvers or custom constant inputs.
 """
@@ -27,7 +27,7 @@ import casadi as ca
 
 # Add project root to path
 import sys
-project_root = Path(__file__).parent
+project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml

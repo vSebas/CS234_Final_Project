@@ -18,7 +18,7 @@ import numpy as np
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, OptimizationResult, TrajectoryOptimizer
 from planning.madnlp_bridge import solve_with_julia_madnlp
-from world.world import World
+from utils.world import World
 
 
 def _load_obstacles_from_world(world: World) -> List[dict]:

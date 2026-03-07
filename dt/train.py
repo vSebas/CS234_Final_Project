@@ -422,32 +422,18 @@ class DTTrainer:
             self._update_training_plots(update_train=update_train, update_val=update_val)
 
     def _update_training_plots(self, update_train: bool = True, update_val: bool = True) -> None:
-        """Refresh PNG loss plots in the run directory."""
+        """Refresh PNG loss plots in the run directory (action-loss only)."""
         if update_train and self.train_history["global_step"]:
             plt.figure(figsize=(9, 5))
             plt.plot(
                 self.train_history["global_step"],
-                self.train_history["loss"],
-                label="train total loss",
-                linewidth=1.2,
-            )
-            plt.plot(
-                self.train_history["global_step"],
                 self.train_history["action_loss"],
                 label="train action loss",
-                linewidth=1.0,
-                alpha=0.85,
-            )
-            plt.plot(
-                self.train_history["global_step"],
-                self.train_history["state_loss"],
-                label="train state loss",
-                linewidth=1.0,
-                alpha=0.85,
+                linewidth=1.2,
             )
             plt.xlabel("Global step")
             plt.ylabel("Loss")
-            plt.title("Training Losses")
+            plt.title("Training Action Loss")
             plt.legend()
             plt.grid(True, alpha=0.3)
             plt.tight_layout()
@@ -458,25 +444,13 @@ class DTTrainer:
             plt.figure(figsize=(7, 4.5))
             plt.plot(
                 self.val_history["epoch"],
-                self.val_history["val_loss"],
-                marker="o",
-                label="val total loss",
-            )
-            plt.plot(
-                self.val_history["epoch"],
                 self.val_history["val_action_loss"],
                 marker="o",
                 label="val action loss",
             )
-            plt.plot(
-                self.val_history["epoch"],
-                self.val_history["val_state_loss"],
-                marker="o",
-                label="val state loss",
-            )
             plt.xlabel("Epoch")
             plt.ylabel("Loss")
-            plt.title("Validation Losses")
+            plt.title("Validation Action Loss")
             plt.legend()
             plt.grid(True, alpha=0.3)
             plt.tight_layout()

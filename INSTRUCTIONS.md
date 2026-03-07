@@ -7,10 +7,10 @@ To get context about dynamic model, optimizer, tracks, check:
 - models/
 - planning/optimizer.py
 - maps/
-- create_tracks.py
+- maps/create_tracks.py
 
 To check current trajectory optimizer results:
 - results/trajectory_optimization
-- run_trajopt_demo.py
+- experiments/ipopt_trajopt_cli.py (use `single` subcommand)
 
 Check best cost = time_cost + reg_cost + slack_cost in optimizer

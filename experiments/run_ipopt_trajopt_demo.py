@@ -18,13 +18,13 @@ import matplotlib
 import numpy as np
 
 # Add project root to path
-project_root = Path(__file__).parent
+project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, OptimizationResult, TrajectoryOptimizer
 from utils.visualization import TrajectoryVisualizer, create_animation
-from world.world import World
+from utils.world import World
 
 
 class TeeStream:
@@ -131,7 +131,7 @@ def run_python_solver_direct(
     )
 
 
-def parse_args():
+def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run IPOPT trajectory optimization demo.")
     parser.add_argument("--map-file", type=str, default=None, help="Path to .mat map file.")
     parser.add_argument("--n", type=int, default=None, help="Number of spatial nodes.")
@@ -154,7 +154,7 @@ def parse_args():
         default="results/trajectory_optimization/nlp",
         help="Directory to write logs and plots.",
     )
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def run_demo(args):
@@ -190,7 +190,7 @@ def run_demo(args):
                 map_file = project_root / "maps" / "Oval_Track_260m.mat"
                 if not map_file.exists():
                     print(f"Error: Default map file not found at {map_file}")
-                    print("Run: python create_tracks.py --preset all")
+                    print("Run: python maps/create_tracks.py --preset all")
                     return
 
             matplotlib.use("Agg")

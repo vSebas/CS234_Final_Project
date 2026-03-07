@@ -23,7 +23,7 @@ This note summarizes the current state of the trajectory-optimization SCP implem
 
 Primary implementation:
 - `planning/scp_solver.py`
-- `run_trajopt_demo.py`
+- `experiments/run_ipopt_trajopt_demo.py`
 
 Current behavior by backend:
 

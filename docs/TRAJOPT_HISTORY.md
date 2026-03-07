@@ -30,6 +30,10 @@ Current FATROP runtime knobs and canonical command are documented in
   - `FATROP_MAX_ITER=800`
   - `FATROP_TOL=5e-3`
   - `FATROP_ACCEPTABLE_TOL=5e-3`
+- **Post-projection repair default solver (current code path):**
+  - Source: `data/build_postprojection_repairs.py`, `data/run_postprojection_repairs.sh`
+  - default is `ipopt` (`POSTPROJ_SOLVER=ipopt`)
+  - `fatrop` is available as optional override only
 - **Default FATROP output dir:** `results/trajectory_optimization/fatrop`
 
 ## Historical summary
@@ -54,9 +58,10 @@ Current FATROP runtime knobs and canonical command are documented in
 
 ## Decision policy used now
 
-1. Use FATROP for fast candidate generation.
-2. Enforce acceptance gates (feasibility, clearance, smoothness).
-3. Use IPOPT fallback for rejected/hard cases when quality is critical.
+1. Standalone trajopt experiments: use FATROP profiles documented in `docs/FATROP_CONFIG.md`.
+2. Hard-repair dataset generation (active phase): FATROP.
+3. Post-projection repair generation (active phase): IPOPT default; use FATROP only for explicit experiments.
+4. Enforce acceptance gates (feasibility, clearance, smoothness) regardless of solver choice.
 
 ## Canonical commands
 
@@ -82,5 +87,5 @@ FATROP_CLOSURE_MODE=open FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_T
 
 ### IPOPT baseline run
 ```bash
-PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python run_trajopt_demo.py
+PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python experiments/run_ipopt_trajopt_demo.py
 ```

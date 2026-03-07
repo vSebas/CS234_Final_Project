@@ -26,14 +26,10 @@ def main() -> None:
         raise FileNotFoundError(f"Could not find metrics log: {metrics_path}")
 
     train_steps = []
-    train_loss = []
     action_loss = []
-    state_loss = []
 
     epochs = []
-    val_loss = []
     val_action = []
-    val_state = []
 
     with open(metrics_path, "r") as f:
         for line in f:
@@ -43,26 +39,20 @@ def main() -> None:
             event = rec.get("event")
             if event == "train_step":
                 train_steps.append(rec["global_step"])
-                train_loss.append(rec["loss"])
                 action_loss.append(rec["action_loss"])
-                state_loss.append(rec["state_loss"])
             elif event == "epoch_end":
                 epochs.append(rec["epoch"] + 1)
-                val_loss.append(rec["val_loss"])
                 val_action.append(rec["val_action_loss"])
-                val_state.append(rec["val_state_loss"])
 
     if not train_steps:
         raise ValueError(f"No train_step records found in {metrics_path}")
 
     train_plot_path = run_dir / "loss_curves.png"
     plt.figure(figsize=(9, 5))
-    plt.plot(train_steps, train_loss, label="train total loss", linewidth=1.2)
-    plt.plot(train_steps, action_loss, label="train action loss", linewidth=1.0, alpha=0.85)
-    plt.plot(train_steps, state_loss, label="train state loss", linewidth=1.0, alpha=0.85)
+    plt.plot(train_steps, action_loss, label="train action loss", linewidth=1.2)
     plt.xlabel("Global step")
     plt.ylabel("Loss")
-    plt.title("Training Losses")
+    plt.title("Training Action Loss")
     plt.legend()
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
@@ -72,12 +62,10 @@ def main() -> None:
     if epochs:
         val_plot_path = run_dir / "val_loss_curves.png"
         plt.figure(figsize=(7, 4.5))
-        plt.plot(epochs, val_loss, marker="o", label="val total loss")
         plt.plot(epochs, val_action, marker="o", label="val action loss")
-        plt.plot(epochs, val_state, marker="o", label="val state loss")
         plt.xlabel("Epoch")
         plt.ylabel("Loss")
-        plt.title("Validation Losses")
+        plt.title("Validation Action Loss")
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()

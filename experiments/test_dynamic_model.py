@@ -1,7 +1,7 @@
 """
 Test script for the unified vehicle model.
 
-Run with: conda run -n DT_trajopt python test_dynamic_model.py
+Run with: conda run -n DT_trajopt python experiments/test_dynamic_model.py
 """
 
 import numpy as np
@@ -9,8 +9,8 @@ import casadi as ca
 import sys
 from pathlib import Path
 
-project_root = Path(__file__).parent
-sys.path.insert(0, '/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/trajopt_unified')
+project_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
 

@@ -19,7 +19,7 @@ sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, TrajectoryOptimizer
-from world.world import World
+from utils.world import World
 from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 
 from data.schema import EpisodeHeader, compute_rtg, sha256_file, sha256_json

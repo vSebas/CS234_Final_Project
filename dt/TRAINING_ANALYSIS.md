@@ -5,24 +5,28 @@ This note summarizes the completed DT training runs and their downstream warm-st
 ## Current Status
 
 - Current best DT run:
-  - `dt/checkpoints/full_run_lambda0`
+  - `dt/checkpoints/oval_hard400_train20`
 - Current execution focus:
   - Oval-first iteration loop
-  - keep dataset generation/fixing on IPOPT (nonlinear dynamics)
+  - keep nonlinear dynamics in data generation/fixing
+  - hard-repair generation on FATROP, post-projection generation on IPOPT (default)
   - pause solver migration work (FATROP/MadNLP/Rockit) for training-data production decisions
 - Current diagnosis:
-  - nominal no-obstacle warm starts can be useful
-  - obstacle-conditioned warm starts are still the main failure mode
-  - rollout/wrapper diagnostics show heavy intervention even in nominal cases, with more pressure in obstacle cases
-- Latest negative result:
-  - `dt/checkpoints/full_run_lambda0_hard`
-  - best validation loss improved substantially, but downstream warm-start performance on the fixed Oval benchmark regressed badly
+  - latest run materially improved downstream warm-start behavior vs prior checkpoints
+  - DT warm-start is now close to baseline on fixed Oval gate, but still slightly slower on average
+  - obstacle-conditioned robustness remains the main bottleneck
+- Latest benchmark snapshot (fixed 3-scenario Oval gates):
+  - previous reference (`full_run_lambda0_hard` best):
+    - noobs: DT `78.26s`, `584` iters vs baseline `42.02s`, `267`
+    - obs1: DT `61.14s`, `447` iters vs baseline `31.69s`, `174.3`
+  - current best (`oval_hard400_train20` best):
+    - noobs: DT `45.16s`, `311` iters vs baseline `40.38s`, `267`
+    - obs1: DT `31.84s`, `196.3` iters vs baseline `30.95s`, `174.3`
 - Current next step:
-  - keep `full_run_lambda0` as the current best run
-  - treat validation loss as a weak shortlist signal only
-  - complete Oval post-projection repairs to `600` accepted episodes, then retrain/evaluate
+  - keep benchmark metrics as primary checkpoint-selection rule; validation loss is shortlist signal only
+  - complete Oval post-projection repairs to `1000` accepted episodes (current: `602`), then retrain/evaluate
   - command used for completion:
-    - `TOTAL_TARGET=600 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+    - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
   - continue post-projection labeled data (DAGGER-like) rather than naive repair-mix tuning
 
 ## Next Program: Post-Projection Labeled Data (DAGGER-Lite)
@@ -54,6 +58,8 @@ Implementation status (now):
   - `--trace-clearance-thresh`
   - `--trace-random-keep-prob`
   - `--trace-max-keep-per-scenario`
+- warm-start eval outputs now default to checkpoint-local paths:
+  - `dt/checkpoints/<run>/warmstarts/eval/<map_obs_seed_N>/...`
 - exported trace rows are written as:
   - `warmstart_eval_<timestamp>_rollout_trace.jsonl`
 - post-projection label builder is implemented:
@@ -117,6 +123,12 @@ Use this as the first conservative setting to avoid over-biasing into recovery-m
    - best validation action loss improved to `0.03182` at epoch `2`
    - downstream result on the fixed Oval benchmark was still strongly negative
    - conclusion: the hard-repair shard plus simple source mixing did not improve actual warm-start utility
+5. `oval_hard400_train20`
+   - `lambda_x = 0.0`
+   - trained on Oval-first expanded hard-repair data (`400` target; `416` accepted)
+   - best validation action loss improved to `0.007035` (epoch `9`)
+   - downstream benchmark improved strongly vs previous runs; DT remained slightly slower than baseline on current fixed gate
+   - current best practical run for this phase
 
 ## Run Bundles
 
@@ -174,7 +186,79 @@ Use this folder for:
 - the fixed Oval benchmark reruns for the early best checkpoint
 - the negative downstream result showing that better validation did not translate to better warm-start quality
 
+### `oval_hard400_train20`
+
+Run directory:
+- `dt/checkpoints/oval_hard400_train20`
+
+Use this folder for:
+- the current best Oval-phase training artifacts
+- current fixed-gate benchmark eval outputs under `warmstarts/eval/`
+- trajectory comparison visuals under `warmstarts/viz/`
+
 The rest of this document keeps the cross-run narrative in one place.
+
+## Latest Results (March 2026)
+
+### Current best run
+
+- run directory: `dt/checkpoints/oval_hard400_train20`
+- best validation action loss: `0.007035` (epoch `9`)
+- latest warm-start artifacts:
+  - eval: `dt/checkpoints/oval_hard400_train20/warmstarts/eval/`
+  - viz: `dt/checkpoints/oval_hard400_train20/warmstarts/viz/`
+
+### Fixed benchmark comparison (same 3-scenario gates)
+
+Compared against prior practical reference `full_run_lambda0_hard` best checkpoint:
+
+- no obstacles:
+  - previous DT: `78.26 s`, `584` iterations
+  - current DT: `45.16 s`, `311` iterations
+  - baseline (current run): `40.38 s`, `267` iterations
+- one obstacle:
+  - previous DT: `61.14 s`, `447` iterations
+  - current DT: `31.84 s`, `196.3` iterations
+  - baseline (current run): `30.95 s`, `174.3` iterations
+
+Read:
+- downstream behavior improved substantially relative to prior checkpoints
+- DT warm-start remains slightly slower than baseline on this gate
+- obstacle-conditioned robustness is still the main optimization target
+
+### Comparative Analysis (Current vs Previous)
+
+Compared to the previous practical reference (`full_run_lambda0_hard` best), the current run (`oval_hard400_train20` best) shows large downstream gains on the same fixed gates:
+
+- no-obstacle gate:
+  - solve time: `78.26s -> 45.16s` (about `42%` faster)
+  - iterations: `584 -> 311` (about `47%` fewer)
+- one-obstacle gate:
+  - solve time: `61.14s -> 31.84s` (about `48%` faster)
+  - iterations: `447 -> 196.3` (about `56%` fewer)
+
+Interpretation:
+- this is a real quality improvement in warm-start usefulness, not just a validation-loss artifact
+- the current gap to baseline is now narrow (small remaining penalty), instead of the large regressions seen in prior runs
+- next wins will likely come from better obstacle-conditioned/off-manifold data (post-projection completion + retrain), not generic objective/loss tuning alone
+
+### Current Conclusions and Next Steps
+
+Conclusions (current):
+1. `oval_hard400_train20` is the current best practical run for this phase.
+2. Validation improved strongly, and downstream warm-start behavior improved substantially vs prior checkpoints.
+3. DT is close to baseline on the fixed Oval gate but still slightly slower on solve time/iterations.
+4. The active bottleneck remains obstacle-conditioned robustness under rollout/wrapper pressure.
+
+Next steps (current):
+1. Complete Oval post-projection repairs to `1000` accepted episodes.
+2. Retrain on Oval-only shards with updated recovery-data mix.
+3. Re-run deterministic benchmark gates and pick checkpoint by downstream metrics first.
+4. Keep warmstart artifacts checkpoint-local under `dt/checkpoints/<run>/warmstarts/{eval,viz}/`.
+
+## Historical Analysis (Pre-`oval_hard400_train20`)
+
+The sections below document earlier runs and decisions. They are kept for historical context and do not override the current-status section above.
 
 ## Run
 
@@ -283,8 +367,8 @@ A first optimizer-level comparison was run on one fixed scenario with one obstac
 - `dt/checkpoints/full_run1/checkpoints/checkpoint_best.pt`
 
 Outputs:
-- `results/warmstarts/eval/full_run1_cmp_1/warmstart_eval_20260302_205240.csv`
-- `results/warmstarts/eval/full_run1_cmp_1/warmstart_eval_20260302_205240_summary.json`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_1/warmstart_eval_20260302_205240.csv`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_1/warmstart_eval_20260302_205240_summary.json`
 
 Result on that scenario:
 
@@ -317,8 +401,8 @@ To check whether the first negative result was an outlier, two small fixed bench
 ### Obstacle scenarios (`1` obstacle each)
 
 Outputs:
-- `results/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346.csv`
-- `results/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346_summary.json`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346.csv`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3/warmstart_eval_20260302_232346_summary.json`
 
 Summary:
 
@@ -340,8 +424,8 @@ Interpretation:
 ### No-obstacle scenarios (`0` obstacles)
 
 Outputs:
-- `results/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040.csv`
-- `results/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040_summary.json`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040.csv`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_noobs/warmstart_eval_20260302_233040_summary.json`
 
 Summary:
 
@@ -396,8 +480,8 @@ The same fixed `3`-scenario benchmark sets were rerun after the RTG calibration 
 #### No-obstacle scenarios (`0` obstacles) with RTG fix
 
 Outputs:
-- `results/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308.csv`
-- `results/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308_summary.json`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308.csv`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_noobs_rtgfix/warmstart_eval_20260303_002308_summary.json`
 
 Summary:
 
@@ -418,8 +502,8 @@ Interpretation:
 #### Obstacle scenarios (`1` obstacle each) with RTG fix
 
 Outputs:
-- `results/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308.csv`
-- `results/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308_summary.json`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308.csv`
+- `dt/checkpoints/full_run1/warmstarts/eval/full_run1_cmp_3_rtgfix/warmstart_eval_20260303_002308_summary.json`
 
 Summary:
 
@@ -450,7 +534,7 @@ These fixes make the DT warm-start generator usable for testing, but they also m
 - the trained checkpoint quality
 - the fallback/projection logic
 
-## Conclusions
+## Historical Conclusions (After `full_run1`)
 
 1. The training run itself was successful and numerically stable.
 2. For this configuration, `10` epochs was more than enough; the best action-related validation performance happened at epoch `1`.
@@ -459,7 +543,7 @@ These fixes make the DT warm-start generator usable for testing, but they also m
 5. Even after the RTG fix, the DT initializer remains poor, especially in obstacle scenarios.
 6. The current bottleneck is no longer loader/training stability; it is downstream warm-start usefulness.
 
-## Recommended Next Steps
+## Historical Next Steps (After `full_run1`)
 
 1. Keep the current fixed benchmark sets as the evaluation gate:
    - `3` no-obstacle scenarios
@@ -523,9 +607,9 @@ All comparisons below use the per-track RTG calibration.
 #### No-obstacle benchmark (`3` scenarios)
 
 Outputs:
-- `results/warmstarts/eval/full_run_lambda0_epoch0_noobs/warmstart_eval_20260303_084835_summary.json`
-- `results/warmstarts/eval/full_run_lambda0_best_noobs/warmstart_eval_20260303_084844_summary.json`
-- `results/warmstarts/eval/full_run_lambda0_last_noobs/warmstart_eval_20260303_084850_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_epoch0_noobs/warmstart_eval_20260303_084835_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_best_noobs/warmstart_eval_20260303_084844_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_last_noobs/warmstart_eval_20260303_084850_summary.json`
 
 Summary:
 
@@ -547,9 +631,9 @@ Interpretation:
 #### One-obstacle benchmark (`3` scenarios)
 
 Outputs:
-- `results/warmstarts/eval/full_run_lambda0_epoch0_obs1/warmstart_eval_20260303_085600_summary.json`
-- `results/warmstarts/eval/full_run_lambda0_best_obs1/warmstart_eval_20260303_085604_summary.json`
-- `results/warmstarts/eval/full_run_lambda0_last_obs1/warmstart_eval_20260303_085610_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_epoch0_obs1/warmstart_eval_20260303_085600_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_best_obs1/warmstart_eval_20260303_085604_summary.json`
+- `dt/checkpoints/full_run_lambda0/warmstarts/eval/full_run_lambda0_last_obs1/warmstart_eval_20260303_085610_summary.json`
 
 Summary:
 
@@ -603,7 +687,7 @@ Interpretation:
 - that means the obstacle bottleneck is not purely “the model is bad” or purely “the wrapper is bad”
 - instead, the model is producing trajectories that already need heavy rescue, and obstacle cases amplify that rescue pressure
 
-## Updated Conclusions
+## Historical Conclusions (After `full_run_lambda0` Diagnostics)
 
 1. The original `lambda_x = 0.5` run was being harmed by the auxiliary state objective.
 2. Removing the state-loss term materially improved no-obstacle warm-start behavior.
@@ -689,11 +773,11 @@ Compared directly against the weighted-repair run state at epoch `11`:
 This is a real negative result:
 - naive global repair upweighting did not help obstacle robustness
 - it also degraded nominal no-obstacle behavior
-- the current best run remains `dt/checkpoints/full_run_lambda0`
+- at that time, the best run remained `dt/checkpoints/full_run_lambda0`
 
 The likely read is that simple repair oversampling changed the training distribution in a way that hurt the nominal manifold without solving the obstacle-conditioned distribution shift.
 
-## Immediate Next Steps
+## Historical Next Steps (Pre-`oval_hard400_train20`)
 
 The current recommended program is:
 

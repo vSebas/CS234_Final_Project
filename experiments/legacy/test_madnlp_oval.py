@@ -12,8 +12,8 @@ import numpy as np
 
 from models import load_vehicle_from_yaml
 from planning import TrajectoryOptimizer
-from experiments.run_madnlp_trajopt import solve_madnlp_trajopt
-from world.world import World
+from experiments.legacy.run_madnlp_trajopt import solve_madnlp_trajopt
+from utils.world import World
 
 
 def _load_obstacles_from_world(world: World):

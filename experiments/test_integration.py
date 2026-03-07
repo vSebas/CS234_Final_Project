@@ -30,7 +30,7 @@ def test_baseline_solve():
 
     from models import load_vehicle_from_yaml
     from planning import TrajectoryOptimizer
-    from world.world import World
+    from utils.world import World
 
     # Load components
     map_file = "maps/Oval_Track_260m.mat"
@@ -104,7 +104,7 @@ def test_dt_warmstart(checkpoint_path: str):
 
     from models import load_vehicle_from_yaml
     from planning.dt_warmstart import load_warmstarter
-    from world.world import World
+    from utils.world import World
 
     # Load components
     map_file = "maps/Oval_Track_260m.mat"
@@ -152,7 +152,7 @@ def test_warmstart_to_ipopt(checkpoint_path: str):
     from models import load_vehicle_from_yaml
     from planning import TrajectoryOptimizer
     from planning.dt_warmstart import load_warmstarter
-    from world.world import World
+    from utils.world import World
 
     # Load components
     map_file = "maps/Oval_Track_260m.mat"

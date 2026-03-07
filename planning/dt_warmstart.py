@@ -812,7 +812,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     from models import load_vehicle_from_yaml
-    from world.world import World
+    from utils.world import World
 
     # Load world and vehicle
     world = World(args.map_file, Path(args.map_file).stem, diagnostic_plotting=False)

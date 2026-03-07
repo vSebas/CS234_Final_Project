@@ -37,7 +37,7 @@ import numpy as np
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, OptimizationResult
 from utils.visualization import TrajectoryVisualizer, create_animation
-from world.world import World
+from utils.world import World
 
 
 def _load_obstacles_from_world(world: World) -> List[ObstacleCircle]:

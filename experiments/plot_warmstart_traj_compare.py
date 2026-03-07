@@ -22,7 +22,7 @@ from experiments.eval_warmstart import EvalConfig, sample_obstacles
 from models import load_vehicle_from_yaml
 from planning import TrajectoryOptimizer
 from planning.dt_warmstart import load_warmstarter
-from world.world import World
+from utils.world import World
 
 
 def _get_scenario_obstacles(

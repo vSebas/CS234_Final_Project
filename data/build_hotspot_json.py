@@ -25,7 +25,7 @@ project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from experiments.eval_warmstart import EvalConfig, sample_obstacles
-from world.world import World
+from utils.world import World
 
 
 def build_hotspots_from_diag_csv(

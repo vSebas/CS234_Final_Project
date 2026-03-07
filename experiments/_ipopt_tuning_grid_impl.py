@@ -11,6 +11,7 @@ Outputs:
 import argparse
 import csv
 import json
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from itertools import product
@@ -19,9 +20,13 @@ from pathlib import Path
 
 import numpy as np
 
+# Add project root to path
+project_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(project_root))
+
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, TrajectoryOptimizer
-from world.world import World
+from utils.world import World
 
 
 @dataclass
@@ -109,7 +114,7 @@ def rank_key(r: GridRecord):
     )
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Grid tuning for trajectory optimizer")
     parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     # Paper-aligned defaults: N=260 (ds=1m on 260m oval). Tune a small, relevant subset.
@@ -124,9 +129,8 @@ def main():
     parser.add_argument("--accept-max-slack", type=float, default=0.0)
     parser.add_argument("--top-k", type=int, default=10)
     parser.add_argument("--output-dir", type=str, default="results/trajectory_optimization/nlp")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    project_root = Path(__file__).parent
     output_dir = project_root / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 

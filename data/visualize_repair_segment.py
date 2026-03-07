@@ -18,7 +18,7 @@ sys.path.insert(0, str(project_root))
 
 from planning import OptimizationResult
 from utils.visualization import TrajectoryVisualizer, create_animation
-from world.world import World
+from utils.world import World
 
 
 def _load_manifest_entry(npz_path: Path) -> dict:

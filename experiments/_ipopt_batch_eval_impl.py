@@ -10,6 +10,7 @@ Outputs:
 import argparse
 import csv
 import json
+import sys
 from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
@@ -17,9 +18,13 @@ from typing import List
 
 import numpy as np
 
+# Add project root to path
+project_root = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(project_root))
+
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, TrajectoryOptimizer
-from world.world import World
+from utils.world import World
 
 
 @dataclass
@@ -98,7 +103,7 @@ def accepted(result, max_slack: float, min_clearance: float) -> bool:
     )
 
 
-def main():
+def main(argv=None):
     parser = argparse.ArgumentParser(description="Batch evaluation for IPOPT trajectory optimizer")
     parser.add_argument("--num-scenarios", type=int, default=20)
     parser.add_argument("--seed", type=int, default=42)
@@ -116,9 +121,8 @@ def main():
     parser.add_argument("--min-obstacles", type=int, default=3)
     parser.add_argument("--max-obstacles", type=int, default=6)
     parser.add_argument("--output-dir", type=str, default="results/trajectory_optimization")
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    project_root = Path(__file__).parent
     output_dir = project_root / args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
