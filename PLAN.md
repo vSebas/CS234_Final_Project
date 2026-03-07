@@ -1,16 +1,19 @@
 # Project Plan: DT Warm-Start for Minimum-Time + Obstacle-Avoiding Raceline
 
-This plan is written against the current repo state (IPOPT direct-collocation is the production optimizer; SCP is archived).
+This plan is written against the current repo state (SCP is archived) and the current narrowed execution policy.
 
-## Focus Update (March 7, 2026)
+## Current Phase (March 7, 2026)
 
 Current execution focus is narrowed to unblock DT progress quickly:
-- scope: **Oval-first** (single-map iteration loop with/without obstacles)
-- keep nonlinear dynamics in the generation stack
-- solver policy for this phase:
-  - hard-repair generation: **FATROP**
-  - post-projection generation: **IPOPT default** (`POSTPROJ_SOLVER=ipopt`)
-  - keep FATROP as optional post-proj override only for targeted experiments
+- scope: **Oval-first** (single-map iteration loop)
+- solver policy for this phase: **FATROP only** for generation + warm-start eval
+- start-state policy for this phase:
+  - `s0`: anywhere along centerline progress
+  - `e0=0`, `dpsi0=0`, `uy0=0`, `r0=0`
+  - fixed moderate `ux0=5.0 m/s`
+- scenario families for benchmark:
+  - Family 1: no obstacles (single fixed case)
+  - Family 2: 1–4 random obstacles (frozen deterministic set)
 
 Current dataset status (Oval-only training phase):
 - `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes (target `400`, complete for this phase)
@@ -21,7 +24,7 @@ Current training status:
 - best validation action loss: `0.007035`
 - downstream fixed-gate benchmark improved strongly vs prior checkpoints, but DT warm-start is still slightly slower than baseline on the current 3-scenario Oval gates
 
-Immediate objective:
+Current-phase objective:
 1. Finish Oval post-projection repairs to `1000`.
 2. Resume `oval_hard400_train20` to at most `40` epochs (not a fresh run).
 3. Evaluate every `2-3` epochs on the fixed warm-start gate and select checkpoints by benchmark metrics first (val loss second).
@@ -40,13 +43,22 @@ So this phase emphasizes:
 - adding post-projection data (wrapper-triggered state coverage),
 - evaluating by downstream solve-time/iterations/success, not by validation loss alone.
 
-Pinned cleanup:
+## Phase 2 (After Current Phase Exit Criteria)
+
+Trigger for Phase 2:
+- post-projection shard reaches target size and current resume training/eval cycle is complete.
+
+Phase-2 priorities:
 - Remove the redundant obstacle `margin` vs `clearance` split. Keep a single obstacle inflation / clearance parameter across map generation, optimizer constraints, dataset generation, and docs.
 - Store or recover the final effective obstacle radius explicitly in dataset metadata, so the enforced obstacle size does not need to be reconstructed indirectly from `radius + margin + clearance (+ vehicle radius)`.
 - Remove obstacle slack support if we keep the current hard-constrained formulation. It is disabled in the active dataset/demo pipeline and currently adds inactive code paths in the optimizer and scripts.
 - Add a postprocessing step to compute and cache constraints-to-go fields from the saved trajectories, map context, and obstacle metadata once the base dataset is finished.
 
 ---
+
+## Historical / Proposed (Legacy Plan Content)
+
+The sections below are retained for traceability and design context. They include older multi-track/IPOPT-era planning and proposals that are not the active execution loop for the current FATROP Oval phase.
 
 ## 0) Reality check: what exists right now
 
@@ -678,10 +690,9 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 
 ### 8.1 Current state
 
-- Production optimizer path: IPOPT direct collocation with hard obstacle constraints.
 - Active data-generation policy:
   - hard repairs via FATROP
-  - post-projection repairs via IPOPT (default)
+  - post-projection repairs via FATROP (narrowed phase policy)
 - Current Oval-only recovery shards:
   - `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
   - `data/datasets/Oval_Track_260m_repairs_postproj`: `602` episodes
@@ -701,7 +712,7 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 5. Run one controlled ablation:
    - same training setup **with** post-proj shard
    - same training setup **without** post-proj shard
-4. Keep warmstart outputs checkpoint-local under:
+6. Keep warmstart outputs checkpoint-local under:
    - `dt/checkpoints/<run>/warmstarts/eval/...`
    - `dt/checkpoints/<run>/warmstarts/viz/...`
 
@@ -743,7 +754,7 @@ Pending cleanup:
 Required reporting for each run:
 1. `baseline`, `baseline_retry`, `dt_warmstart`
 2. success rate
-3. IPOPT solve time and iterations
+3. FATROP solve time and iterations
 4. lap time objective
 5. warm-start wrapper diagnostics (fallback/projection counts)
 
