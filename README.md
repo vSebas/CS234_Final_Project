@@ -102,11 +102,9 @@ Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
 
 ## Optimization Status
 
-- Current robust trajopt baseline path: IPOPT direct collocation.
-- Current dataset generation policy:
-  - hard-repair shards: FATROP (`obstacle_fast` profile)
-  - post-projection shards: IPOPT default (FATROP optional)
-- Current project direction: obstacle-aware warm-starting and benchmarked DT-vs-baseline trajectory quality/latency.
+- Current active phase scope: Oval only, frozen benchmark families (fixed no-obstacle + frozen 1-4 obstacle set).
+- Current solver policy (active phase): FATROP only for generation + warm-start eval + benchmark.
+- Current project direction: obstacle-aware DT warm-starting with projection-mode ablations and quality-gated DT-init fallback to baseline.
 - Current demo/production configuration solves a **full lap** with periodic boundary conditions.
 - Obstacle overlap visualization bug was fixed by unifying `world.map_match_vectorized` with optimizer Frenet-to-ENU convention.
 - SCP is not the active production path.
@@ -256,7 +254,7 @@ Current active phase (March 2026) is Oval-first:
   - `Oval_Track_260m` no-obstacle + obstacle variants
 - current solver policy:
   - hard repairs: FATROP
-  - post-projection repairs: IPOPT default (`POSTPROJ_SOLVER=ipopt`)
+  - post-projection repairs: FATROP
 
 Current Oval recovery shard status:
 - `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
@@ -326,7 +324,7 @@ python dt/eval.py \
 Current training limitations:
 - train/validation splitting is done inside the loader; explicit persisted train/val/test split artifacts are still missing
 - repair segments are still a small minority of the data and may need weighted sampling or balancing during training
-- benchmark coverage is still limited to a small fixed gate (`N=120`) and should be expanded before final conclusions
+- benchmark gate is intentionally frozen and small in current phase (single fixed no-obstacle case + frozen 1-4 obstacle set at `N=120`)
 
 Recommended current usage:
 - use the generated shard structure as-is
@@ -339,6 +337,35 @@ Warm-start artifact convention:
 - checkpoint-local outputs are preferred:
   - `dt/checkpoints/<run>/warmstarts/eval/...`
   - `dt/checkpoints/<run>/warmstarts/viz/...`
+
+Warm-start eval (current phase defaults):
+```bash
+PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u experiments/eval_warmstart.py \
+  --checkpoint dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt \
+  --map-file maps/Oval_Track_260m.mat \
+  --num-scenarios 10 \
+  --seed 42 \
+  --min-obstacles 1 \
+  --max-obstacles 4 \
+  --N 120 \
+  --solver fatrop \
+  --projection-mode soft \
+  --dt-reject-mode threshold \
+  --dt-reject-fallback-max 0 \
+  --dt-reject-proj-fraction-max 0.8 \
+  --dt-reject-proj-total-max 100 \
+  --dt-reject-proj-step-max 2.0
+```
+
+Key DT warm-start diagnostics exported in CSV/summary:
+- `ws_fallback_count`
+- `ws_projection_count`
+- `ws_projection_fraction`
+- `ws_projection_total_magnitude`
+- `ws_projection_max_magnitude`
+- per-reason projection counters:
+  - `ws_proj_ux_clip_count`, `ws_proj_uy_clip_count`, `ws_proj_r_clip_count`
+  - `ws_proj_e_clip_count`, `ws_proj_dpsi_clip_count`, `ws_proj_obs_push_count`
 
 ### Vehicle Simulation
 

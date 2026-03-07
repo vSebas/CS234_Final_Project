@@ -1,0 +1,4 @@
+scenario_id,method,success,accepted,rejection_reason,solve_time_s,ipopt_iterations,lap_time_s,warmstart_time_s,warmstart_accepted,ws_fallback_count,ws_projection_count,ws_projection_fraction,ws_projection_total_magnitude,ws_projection_max_magnitude,ws_proj_ux_clip_count,ws_proj_uy_clip_count,ws_proj_r_clip_count,ws_proj_e_clip_count,ws_proj_dpsi_clip_count,ws_proj_obs_push_count,ws_warmstart_rejection_reason,num_obstacles,min_clearance_m
+0,baseline,True,True,,60.03127646446228,142,16.772928882832005,0.0,True,0,0,0.0,0.0,0.0,0,0,0,0,0,0,,0,inf
+0,baseline_retry,True,True,,60.03127646446228,142,16.772928882832005,0.0,True,0,0,0.0,0.0,0.0,0,0,0,0,0,0,,0,inf
+0,dt_warmstart,True,True,,70.98997831344604,163,17.534104969171366,0.7631585597991943,True,60,0,0.0,0.0,0.0,0,0,0,0,0,0,,0,inf

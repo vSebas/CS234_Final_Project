@@ -139,7 +139,7 @@ class TrajectoryDataset(Dataset):
         self.indices = []
         for ep_idx, ep in enumerate(self.episodes):
             T = ep["length"]
-            for start in range(T):
+            for start in self._build_start_indices(T, self.context_length):
                 self.indices.append((ep_idx, start))
 
         # Compute or use provided statistics
@@ -232,6 +232,48 @@ class TrajectoryDataset(Dataset):
 
         print(f"Loaded {len(episodes)} episodes from {len(self.data_dirs)} shard(s)")
         return episodes
+
+    @staticmethod
+    def _build_start_indices(
+        episode_len: int,
+        context_length: int,
+        min_valid_tokens: Optional[int] = None,
+        tail_stride: Optional[int] = None,
+    ) -> List[int]:
+        """
+        Build start indices while avoiding heavy oversampling of padded tail windows.
+
+        Strategy:
+        - Keep all full-length windows.
+        - Keep a sparse subset of short tail windows with at least min_valid_tokens.
+        """
+        T = int(episode_len)
+        K = max(1, int(context_length))
+        if T <= 0:
+            return []
+        if T <= K:
+            return [0]
+
+        if min_valid_tokens is None:
+            min_valid_tokens = max(1, K // 2)
+        min_valid_tokens = max(1, min(int(min_valid_tokens), K))
+
+        if tail_stride is None:
+            tail_stride = max(1, K // 4)
+        tail_stride = max(1, int(tail_stride))
+
+        starts: List[int] = []
+        full_count = T - K + 1
+        starts.extend(range(full_count))
+
+        tail_start = full_count
+        tail_end_excl = T - min_valid_tokens + 1
+        if tail_start < tail_end_excl:
+            starts.extend(range(tail_start, tail_end_excl, tail_stride))
+            if starts[-1] != (tail_end_excl - 1):
+                starts.append(tail_end_excl - 1)
+
+        return starts
 
     @staticmethod
     def _infer_source_kind(shard_dir: Path) -> str:
@@ -594,7 +636,7 @@ def create_dataloaders(
     train_dataset.episodes = train_episodes
     train_dataset.indices = []
     for ep_idx, ep in enumerate(train_episodes):
-        for start in range(ep["length"]):
+        for start in train_dataset._build_start_indices(ep["length"], train_dataset.context_length):
             train_dataset.indices.append((ep_idx, start))
 
     val_dataset = TrajectoryDataset(
@@ -606,7 +648,7 @@ def create_dataloaders(
     val_dataset.episodes = val_episodes
     val_dataset.indices = []
     for ep_idx, ep in enumerate(val_episodes):
-        for start in range(ep["length"]):
+        for start in val_dataset._build_start_indices(ep["length"], val_dataset.context_length):
             val_dataset.indices.append((ep_idx, start))
 
     loader_kwargs = {

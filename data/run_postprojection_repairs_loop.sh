@@ -6,7 +6,8 @@ set -euo pipefail
 
 map_name="${MAP_NAME:-Oval_Track_260m}"
 output_root="${OUTPUT_ROOT:-data/datasets}"
-manifest_path="${MANIFEST_PATH:-${output_root}/${map_name}_repairs_postproj/manifest.jsonl}"
+output_suffix="${OUTPUT_SUFFIX:-repairs_postproj}"
+manifest_path="${MANIFEST_PATH:-${output_root}/${map_name}_${output_suffix}/manifest.jsonl}"
 
 total_target="${TOTAL_TARGET:-120}"
 max_loops="${MAX_LOOPS:-50}"
@@ -29,6 +30,7 @@ count_episodes() {
 echo "[postproj_loop] wrapper_log=${wrapper_log}"
 echo "[postproj_loop] map_name=${map_name}"
 echo "[postproj_loop] manifest_path=${manifest_path}"
+echo "[postproj_loop] output_suffix=${output_suffix}"
 echo "[postproj_loop] total_target=${total_target}"
 echo "[postproj_loop] max_loops=${max_loops}"
 echo "[postproj_loop] max_no_progress_loops=${max_no_progress_loops}"
@@ -49,7 +51,7 @@ while (( loop < max_loops )); do
   echo "[postproj_loop] loop=${loop}/${max_loops} current=${prev_count}/${total_target}"
 
   # Set absolute target for each run; generation is resume-safe.
-  POSTPROJ_REPAIRS="${total_target}" SINGLE_MAP_CAP="${single_map_cap}" ./data/run_postprojection_repairs.sh
+  POSTPROJ_REPAIRS="${total_target}" OUTPUT_SUFFIX="${output_suffix}" SINGLE_MAP_CAP="${single_map_cap}" ./data/run_postprojection_repairs.sh
 
   curr_count="$(count_episodes)"
   delta=$((curr_count - prev_count))

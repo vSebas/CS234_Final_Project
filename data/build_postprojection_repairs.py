@@ -144,7 +144,7 @@ def main() -> None:
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
     parser.add_argument("--eps-s", type=float, default=0.1)
     parser.add_argument("--eps-kappa", type=float, default=0.05)
-    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="fatrop")
     parser.add_argument("--terminal-weight", type=float, default=5.0)
     parser.add_argument("--obs-window-m", type=float, default=30.0)
     parser.add_argument("--obs-subsamples", type=int, default=11)

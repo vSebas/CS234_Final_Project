@@ -39,6 +39,8 @@ class WarmStartResult:
     projection_count: int = 0
     projection_total_magnitude: float = 0.0
     projection_max_magnitude: float = 0.0
+    projection_reason_counts: Optional[Dict[str, int]] = None
+    fallback_reason_counts: Optional[Dict[str, int]] = None
     rollout_trace: Optional[List[Dict[str, Any]]] = None
 
 
@@ -56,6 +58,7 @@ class DTWarmStarter:
         checkpoint_path: str,
         vehicle_model,
         world,
+        projection_mode: str = "soft",
         device: str = "cuda" if torch.cuda.is_available() else "cpu",
     ):
         """
@@ -70,6 +73,9 @@ class DTWarmStarter:
         self.device = torch.device(device)
         self.vehicle = vehicle_model
         self.world = world
+        if projection_mode not in {"off", "soft", "full"}:
+            raise ValueError(f"Invalid projection_mode={projection_mode}. Expected off|soft|full.")
+        self.projection_mode = projection_mode
 
         # Load checkpoint
         checkpoint = torch.load(checkpoint_path, map_location=self.device)
@@ -317,18 +323,58 @@ class DTWarmStarter:
         obstacles: Optional[List[Dict]] = None,
         obstacle_clearance_m: float = 0.0,
         vehicle_radius_m: float = 0.0,
-    ) -> Tuple[np.ndarray, float]:
+    ) -> Tuple[np.ndarray, float, Dict[str, int]]:
         """Project a rollout state back to a conservative in-track envelope."""
+        reasons = {
+            "ux_clip": 0,
+            "uy_clip": 0,
+            "r_clip": 0,
+            "e_clip": 0,
+            "dpsi_clip": 0,
+            "obs_push": 0,
+        }
+        if self.projection_mode == "off":
+            return x_full.copy(), 0.0, reasons
+
         x_before = x_full.copy()
         x_proj = x_full.copy()
         s_mod = s % self.world.length_m
         half_width = 0.5 * float(self.world.track_width_m_LUT(np.array([s_mod])))
-        e_limit = max(0.5, 0.9 * half_width)
+        if self.projection_mode == "full":
+            e_limit = max(0.5, 0.9 * half_width)
+            ux_min, ux_max = 5.0, 25.0
+            uy_lim = 2.0
+            r_lim = 1.0
+            dpsi_lim = 0.75
+            obs_push_scale = 1.0
+        else:
+            # Soft mode: only enforce hard safety/stability envelope.
+            e_limit = max(0.5, 0.98 * half_width)
+            ux_min, ux_max = 1.0, 35.0
+            uy_lim = 4.0
+            r_lim = 2.0
+            dpsi_lim = 1.0
+            obs_push_scale = 1.0
 
-        x_proj[0] = float(np.clip(x_proj[0], 5.0, 25.0))
-        x_proj[1] = float(np.clip(x_proj[1], -2.0, 2.0))
-        x_proj[2] = float(np.clip(x_proj[2], -1.0, 1.0))
+        ux_old, uy_old, r_old, e_old, dpsi_old = (
+            float(x_proj[0]),
+            float(x_proj[1]),
+            float(x_proj[2]),
+            float(x_proj[6]),
+            float(x_proj[7]),
+        )
+        x_proj[0] = float(np.clip(x_proj[0], ux_min, ux_max))
+        x_proj[1] = float(np.clip(x_proj[1], -uy_lim, uy_lim))
+        x_proj[2] = float(np.clip(x_proj[2], -r_lim, r_lim))
         e_proj = float(np.clip(x_proj[6], -e_limit, e_limit))
+        if abs(x_proj[0] - ux_old) > 1e-9:
+            reasons["ux_clip"] = 1
+        if abs(x_proj[1] - uy_old) > 1e-9:
+            reasons["uy_clip"] = 1
+        if abs(x_proj[2] - r_old) > 1e-9:
+            reasons["r_clip"] = 1
+        if abs(e_proj - e_old) > 1e-9:
+            reasons["e_clip"] = 1
 
         if obstacles:
             longitudinal_window = max(4.0, 3.0 * (self.world.length_m / 120.0))
@@ -362,11 +408,14 @@ class DTWarmStarter:
                         e_proj = right_target
                     else:
                         e_proj = float(np.clip(e_proj, -e_limit, e_limit))
+                    reasons["obs_push"] = int(obs_push_scale)
 
         x_proj[6] = e_proj
-        x_proj[7] = float(np.clip(x_proj[7], -0.75, 0.75))
+        x_proj[7] = float(np.clip(x_proj[7], -dpsi_lim, dpsi_lim))
+        if abs(x_proj[7] - dpsi_old) > 1e-9:
+            reasons["dpsi_clip"] = 1
         projection_mag = float(np.linalg.norm(x_proj - x_before))
-        return x_proj, projection_mag
+        return x_proj, projection_mag, reasons
 
     def _clearance_proxy_m(
         self,
@@ -515,6 +564,15 @@ class DTWarmStarter:
         projection_count = 0
         projection_total_magnitude = 0.0
         projection_max_magnitude = 0.0
+        projection_reason_counts = {
+            "ux_clip": 0,
+            "uy_clip": 0,
+            "r_clip": 0,
+            "e_clip": 0,
+            "dpsi_clip": 0,
+            "obs_push": 0,
+        }
+        fallback_reason_counts = {"dynamics_unstable": 0}
         rollout_trace: List[Dict[str, Any]] = [] if collect_rollout_trace else None
         for k in range(N):
             # Build DT observation: [ux, uy, r, e, dpsi, pos_E, pos_N, yaw_world]
@@ -621,6 +679,7 @@ class DTWarmStarter:
             x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
             if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
                 fallback_count += 1
+                fallback_reason_counts["dynamics_unstable"] += 1
                 fallback_used = True
                 x_next, dt = self._fallback_step(x_full, action_pred, s, ds_m)
                 if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
@@ -635,10 +694,12 @@ class DTWarmStarter:
                         projection_count=projection_count,
                         projection_total_magnitude=projection_total_magnitude,
                         projection_max_magnitude=projection_max_magnitude,
+                        projection_reason_counts=projection_reason_counts,
+                        fallback_reason_counts=fallback_reason_counts,
                         rollout_trace=rollout_trace,
                     )
             x_pred_before_projection = x_next.copy()
-            x_next, projection_mag = self._project_state_to_track(
+            x_next, projection_mag, proj_reasons = self._project_state_to_track(
                 x_next,
                 s + ds_m,
                 obstacles=obstacles,
@@ -649,6 +710,8 @@ class DTWarmStarter:
                 projection_count += 1
                 projection_total_magnitude += projection_mag
                 projection_max_magnitude = max(projection_max_magnitude, projection_mag)
+            for key, value in proj_reasons.items():
+                projection_reason_counts[key] += int(value)
 
             if collect_rollout_trace and rollout_trace is not None:
                 clearance_proxy = self._clearance_proxy_m(
@@ -667,6 +730,7 @@ class DTWarmStarter:
                         "rtg_before": float(rtg),
                         "fallback_used": bool(fallback_used),
                         "projection_mag": float(projection_mag),
+                        "projection_reasons": {k: int(v) for k, v in proj_reasons.items()},
                         "clearance_proxy_m": float(clearance_proxy),
                         "action_pred": action_pred.astype(float).tolist(),
                         "x_before": x_full.astype(float).tolist(),
@@ -719,6 +783,8 @@ class DTWarmStarter:
             projection_count=projection_count,
             projection_total_magnitude=projection_total_magnitude,
             projection_max_magnitude=projection_max_magnitude,
+            projection_reason_counts=projection_reason_counts,
+            fallback_reason_counts=fallback_reason_counts,
             rollout_trace=rollout_trace,
         )
 
@@ -796,10 +862,17 @@ def load_warmstarter(
     checkpoint_path: str,
     vehicle_model,
     world,
+    projection_mode: str = "soft",
     device: str = "cuda" if torch.cuda.is_available() else "cpu",
 ) -> DTWarmStarter:
     """Load a DTWarmStarter from checkpoint."""
-    return DTWarmStarter(checkpoint_path, vehicle_model, world, device)
+    return DTWarmStarter(
+        checkpoint_path,
+        vehicle_model,
+        world,
+        projection_mode=projection_mode,
+        device=device,
+    )
 
 
 if __name__ == "__main__":

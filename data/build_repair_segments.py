@@ -281,7 +281,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=str, default="data/datasets/repair_segments")
     parser.add_argument("--num-segments", type=int, default=200, help="Target number of accepted repair segments.")
     parser.add_argument("--seed", type=int, default=0)
-    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="fatrop")
     parser.add_argument("--H", type=int, default=20)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)

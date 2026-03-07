@@ -20,7 +20,6 @@ from typing import Dict, Optional
 import matplotlib
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 
@@ -175,9 +174,6 @@ class DTTrainer:
         # Learning rate scheduler with warmup
         self.scheduler = self._create_scheduler()
 
-        # Loss function
-        self.loss_fn = nn.MSELoss()
-
         # Logging
         self.output_dir = Path(config.output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
@@ -233,11 +229,11 @@ class DTTrainer:
             states, actions, rtg, timesteps, attention_mask
         )
 
-        # Compute losses (only on valid tokens)
-        mask = attention_mask.unsqueeze(-1).float()
+        # Compute losses (only on valid, non-padding tokens)
+        mask = attention_mask.float()
 
         # Action loss (predict current action from current state)
-        action_loss = self.loss_fn(action_preds * mask, actions * mask)
+        action_loss = self._masked_mse(action_preds, actions, mask)
 
         # State prediction loss (predict next state observation)
         # Target: next state observation (shifted by 1)
@@ -247,7 +243,7 @@ class DTTrainer:
             states[:, 1:, :state_dim],
             states[:, -1:, :state_dim],  # Pad last
         ], dim=1)
-        state_loss = self.loss_fn(state_preds * mask, next_states * mask)
+        state_loss = self._masked_mse(state_preds, next_states, mask)
 
         # Total loss
         loss = action_loss + self.config.lambda_x * state_loss
@@ -279,6 +275,22 @@ class DTTrainer:
             "lr": self.scheduler.get_last_lr()[0],
         }
 
+    @staticmethod
+    def _masked_mse(
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        token_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """
+        Mean-squared error normalized only by valid (non-padding) tokens.
+
+        token_mask has shape (B, K) with 1 for valid tokens and 0 for padding.
+        """
+        valid = token_mask.unsqueeze(-1).to(dtype=pred.dtype)
+        sqerr = (pred - target).pow(2) * valid
+        denom = valid.sum() * pred.shape[-1]
+        return sqerr.sum() / denom.clamp_min(1.0)
+
     @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
         """Evaluate on validation set."""
@@ -300,15 +312,15 @@ class DTTrainer:
                 states, actions, rtg, timesteps, attention_mask
             )
 
-            mask = attention_mask.unsqueeze(-1).float()
-            action_loss = self.loss_fn(action_preds * mask, actions * mask)
+            mask = attention_mask.float()
+            action_loss = self._masked_mse(action_preds, actions, mask)
 
             state_dim = self.model.config.state_dim
             next_states = torch.cat([
                 states[:, 1:, :state_dim],
                 states[:, -1:, :state_dim],
             ], dim=1)
-            state_loss = self.loss_fn(state_preds * mask, next_states * mask)
+            state_loss = self._masked_mse(state_preds, next_states, mask)
 
             loss = action_loss + self.config.lambda_x * state_loss
 

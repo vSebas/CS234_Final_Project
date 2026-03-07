@@ -32,8 +32,8 @@ Current FATROP runtime knobs and canonical command are documented in
   - `FATROP_ACCEPTABLE_TOL=5e-3`
 - **Post-projection repair default solver (current code path):**
   - Source: `data/build_postprojection_repairs.py`, `data/run_postprojection_repairs.sh`
-  - default is `ipopt` (`POSTPROJ_SOLVER=ipopt`)
-  - `fatrop` is available as optional override only
+  - default is `fatrop` (`POSTPROJ_SOLVER=fatrop`)
+  - `ipopt` remains available as explicit override for diagnostics
 - **Default FATROP output dir:** `results/trajectory_optimization/fatrop`
 
 ## Historical summary
@@ -60,7 +60,7 @@ Current FATROP runtime knobs and canonical command are documented in
 
 1. Standalone trajopt experiments: use FATROP profiles documented in `docs/FATROP_CONFIG.md`.
 2. Hard-repair dataset generation (active phase): FATROP.
-3. Post-projection repair generation (active phase): IPOPT default; use FATROP only for explicit experiments.
+3. Post-projection repair generation (active phase): FATROP default; use IPOPT only for explicit diagnostics.
 4. Enforce acceptance gates (feasibility, clearance, smoothness) regardless of solver choice.
 
 ## Canonical commands

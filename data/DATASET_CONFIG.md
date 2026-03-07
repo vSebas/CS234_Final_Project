@@ -11,7 +11,7 @@ Current active phase is **Oval-only training iteration**:
 - keep nonlinear dynamics stack unchanged
 - solver policy for this phase:
   - hard-repair generation: `FATROP`
-  - post-projection generation: `IPOPT` (default)
+  - post-projection generation: `FATROP` (default)
 
 Current Oval recovery shards:
 - `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes (target `400`, phase complete)
@@ -20,8 +20,10 @@ Current Oval recovery shards:
 Resumable commands:
 - hard repairs (FATROP):
   - `PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_SMOOTH_CONTROLS=1 FATROP_CLOSURE_MODE=open FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_TOL=5e-3 /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 400 --seed 0 --H 20 --hard-mode --save-every 10 --solver fatrop --resume`
-- post-projection repairs (IPOPT default):
+- post-projection repairs (FATROP default):
   - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+  - clean FATROP-only shard (no mixing with older runs):
+    - `OUTPUT_SUFFIX=repairs_postproj_fatrop TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
 
 Why `SINGLE_MAP_CAP=0`:
 - default cap can stop intentional single-map runs early

@@ -33,13 +33,21 @@ Status convention used below:
   - Family 1: no obstacles (single fixed case)
   - Family 2: 1–4 random obstacles, generated once and frozen
 
-**Highest ROI next steps:**
-1. Add a **projection-mode ablation** (OFF/SOFT/FULL) and **acceptance gating** so DT is never worse than baseline.
-2. Fix two training correctness issues that strongly affect rollout behavior:
-   - **masked MSE bug**
-   - **excessive padded window sampling**
-3. Make post-projection repairs *effective* by controlling sampling and ensuring labels are optimizer-consistent.
-4. Only after the above: tune data mix ratios and consider model architecture changes.
+## Current phase execution order (locked)
+
+1. Keep scope locked: Oval only, FATROP only, frozen two-family benchmark.
+2. Keep rollout start assumptions locked: `s0` centerline-progress only, `e0=dpsi0=uy0=r0=0`, `ux0=5.0`.
+3. Fix training correctness first:
+   - masked-loss normalization in `dt/train.py`,
+   - padded-window sampling bias in `dt/dataset.py`.
+4. Deconfound warmstart behavior:
+   - projection modes `off|soft|full`,
+   - projection/fallback reason counters,
+   - auto-fallback quality gate when DT init is poor.
+5. Refresh dataset only after steps 1-4 are in place (FATROP + locked assumptions).
+6. Resume training to max 40 epochs with fixed benchmark checks every 2-3 epochs.
+7. Select checkpoints by benchmark metrics first, validation loss second.
+8. Run strict ablations in order (projection mode, postproj on/off, DT vs baseline).
 
 ---
 
@@ -122,11 +130,11 @@ If DT warm-start is always accepted even when heavily rescued:
 - `experiments/eval_warmstart.py`
 
 **Knobs:**
-- Add `--projection-mode {none,soft,full}`
+- Add `--projection-mode {off,soft,full}`
 - Add `--dt-reject-mode {never,threshold}` with thresholds below
 
 Status:
-- `Phase 2` (not fully implemented end-to-end yet).
+- `Current phase` (implemented in `planning/dt_warmstart.py` and `experiments/eval_warmstart.py`).
 
 **Metrics to log per scenario:**
 - solver: `success`, `solve_time_s`, `iterations`, `objective`, `lap_time_s`
@@ -141,7 +149,7 @@ Status:
   - `proj_max_mag > 2.0`    (tune after first run)
 
 **Outcome interpretation:**
-- If `none` collapses fast → confirms model instability.
+- If `off` collapses fast → confirms model instability.
 - If `soft` is better than `full` → projection is over-aggressive and creates solver-hostile kinks.
 - If gating improves median time vs ungated DT → projection-dominated inits were hurting time.
 
@@ -162,7 +170,7 @@ loss = sq.sum() / mask.sum().clamp(min=1)
 Repeat for action loss (and optional state loss if used).
 
 Status:
-- `Phase 2`.
+- `Current phase` (implemented in `dt/train.py` with valid-token normalization).
 
 **Run:**
 - Resume from your current best checkpoint.
@@ -190,7 +198,7 @@ Index only starts that can produce full windows where possible:
 Sample windows by selecting an end index and taking the last K steps, so most samples are full length.
 
 Status:
-- `Phase 2`.
+- `Current phase` (implemented in `dt/dataset.py` with reduced padded-tail window sampling).
 
 **Run:** short resume training (5–10 epochs) after Exp 2 (or combined).
 
@@ -241,15 +249,15 @@ Status:
 
 # 3) Specific code changes for dt_warmstart projection/fallback/rollout
 
-## C1 — Add `projection_mode` (none/soft/full)
+## C1 — Add `projection_mode` (off/soft/full)
 **File:** `planning/dt_warmstart.py`
 
 Add to warmstarter init:
-- `projection_mode: str = "full"`
+- `projection_mode: str = "soft"` (less clamp-heavy default)
 - Validate allowed values
 
 In `_project_state`:
-- if mode == `"none"`: return x unchanged, mag=0
+- if mode == `"off"`: return x unchanged, mag=0
 - if mode == `"soft"`:
   - only clamp when violating hard safety bounds (don’t “shrink envelope” every step)
   - do not clip uy/r unless state unreasonable or safety-critical
@@ -257,7 +265,7 @@ In `_project_state`:
 - if mode == `"full"`: current behavior
 
 Status:
-- `Phase 2` (evaluation script support may exist, but warmstarter-side mode plumbing is still the required source-of-truth).
+- `Current phase` (projection-mode plumbing is active end-to-end).
 
 ## C2 — Add projection reason counters
 For each projection operation, increment:
@@ -328,7 +336,11 @@ Store scenarios to disk (pickle/json) and always evaluate on the same set.
 1) Baseline (cold start)
 2) DT + projection=full
 3) DT + projection=soft
-4) DT + projection=none (with rejection gate)
+4) DT + projection=off (with rejection gate)
+
+Interpretation rule:
+- `projection=off` is the truth test for direct DT warm-start behavior and should be treated as the primary DT KPI.
+- `projection=soft` + gating is the secondary safety/deployment path.
 
 ## Reported metrics (per condition)
 Primary:
@@ -352,10 +364,10 @@ Diagnostics:
 ---
 
 ## Implementation checklist (fastest sequence)
-1) Add projection_mode + reason counters + gating in `dt_warmstart.py`
-2) Plumb flags into `eval_warmstart.py`
-3) Fix masked MSE in `dt/train.py`
-4) Fix window indexing in `dt/dataset.py`
+1) Keep projection_mode + reason counters + gating active in `dt_warmstart.py`
+2) Keep eval flags + exports active in `eval_warmstart.py`
+3) Keep masked MSE fix active in `dt/train.py`
+4) Keep reduced padded-window indexing active in `dt/dataset.py`
 5) Run Exp 1–3 on the same scenario gate
 6) Expand postproj dataset only if projection pressure remains high
 
@@ -365,7 +377,7 @@ Diagnostics:
 Do **not** scale architecture until:
 - projection pressure drops or is clearly attributable to missing capacity,
 - training correctness issues (masking/padding) are resolved,
-- and you have deconfounded projection effects (none/soft/full).
+- and you have deconfounded projection effects (off/soft/full).
 
 Architecture changes are high-cost and confounded if the pipeline is still dominated by wrapper corrections.
 
@@ -374,25 +386,34 @@ Architecture changes are high-cost and confounded if the pipeline is still domin
 ## Appendix: Suggested CLI patterns
 
 ### Projection ablation
-Note: these flags are a target interface and may require implementation first.
+Note: these flags are implemented in the current repo.
 ```bash
 PYTHONPATH=. python experiments/eval_warmstart.py \
   --checkpoint <ckpt.pt> \
   --map-file maps/Oval_Track_260m.mat \
-  --scenario-set scenarios_fixed_20.pkl \
+  --num-scenarios 10 \
+  --seed 42 \
+  --min-obstacles 1 \
+  --max-obstacles 4 \
   --projection-mode full
 
 PYTHONPATH=. python experiments/eval_warmstart.py \
   --checkpoint <ckpt.pt> \
   --map-file maps/Oval_Track_260m.mat \
-  --scenario-set scenarios_fixed_20.pkl \
+  --num-scenarios 10 \
+  --seed 42 \
+  --min-obstacles 1 \
+  --max-obstacles 4 \
   --projection-mode soft
 
 PYTHONPATH=. python experiments/eval_warmstart.py \
   --checkpoint <ckpt.pt> \
   --map-file maps/Oval_Track_260m.mat \
-  --scenario-set scenarios_fixed_20.pkl \
-  --projection-mode none \
+  --num-scenarios 10 \
+  --seed 42 \
+  --min-obstacles 1 \
+  --max-obstacles 4 \
+  --projection-mode off \
   --dt-reject-mode threshold
 ```
 
@@ -413,9 +434,9 @@ PYTHONPATH=. python dt/train.py \
 
 This is the practical sequence to run now, using current scripts.
 
-1. Complete post-proj target:
+1. Complete post-proj target (FATROP):
 ```bash
-TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh
+POSTPROJ_SOLVER=fatrop TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh
 ```
 
 2. Resume current best run to max 40 epochs (benchmark-gated outside trainer):
@@ -441,7 +462,13 @@ PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u experiments/eval_
   --min-obstacles 1 \
   --max-obstacles 4 \
   --N 120 \
-  --solver fatrop
+  --solver fatrop \
+  --projection-mode soft \
+  --dt-reject-mode threshold \
+  --dt-reject-fallback-max 0 \
+  --dt-reject-proj-fraction-max 0.8 \
+  --dt-reject-proj-total-max 100 \
+  --dt-reject-proj-step-max 2.0
 ```
 
 For the fixed no-obstacle case:
@@ -454,7 +481,13 @@ PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u experiments/eval_
   --min-obstacles 0 \
   --max-obstacles 0 \
   --N 120 \
-  --solver fatrop
+  --solver fatrop \
+  --projection-mode soft \
+  --dt-reject-mode threshold \
+  --dt-reject-fallback-max 0 \
+  --dt-reject-proj-fraction-max 0.8 \
+  --dt-reject-proj-total-max 100 \
+  --dt-reject-proj-step-max 2.0
 ```
 
 4. Keep checkpoint selection benchmark-first:

@@ -7,13 +7,14 @@ postproj_repairs="${POSTPROJ_REPAIRS:-80}"
 postproj_per_map="${POSTPROJ_PER_MAP:-0}"
 seed="${SEED:-0}"
 output_root="${OUTPUT_ROOT:-data/datasets}"
+output_suffix="${OUTPUT_SUFFIX:-repairs_postproj}"
 max_attempts_factor="${MAX_ATTEMPTS_FACTOR:-3.0}"
 max_trace_rows="${MAX_TRACE_ROWS:-0}"
 nice_level="${NICE_LEVEL:-10}"
 wall_time="${WALL_TIME:-20m}"
 clear_cache_every="${CLEAR_CACHE_EVERY:-5}"
 single_map_cap="${SINGLE_MAP_CAP:-200}"
-postproj_solver="${POSTPROJ_SOLVER:-ipopt}"
+postproj_solver="${POSTPROJ_SOLVER:-fatrop}"
 
 mkdir -p results/dataset_runs
 log_file="results/dataset_runs/postproj_repairs_$(date +%Y%m%d_%H%M%S).log"
@@ -63,6 +64,7 @@ cmd=(
   --trace-jsonl "${trace_jsonl}"
   --base-laps-dir data/base_laps
   --output-root "${output_root}"
+  --output-suffix "${output_suffix}"
   --num-segments "${postproj_repairs}"
   --per-map-target "${postproj_per_map}"
   --max-attempts-factor "${max_attempts_factor}"

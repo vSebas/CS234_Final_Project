@@ -62,8 +62,16 @@ class ScenarioResult:
     warmstart_accepted: bool = True
     ws_fallback_count: int = 0
     ws_projection_count: int = 0
+    ws_projection_fraction: float = 0.0
     ws_projection_total_magnitude: float = 0.0
     ws_projection_max_magnitude: float = 0.0
+    ws_proj_ux_clip_count: int = 0
+    ws_proj_uy_clip_count: int = 0
+    ws_proj_r_clip_count: int = 0
+    ws_proj_e_clip_count: int = 0
+    ws_proj_dpsi_clip_count: int = 0
+    ws_proj_obs_push_count: int = 0
+    ws_warmstart_rejection_reason: Optional[str] = None
 
     # Obstacle info
     num_obstacles: int = 0
@@ -91,7 +99,13 @@ class EvalConfig:
     track_buffer_m: float = 0.0
     eps_s: float = 0.1
     eps_kappa: float = 0.05
-    solver: str = "ipopt"
+    solver: str = "fatrop"
+    projection_mode: str = "soft"
+    dt_reject_mode: str = "threshold"
+    dt_reject_fallback_max: int = 0
+    dt_reject_projection_fraction_max: float = 0.8
+    dt_reject_projection_total_max: float = 100.0
+    dt_reject_projection_step_max: float = 2.0
 
     # Obstacle settings
     min_obstacles: int = 0
@@ -310,7 +324,8 @@ def run_dt_warmstart_solve(
     ds_m = optimizer.world.length_m / config.N
 
     # Generate warm-start
-    x0 = np.array([config.ux_min + 5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+    # Locked start-state policy for current phase.
+    x0 = np.array([5.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     ws_result = warmstarter.generate_warmstart(
         N=config.N,
         ds_m=ds_m,
@@ -322,8 +337,20 @@ def run_dt_warmstart_solve(
         collect_rollout_trace=config.export_rollout_trace,
     )
 
-    warmstart_accepted = ws_result.success
+    projection_fraction = float(ws_result.projection_count) / max(1, int(config.N))
+    gate_reasons: List[str] = []
+    if config.dt_reject_mode == "threshold":
+        if int(ws_result.fallback_count) > int(config.dt_reject_fallback_max):
+            gate_reasons.append("fallback_count")
+        if projection_fraction > float(config.dt_reject_projection_fraction_max):
+            gate_reasons.append("projection_fraction")
+        if float(ws_result.projection_total_magnitude) > float(config.dt_reject_projection_total_max):
+            gate_reasons.append("projection_total")
+        if float(ws_result.projection_max_magnitude) > float(config.dt_reject_projection_step_max):
+            gate_reasons.append("projection_max")
+    warmstart_accepted = bool(ws_result.success) and not gate_reasons
     rollout_trace = ws_result.rollout_trace or []
+    proj_counts = ws_result.projection_reason_counts or {}
 
     if not warmstart_accepted:
         # Fall back to baseline
@@ -332,8 +359,18 @@ def run_dt_warmstart_solve(
         metrics["warmstart_accepted"] = False
         metrics["ws_fallback_count"] = ws_result.fallback_count
         metrics["ws_projection_count"] = ws_result.projection_count
+        metrics["ws_projection_fraction"] = projection_fraction
         metrics["ws_projection_total_magnitude"] = ws_result.projection_total_magnitude
         metrics["ws_projection_max_magnitude"] = ws_result.projection_max_magnitude
+        metrics["ws_proj_ux_clip_count"] = int(proj_counts.get("ux_clip", 0))
+        metrics["ws_proj_uy_clip_count"] = int(proj_counts.get("uy_clip", 0))
+        metrics["ws_proj_r_clip_count"] = int(proj_counts.get("r_clip", 0))
+        metrics["ws_proj_e_clip_count"] = int(proj_counts.get("e_clip", 0))
+        metrics["ws_proj_dpsi_clip_count"] = int(proj_counts.get("dpsi_clip", 0))
+        metrics["ws_proj_obs_push_count"] = int(proj_counts.get("obs_push", 0))
+        metrics["ws_warmstart_rejection_reason"] = (
+            ws_result.rejection_reason if not ws_result.success else "gate:" + ",".join(gate_reasons)
+        )
         return success, False, metrics, rollout_trace, fallback_result, ws_result
 
     # Run trajectory optimizer with warm-start
@@ -387,8 +424,16 @@ def run_dt_warmstart_solve(
         "warmstart_accepted": True,
         "ws_fallback_count": ws_result.fallback_count,
         "ws_projection_count": ws_result.projection_count,
+        "ws_projection_fraction": projection_fraction,
         "ws_projection_total_magnitude": ws_result.projection_total_magnitude,
         "ws_projection_max_magnitude": ws_result.projection_max_magnitude,
+        "ws_proj_ux_clip_count": int(proj_counts.get("ux_clip", 0)),
+        "ws_proj_uy_clip_count": int(proj_counts.get("uy_clip", 0)),
+        "ws_proj_r_clip_count": int(proj_counts.get("r_clip", 0)),
+        "ws_proj_e_clip_count": int(proj_counts.get("e_clip", 0)),
+        "ws_proj_dpsi_clip_count": int(proj_counts.get("dpsi_clip", 0)),
+        "ws_proj_obs_push_count": int(proj_counts.get("obs_push", 0)),
+        "ws_warmstart_rejection_reason": None,
     }, rollout_trace, result, ws_result
 
 
@@ -647,8 +692,15 @@ def compute_summary_stats(results: List[ScenarioResult]) -> Dict:
                 ws_accepted = sum(1 for r in method_results if r.warmstart_accepted)
                 ws_fallback_counts = [r.ws_fallback_count for r in method_results]
                 ws_projection_counts = [r.ws_projection_count for r in method_results]
+                ws_projection_fracs = [r.ws_projection_fraction for r in method_results]
                 ws_projection_totals = [r.ws_projection_total_magnitude for r in method_results]
                 ws_projection_maxes = [r.ws_projection_max_magnitude for r in method_results]
+                ws_proj_e = [r.ws_proj_e_clip_count for r in method_results]
+                ws_proj_obs = [r.ws_proj_obs_push_count for r in method_results]
+                ws_proj_ux = [r.ws_proj_ux_clip_count for r in method_results]
+                ws_proj_uy = [r.ws_proj_uy_clip_count for r in method_results]
+                ws_proj_r = [r.ws_proj_r_clip_count for r in method_results]
+                ws_proj_dpsi = [r.ws_proj_dpsi_clip_count for r in method_results]
                 summary[method].update({
                     "warmstart_time_mean": float(np.mean(ws_times)),
                     "warmstart_acceptance_rate": float(ws_accepted / n) if n > 0 else 0.0,
@@ -657,9 +709,16 @@ def compute_summary_stats(results: List[ScenarioResult]) -> Dict:
                     "fallback_count_max": int(np.max(ws_fallback_counts)),
                     "projection_count_mean": float(np.mean(ws_projection_counts)),
                     "projection_count_max": int(np.max(ws_projection_counts)),
+                    "projection_fraction_mean": float(np.mean(ws_projection_fracs)),
                     "projection_total_magnitude_mean": float(np.mean(ws_projection_totals)),
                     "projection_max_magnitude_mean": float(np.mean(ws_projection_maxes)),
                     "projection_max_magnitude_max": float(np.max(ws_projection_maxes)),
+                    "proj_ux_clip_count_mean": float(np.mean(ws_proj_ux)),
+                    "proj_uy_clip_count_mean": float(np.mean(ws_proj_uy)),
+                    "proj_r_clip_count_mean": float(np.mean(ws_proj_r)),
+                    "proj_e_clip_count_mean": float(np.mean(ws_proj_e)),
+                    "proj_dpsi_clip_count_mean": float(np.mean(ws_proj_dpsi)),
+                    "proj_obs_push_count_mean": float(np.mean(ws_proj_obs)),
                 })
 
     return summary
@@ -708,10 +767,20 @@ def print_summary(summary: Dict) -> None:
             f"  Projection count: mean {s['projection_count_mean']:.2f}, "
             f"max {int(s['projection_count_max'])}"
         )
+        print(f"  Projection fraction mean: {s['projection_fraction_mean']:.3f}")
         print(
             f"  Projection magnitude: mean total {s['projection_total_magnitude_mean']:.3f}, "
             f"mean max-step {s['projection_max_magnitude_mean']:.3f}, "
             f"max-step overall {s['projection_max_magnitude_max']:.3f}"
+        )
+        print(
+            f"  Projection reasons (mean counts): "
+            f"ux_clip {s['proj_ux_clip_count_mean']:.2f}, "
+            f"uy_clip {s['proj_uy_clip_count_mean']:.2f}, "
+            f"r_clip {s['proj_r_clip_count_mean']:.2f}, "
+            f"e_clip {s['proj_e_clip_count_mean']:.2f}, "
+            f"dpsi_clip {s['proj_dpsi_clip_count_mean']:.2f}, "
+            f"obs_push {s['proj_obs_push_count_mean']:.2f}"
         )
 
     # Speedup calculation
@@ -750,7 +819,13 @@ def main():
         help="Explicit DT target lap time in seconds. If omitted, use a per-track dataset-calibrated target.",
     )
     parser.add_argument("--N", type=int, default=120)
-    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="fatrop")
+    parser.add_argument("--projection-mode", type=str, choices=("off", "soft", "full"), default="soft")
+    parser.add_argument("--dt-reject-mode", type=str, choices=("never", "threshold"), default="threshold")
+    parser.add_argument("--dt-reject-fallback-max", type=int, default=0)
+    parser.add_argument("--dt-reject-proj-fraction-max", type=float, default=0.8)
+    parser.add_argument("--dt-reject-proj-total-max", type=float, default=100.0)
+    parser.add_argument("--dt-reject-proj-step-max", type=float, default=2.0)
     parser.add_argument("--min-obstacles", type=int, default=0)
     parser.add_argument("--max-obstacles", type=int, default=4)
     parser.add_argument("--verbose", action="store_true")
@@ -772,6 +847,12 @@ def main():
         target_lap_time_s=args.target_lap_time,
         N=args.N,
         solver=args.solver,
+        projection_mode=args.projection_mode,
+        dt_reject_mode=args.dt_reject_mode,
+        dt_reject_fallback_max=args.dt_reject_fallback_max,
+        dt_reject_projection_fraction_max=args.dt_reject_proj_fraction_max,
+        dt_reject_projection_total_max=args.dt_reject_proj_total_max,
+        dt_reject_projection_step_max=args.dt_reject_proj_step_max,
         min_obstacles=args.min_obstacles,
         max_obstacles=args.max_obstacles,
         export_rollout_trace=args.export_rollout_trace,
@@ -796,6 +877,8 @@ def main():
     print(f"Obstacles: {config.min_obstacles}-{config.max_obstacles}")
     print(f"DT checkpoint: {config.checkpoint_path or 'None (baseline only)'}")
     print(f"Solver: {config.solver}")
+    print(f"Projection mode: {config.projection_mode}")
+    print(f"DT reject mode: {config.dt_reject_mode}")
     print(f"Output dir: {output_dir}")
     print()
 
@@ -819,7 +902,12 @@ def main():
     warmstarter = None
     if config.checkpoint_path:
         try:
-            warmstarter = load_warmstarter(config.checkpoint_path, vehicle, world)
+            warmstarter = load_warmstarter(
+                config.checkpoint_path,
+                vehicle,
+                world,
+                projection_mode=config.projection_mode,
+            )
             print(f"Loaded DT warm-starter")
         except Exception as e:
             print(f"Warning: Could not load DT checkpoint: {e}")

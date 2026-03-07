@@ -65,7 +65,7 @@ def main() -> None:
         "--hard-repair-solver",
         type=str,
         choices=("ipopt", "fatrop"),
-        default="ipopt",
+        default="fatrop",
         help="Solver backend for Stage B2 hard-repair generation.",
     )
     parser.add_argument(

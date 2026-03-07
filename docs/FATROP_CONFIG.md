@@ -7,8 +7,7 @@ profiles used in this repo.
 
 In the active Oval-first data loop:
 - hard repairs: FATROP (`data/run_hard_repairs_fatrop.sh`, `--solver fatrop`)
-- post-projection repairs: IPOPT by default (`POSTPROJ_SOLVER=ipopt` in `data/run_postprojection_repairs.sh`)
-- post-projection FATROP remains optional override for targeted experiments only
+- post-projection repairs: FATROP by default (`POSTPROJ_SOLVER=fatrop` in `data/run_postprojection_repairs.sh`)
 
 ## Active runner
 
@@ -113,5 +112,5 @@ Observed output:
 - This is now the canonical FATROP path after removing legacy FATROP/Rockit experiment scripts.
 - Historical context and solver-lineage summary are kept in `docs/TRAJOPT_HISTORY.md`.
 - Source-of-truth defaults for post-proj solver are in:
-  - `data/build_postprojection_repairs.py` (`--solver` default `ipopt`)
-  - `data/run_postprojection_repairs.sh` (`POSTPROJ_SOLVER` default `ipopt`)
+  - `data/build_postprojection_repairs.py` (`--solver` default `fatrop`)
+  - `data/run_postprojection_repairs.sh` (`POSTPROJ_SOLVER` default `fatrop`)

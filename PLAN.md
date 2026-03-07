@@ -15,21 +15,56 @@ Current execution focus is narrowed to unblock DT progress quickly:
   - Family 1: no obstacles (single fixed case)
   - Family 2: 1–4 random obstacles (frozen deterministic set)
 
-Current dataset status (Oval-only training phase):
-- `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes (target `400`, complete for this phase)
-- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` accepted episodes (target `1000`, in progress)
+## Current Phase Checklist (Locked Order)
+
+1. Narrow scope and keep it locked:
+   - Oval only.
+   - FATROP only (generation + warmstart eval + benchmark).
+   - Two benchmark families only:
+     - no-obstacle (single fixed case),
+     - obstacle (1-4 obstacles, frozen deterministic scenario set).
+2. Lock rollout start assumptions:
+   - `s0` sampled along centerline progress only,
+   - `e0=0`, `dpsi0=0`, `uy0=0`, `r0=0`,
+   - `ux0=5.0 m/s`.
+3. Fix core training code first:
+   - masked-loss normalization in `dt/train.py`,
+   - padded-window sampling bias in `dt/dataset.py`.
+4. Deconfound warmstart behavior:
+   - add projection modes in `planning/dt_warmstart.py`: `off|soft|full`,
+   - add projection/fallback reason counters,
+   - wire counters to `experiments/eval_warmstart.py` outputs.
+5. Add DT-init quality gate:
+   - auto-fallback to baseline init when DT init quality is poor,
+   - default eval gate thresholds:
+     - `fallback_count > 0`,
+     - `projection_fraction > 0.8`,
+     - `projection_total_magnitude > 100`,
+     - `projection_max_magnitude > 2.0`,
+   - target: DT path never worse on success rate.
+6. Dataset refresh after steps 1-5 are in place:
+   - complete/fill post-projection repairs under locked FATROP settings and start assumptions,
+   - keep hard-repair shard aligned with the same assumptions.
+7. Resume training:
+   - continue to max `40` epochs (not a fresh run),
+   - evaluate every `2-3` epochs on the frozen benchmark,
+   - select checkpoints by benchmark metrics first, validation loss second.
+8. Run strict ablations in order:
+   - projection mode ablation,
+   - with/without post-projection shard,
+   - DT warmstart vs baseline on the same frozen scenarios.
+   - treat `projection-mode=off` as the truth test and primary KPI for direct DT warm-start quality.
+   - treat `projection-mode=soft` + gating as secondary safety/deployment benchmarking.
+   - always record: `ws_projection_fraction`, `ws_projection_total_magnitude`, `ws_projection_max_magnitude`, and projection-reason counts (`ux_clip`, `uy_clip`, `r_clip`, `e_clip`, `dpsi_clip`, `obs_push`).
+
+Current dataset status (Oval-only):
+- `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes.
+- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` accepted episodes (to be expanded only after steps 1-5).
 
 Current training status:
 - latest run: `dt/checkpoints/oval_hard400_train20`
 - best validation action loss: `0.007035`
-- downstream fixed-gate benchmark improved strongly vs prior checkpoints, but DT warm-start is still slightly slower than baseline on the current 3-scenario Oval gates
-
-Current-phase objective:
-1. Finish Oval post-projection repairs to `1000`.
-2. Resume `oval_hard400_train20` to at most `40` epochs (not a fresh run).
-3. Evaluate every `2-3` epochs on the fixed warm-start gate and select checkpoints by benchmark metrics first (val loss second).
-4. Stop early if benchmark metrics do not improve for `6-8` evaluation points.
-5. After retrain, run one controlled ablation with and without post-proj shard.
+- benchmark status: improved over older checkpoints, still slightly slower than baseline on current fixed Oval gates.
 
 ### Why post-projection data is in scope
 
