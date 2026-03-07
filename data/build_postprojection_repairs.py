@@ -7,6 +7,7 @@ import argparse
 import glob
 import json
 import os
+import signal
 import sys
 import time
 import gc
@@ -35,6 +36,31 @@ from data.build_repair_segments import (
     normalize_obstacles,
     save_repair_state,
 )
+
+
+class SolveTimeoutError(RuntimeError):
+    """Raised when a single solver attempt exceeds the configured timeout."""
+
+
+def _run_with_timeout(seconds: float, fn, *args, **kwargs):
+    """Run fn(*args, **kwargs) with a wall-clock timeout on Unix platforms."""
+    if seconds <= 0:
+        return fn(*args, **kwargs)
+    if os.name == "nt":
+        # Windows does not support SIGALRM; keep behavior unchanged.
+        return fn(*args, **kwargs)
+
+    def _handler(signum, frame):  # noqa: ARG001
+        raise SolveTimeoutError(f"solve attempt exceeded timeout ({seconds:.1f}s)")
+
+    prev_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, float(seconds))
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, prev_handler)
 
 
 def build_world(map_file: Path) -> World:
@@ -157,6 +183,12 @@ def main() -> None:
     parser.add_argument("--obs-init-margin-m", type=float, default=0.5)
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
     parser.add_argument("--max-attempts-factor", type=float, default=8.0)
+    parser.add_argument(
+        "--solve-timeout-s",
+        type=float,
+        default=0.0,
+        help="Per-attempt solve timeout in seconds; 0 disables timeout.",
+    )
     parser.add_argument("--save-every", type=int, default=10)
     parser.add_argument(
         "--clear-cache-every",
@@ -390,7 +422,9 @@ def main() -> None:
 
             try:
                 if args.solver == "fatrop":
-                    result = solve_fatrop_native(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        solve_fatrop_native,
                         vehicle,
                         world,
                         N=int(H_cur),
@@ -415,7 +449,9 @@ def main() -> None:
                     )
                 else:
                     assert optimizer is not None
-                    result = optimizer.solve(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        optimizer.solve,
                         N=int(H_cur),
                         ds_m=float(s_m[1] - s_m[0]),
                         x0=x0_masked,

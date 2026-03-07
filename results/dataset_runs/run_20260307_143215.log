@@ -1,0 +1,16 @@
+[run_full_dataset] Oval FATROP clean dataset (N=150): stage 1 base laps
+[Oval_Track_260m] base lap noobs_00 already present; skipping.
+[Oval_Track_260m] base lap noobs_01 already present; skipping.
+[Oval_Track_260m] base lap noobs_02 already present; skipping.
+[Oval_Track_260m] base lap noobs_03 already present; skipping.
+[Oval_Track_260m] base lap noobs_04 already present; skipping.
+[Oval_Track_260m] base lap noobs_05 already present; skipping.
+[Oval_Track_260m] solving obstacle lap obs_00 (1/15)
+[Oval_Track_260m] obstacle lap obs_00 accepted.
+[Oval_Track_260m] solving obstacle lap obs_01 (2/15)
+[Oval_Track_260m] obstacle lap obs_01 accepted.
+[Oval_Track_260m] solving obstacle lap obs_02 (3/15)
+[Oval_Track_260m] obstacle lap obs_02 accepted.
+[Oval_Track_260m] solving obstacle lap obs_03 (4/15)
+[Oval_Track_260m] obstacle lap obs_03 accepted.
+[Oval_Track_260m] solving obstacle lap obs_04 (5/15)

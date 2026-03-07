@@ -1,0 +1,44 @@
+[run_full_dataset] Oval FATROP clean dataset (N=150): stage 1 base laps
+[Oval_Track_260m] base lap noobs_00 already present; skipping.
+[Oval_Track_260m] base lap noobs_01 already present; skipping.
+[Oval_Track_260m] base lap noobs_02 already present; skipping.
+[Oval_Track_260m] base lap noobs_03 already present; skipping.
+[Oval_Track_260m] base lap noobs_04 already present; skipping.
+[Oval_Track_260m] base lap noobs_05 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_00 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_01 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_02 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_03 already present; skipping.
+[Oval_Track_260m] obstacle lap obs_04 already present; skipping.
+[Oval_Track_260m] solving obstacle lap obs_05 (6/15)
+[Oval_Track_260m] obstacle lap obs_05 accepted.
+[Oval_Track_260m] solving obstacle lap obs_06 (7/15)
+[Oval_Track_260m] obstacle lap obs_06 accepted.
+[Oval_Track_260m] solving obstacle lap obs_07 (8/15)
+[Oval_Track_260m] obstacle lap obs_07 accepted.
+[Oval_Track_260m] solving obstacle lap obs_08 (9/15)
+[Oval_Track_260m] obstacle lap obs_08 accepted.
+[Oval_Track_260m] solving obstacle lap obs_09 (10/15)
+[Oval_Track_260m] obstacle lap obs_09 accepted.
+[Oval_Track_260m] solving obstacle lap obs_10 (11/15)
+[Oval_Track_260m] obstacle lap obs_10 accepted.
+[Oval_Track_260m] solving obstacle lap obs_11 (12/15)
+[Oval_Track_260m] obstacle lap obs_11 accepted.
+[Oval_Track_260m] solving obstacle lap obs_12 (13/15)
+[Oval_Track_260m] obstacle lap obs_12 accepted.
+[Oval_Track_260m] solving obstacle lap obs_13 (14/15)
+Traceback (most recent call last):
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_base_laps.py", line 365, in <module>
+    main()
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_base_laps.py", line 309, in main
+    result = solve_fatrop_native(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_native_trajopt.py", line 644, in solve_fatrop_native
+    sol = opti.solve()
+          ^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/site-packages/casadi/casadi.py", line 51396, in solve
+    return _casadi.Opti_solve(self, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1338: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is '1'

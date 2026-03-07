@@ -51,7 +51,27 @@ Rationale:
 - `data/datasets/Oval_Track_260m_shifts_fatrop_clean`
 - `data/datasets/Oval_Track_260m_repairs_fatrop_clean`
 - `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`
-- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`
+- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean` (only after first clean training + eval traces)
+
+## Current Generated Snapshot (as of 2026-03-07)
+
+- base laps (`data/base_laps_fatrop_clean/Oval_Track_260m`):
+  - total: `21`
+  - no-obstacle: `6`
+  - obstacle: `15`
+  - obstacle-count distribution in base laps: `{0: 6, 1: 1, 3: 10, 4: 4}`
+- shift shard (`data/datasets/Oval_Track_260m_shifts_fatrop_clean`):
+  - total episodes: `3171`
+  - `N` distribution: `{150: 3171}`
+  - obstacle-count distribution: `{0: 906, 1: 151, 3: 1510, 4: 604}`
+- hard-repair shard (`data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`):
+  - total episodes: `400`
+  - horizon distribution: `{20: 250, 40: 83, 60: 67}`
+  - obstacle-count distribution: `{0: 117, 1: 13, 3: 199, 4: 71}`
+  - sampling reason distribution: `obstacle=258`, `uniform=142`
+  - solver iterations (min/median/p90/max): `5 / 39 / 153 / 768`
+- post-projection clean shard:
+  - currently intentionally removed for reset (`generate only after first clean model training`).
 
 ## Generation Commands
 
@@ -117,14 +137,23 @@ PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair
   --resume
 ```
 
-### 5) Post-projection repairs (FATROP clean shard)
+### 5) Train first clean model (required before post-projection)
+
+Use only clean FATROP shards in the training manifest mix (shifts + hard repairs first).
+After training, export warmstart rollout traces from that checkpoint.
+
+### 6) Post-projection repairs (only from new clean-model traces)
 
 ```bash
-TRACE_JSONL="dt/checkpoints/*/warmstarts/eval/*/warmstart_eval_*_rollout_trace.jsonl" \
+TRACE_JSONL="dt/checkpoints/<clean_run>/warmstarts/eval/<eval_tag>/warmstart_eval_*_rollout_trace.jsonl" \
 OUTPUT_SUFFIX=repairs_postproj_fatrop_clean \
 TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 \
 ./data/run_postprojection_repairs_loop.sh
 ```
+
+Important:
+- Do not build post-projection repairs from legacy/non-clean checkpoints.
+- For this phase, keep trace scenarios in the same Oval family (`no-obstacle` and `1-4 obstacle` cases) to avoid distribution mismatch.
 
 ## Notes
 

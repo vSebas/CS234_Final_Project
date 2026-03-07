@@ -20,6 +20,97 @@ common_args=(
   --resume
 )
 
+if [[ "${mode}" == "oval_fatrop_clean" ]]; then
+  run_hard_repairs="${RUN_HARD_REPAIRS:-1}"
+  run_postproj="${RUN_POSTPROJ_REPAIRS:-1}"
+  hard_target="${HARD_TARGET:-400}"
+  postproj_target="${POSTPROJ_TARGET:-1000}"
+  solve_timeout_s="${SOLVE_TIMEOUT_S:-12}"
+  postproj_output_suffix="${POSTPROJ_OUTPUT_SUFFIX:-repairs_postproj_fatrop_clean}"
+  postproj_trace_jsonl="${POSTPROJ_TRACE_JSONL:-dt/checkpoints/*/warmstarts/eval/*/warmstart_eval_*_rollout_trace.jsonl}"
+
+  {
+    echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 1 base laps"
+    env FATROP_PRESET=obstacle_fast \
+      FATROP_STRUCTURE_DETECTION=auto \
+      FATROP_EXPAND=0 \
+      FATROP_STAGE_LOCAL_COST=1 \
+      FATROP_DYNAMICS_SCHEME=euler \
+      FATROP_SMOOTH_CONTROLS=1 \
+      FATROP_CLOSURE_MODE=open \
+      FATROP_MAX_ITER=800 \
+      FATROP_TOL=5e-3 \
+      FATROP_ACCEPTABLE_TOL=5e-3 \
+      PYTHONPATH=. \
+      /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_laps.py \
+      --map-files maps/Oval_Track_260m.mat \
+      --output-dir data/base_laps_fatrop_clean \
+      --solver fatrop \
+      --N 150 \
+      --ux-min 5.0 \
+      --base-laps 6 \
+      --obstacle-laps 15 \
+      --min-obstacles 1 \
+      --max-obstacles 4 \
+      --seed 0 \
+      --resume
+
+    echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 2 shifts"
+    PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py \
+      --map-file maps/Oval_Track_260m.mat \
+      --base-laps-dir data/base_laps_fatrop_clean \
+      --output-dir data/datasets/Oval_Track_260m_shifts_fatrop_clean \
+      --all-shifts \
+      --seed 0 \
+      --resume
+
+    if [[ "${run_hard_repairs}" == "1" ]]; then
+      echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 3 hard repairs"
+      env FATROP_PRESET=obstacle_fast \
+        FATROP_STRUCTURE_DETECTION=auto \
+        FATROP_EXPAND=0 \
+        FATROP_STAGE_LOCAL_COST=1 \
+        FATROP_DYNAMICS_SCHEME=euler \
+        FATROP_SMOOTH_CONTROLS=1 \
+        FATROP_CLOSURE_MODE=open \
+        FATROP_MAX_ITER=800 \
+        FATROP_TOL=5e-3 \
+        FATROP_ACCEPTABLE_TOL=5e-3 \
+        PYTHONPATH=. \
+        /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py \
+        --map-file maps/Oval_Track_260m.mat \
+        --base-laps-dir data/base_laps_fatrop_clean \
+        --output-dir data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean \
+        --num-segments "${hard_target}" \
+        --seed 0 \
+        --H 20 \
+        --hard-mode \
+        --ux-min 5.0 \
+        --save-every 10 \
+        --solve-timeout-s "${solve_timeout_s}" \
+        --solver fatrop \
+        --resume
+    else
+      echo "[run_full_dataset] skipping hard repairs (RUN_HARD_REPAIRS=${run_hard_repairs})"
+    fi
+
+    if [[ "${run_postproj}" == "1" ]]; then
+      echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 4 post-projection repairs"
+      echo "[run_full_dataset] using trace glob: ${postproj_trace_jsonl}"
+      env POSTPROJ_SOLVER=fatrop \
+        SOLVE_TIMEOUT_S="${solve_timeout_s}" \
+        TRACE_JSONL="${postproj_trace_jsonl}" \
+        OUTPUT_SUFFIX="${postproj_output_suffix}" \
+        TOTAL_TARGET="${postproj_target}" \
+        SINGLE_MAP_CAP=0 \
+        ./data/run_postprojection_repairs_loop.sh
+    else
+      echo "[run_full_dataset] skipping post-projection repairs (RUN_POSTPROJ_REPAIRS=${run_postproj})"
+    fi
+  } 2>&1 | tee "${log_file}"
+  exit 0
+fi
+
 {
   echo "[run_full_dataset] Stage 1: base laps + shifts on multiple cores"
   python -u data/build_dataset.py \

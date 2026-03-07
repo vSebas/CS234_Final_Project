@@ -1,0 +1,14 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260307_150006.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean/manifest.jsonl
+[postproj_loop] output_suffix=repairs_postproj_fatrop_clean
+[postproj_loop] total_target=1000
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=0
+[postproj_loop] loop=1/50 current=0/1000
+Logging to results/dataset_runs/postproj_repairs_20260307_150006.log
+[Oval_Track_260m attempt 10/3000] accepted=0/1000 elapsed=40.9s
+[Oval_Track_260m attempt 20/3000] accepted=1/1000 elapsed=83.0s
+[Oval_Track_260m attempt 30/3000] accepted=3/1000 elapsed=122.5s
