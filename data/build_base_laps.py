@@ -21,6 +21,7 @@ sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
 from planning import ObstacleCircle, TrajectoryOptimizer
+from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 from utils.world import World
 
 from data.schema import sha256_file, sha256_json
@@ -144,6 +145,7 @@ def main() -> None:
     parser.add_argument("--map-files", type=str, default="maps/Oval_Track_260m.mat")
     parser.add_argument("--output-dir", type=str, default="data/base_laps")
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="fatrop")
     parser.add_argument("--N", type=int, default=200)
     parser.add_argument("--lambda-u", type=float, default=0.005)
     parser.add_argument("--ux-min", type=float, default=0.5)
@@ -194,7 +196,7 @@ def main() -> None:
             raise FileNotFoundError(f"Map file not found: {map_file}")
 
         world = build_world(map_file)
-        optimizer = TrajectoryOptimizer(vehicle, world)
+        optimizer = TrajectoryOptimizer(vehicle, world) if args.solver == "ipopt" else None
         map_hash = sha256_file(str(map_file))
         ds_m = float(world.length_m) / float(args.N)
         map_id = map_file.stem
@@ -204,6 +206,7 @@ def main() -> None:
         existing_ids = load_manifest_ids(manifest_path) if args.resume else set()
 
         solver_base = {
+            "solver": str(args.solver),
             "N": int(args.N),
             "ds_m": float(ds_m),
             "lambda_u": float(args.lambda_u),
@@ -222,23 +225,41 @@ def main() -> None:
                 print(f"[{map_id}] base lap {base_id} already present; skipping.", flush=True)
                 continue
             print(f"[{map_id}] solving base lap {base_id} ({idx + 1}/{args.base_laps})", flush=True)
-            result = optimizer.solve(
-                N=int(args.N),
-                ds_m=ds_m,
-                lambda_u=float(args.lambda_u),
-                ux_min=float(args.ux_min),
-                track_buffer_m=float(args.track_buffer_m),
-                obstacles=None,
-                obstacle_enforce_midpoints=False,
-                obstacle_subsamples_per_segment=1,
-                obstacle_use_slack=False,
-                obstacle_clearance_m=0.0,
-                vehicle_radius_m=float(args.vehicle_radius_m),
-                eps_s=float(args.eps_s),
-                eps_kappa=float(args.eps_kappa),
-                convergent_lap=True,
-                verbose=False,
-            )
+            if args.solver == "fatrop":
+                result = solve_fatrop_native(
+                    vehicle=vehicle,
+                    world=world,
+                    N=int(args.N),
+                    ds_m=ds_m,
+                    obstacles=None,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacle_clearance_m=0.0,
+                    vehicle_radius_m=float(args.vehicle_radius_m),
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    verbose=False,
+                )
+            else:
+                assert optimizer is not None
+                result = optimizer.solve(
+                    N=int(args.N),
+                    ds_m=ds_m,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacles=None,
+                    obstacle_enforce_midpoints=False,
+                    obstacle_subsamples_per_segment=1,
+                    obstacle_use_slack=False,
+                    obstacle_clearance_m=0.0,
+                    vehicle_radius_m=float(args.vehicle_radius_m),
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    convergent_lap=True,
+                    verbose=False,
+                )
             if not result.success:
                 print(f"[{map_id}] base lap {base_id} failed; skipping.")
                 continue
@@ -284,28 +305,47 @@ def main() -> None:
                     "obstacle_use_slack": False,
                 }
             )
-            result = optimizer.solve(
-                N=int(args.N),
-                ds_m=ds_m,
-                lambda_u=float(args.lambda_u),
-                ux_min=float(args.ux_min),
-                track_buffer_m=float(args.track_buffer_m),
-                obstacles=obs,
-                obstacle_window_m=float(args.obs_window_m),
-                obstacle_clearance_m=float(args.clearance_m),
-                obstacle_use_slack=False,
-                obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
-                obstacle_subsamples_per_segment=int(args.obs_subsamples),
-                obstacle_slack_weight=1e4,
-                obstacle_aware_init=True,
-                obstacle_init_sigma_m=float(args.obs_init_sigma_m),
-                obstacle_init_margin_m=float(args.obs_init_margin_m),
-                vehicle_radius_m=float(args.vehicle_radius_m),
-                eps_s=float(args.eps_s),
-                eps_kappa=float(args.eps_kappa),
-                convergent_lap=True,
-                verbose=False,
-            )
+            if args.solver == "fatrop":
+                result = solve_fatrop_native(
+                    vehicle=vehicle,
+                    world=world,
+                    N=int(args.N),
+                    ds_m=ds_m,
+                    obstacles=obs,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacle_window_m=float(args.obs_window_m),
+                    obstacle_clearance_m=float(args.clearance_m),
+                    vehicle_radius_m=float(args.vehicle_radius_m),
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    verbose=False,
+                )
+            else:
+                assert optimizer is not None
+                result = optimizer.solve(
+                    N=int(args.N),
+                    ds_m=ds_m,
+                    lambda_u=float(args.lambda_u),
+                    ux_min=float(args.ux_min),
+                    track_buffer_m=float(args.track_buffer_m),
+                    obstacles=obs,
+                    obstacle_window_m=float(args.obs_window_m),
+                    obstacle_clearance_m=float(args.clearance_m),
+                    obstacle_use_slack=False,
+                    obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+                    obstacle_subsamples_per_segment=int(args.obs_subsamples),
+                    obstacle_slack_weight=1e4,
+                    obstacle_aware_init=True,
+                    obstacle_init_sigma_m=float(args.obs_init_sigma_m),
+                    obstacle_init_margin_m=float(args.obs_init_margin_m),
+                    vehicle_radius_m=float(args.vehicle_radius_m),
+                    eps_s=float(args.eps_s),
+                    eps_kappa=float(args.eps_kappa),
+                    convergent_lap=True,
+                    verbose=False,
+                )
             if not result.success or result.min_obstacle_clearance < float(args.accept_min_clearance_m):
                 print(f"[{map_id}] obstacle lap {base_id} failed or collided; skipping.")
                 continue
