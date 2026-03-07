@@ -23,8 +23,10 @@ Current training status:
 
 Immediate objective:
 1. Finish Oval post-projection repairs to `1000`.
-2. Retrain on Oval-only shards.
-3. Re-run downstream benchmark gate and select checkpoints by benchmark metrics first (val loss second).
+2. Resume `oval_hard400_train20` to at most `40` epochs (not a fresh run).
+3. Evaluate every `2-3` epochs on the fixed warm-start gate and select checkpoints by benchmark metrics first (val loss second).
+4. Stop early if benchmark metrics do not improve for `6-8` evaluation points.
+5. After retrain, run one controlled ablation with and without post-proj shard.
 
 ### Why post-projection data is in scope
 
@@ -693,8 +695,12 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 ### 8.2 Immediate priorities
 
 1. Complete `Oval_Track_260m_repairs_postproj` to `1000` accepted episodes.
-2. Retrain DT on Oval-only shards using updated recovery-data mix.
-3. Re-run downstream benchmark gates and choose checkpoint by benchmark first.
+2. Resume `dt/checkpoints/oval_hard400_train20` up to `40` epochs total.
+3. Run benchmark checks every `2-3` epochs and keep the best checkpoint by benchmark metrics.
+4. Apply early-stop if benchmark does not improve for `6-8` evaluation points.
+5. Run one controlled ablation:
+   - same training setup **with** post-proj shard
+   - same training setup **without** post-proj shard
 4. Keep warmstart outputs checkpoint-local under:
    - `dt/checkpoints/<run>/warmstarts/eval/...`
    - `dt/checkpoints/<run>/warmstarts/viz/...`
@@ -723,8 +729,14 @@ Pending cleanup:
 1. Use benchmark-gated checkpoint selection:
    - primary: solve time / iterations / success rate
    - secondary: validation action loss
-2. Keep current DT baseline architecture for near-term runs; defer architecture ablations until post-proj completion.
-3. Run at least one retrain after post-proj target completion and compare against `oval_hard400_train20`.
+2. Continue current run before starting a new one:
+   - resume from `oval_hard400_train20`
+   - cap total epochs at `40`
+   - evaluate benchmark every `2-3` epochs
+3. Use benchmark-driven early stop:
+   - stop if no benchmark gain across `6-8` eval points
+4. Keep current DT baseline architecture for near-term runs; defer architecture ablations until post-proj completion.
+5. Run a with/without post-proj data ablation after retrain and compare against `oval_hard400_train20`.
 
 ### 8.5 Benchmarking
 

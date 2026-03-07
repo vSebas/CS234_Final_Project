@@ -1,0 +1,49 @@
+{
+  "cases": [
+    {
+      "label": "noobs",
+      "plot": "dt/checkpoints/oval_hard400_train20/warmstarts/viz/oval_hard400_train20_best_ipopt_compare/noobs_scenario0_compare.png",
+      "baseline": {
+        "success": true,
+        "solve_time_s": 43.79844641685486,
+        "iters": 267,
+        "lap_s": 15.598643634464773
+      },
+      "dt": {
+        "success": true,
+        "solve_time_s": 33.436108350753784,
+        "iters": 195,
+        "lap_s": 15.73989026897802,
+        "fallback_count": 0,
+        "projection_count": 116
+      },
+      "obstacles": []
+    },
+    {
+      "label": "obs1",
+      "plot": "dt/checkpoints/oval_hard400_train20/warmstarts/viz/oval_hard400_train20_best_ipopt_compare/obs1_scenario0_compare.png",
+      "baseline": {
+        "success": true,
+        "solve_time_s": 30.511634588241577,
+        "iters": 155,
+        "lap_s": 15.750795337699586
+      },
+      "dt": {
+        "success": true,
+        "solve_time_s": 35.12888169288635,
+        "iters": 205,
+        "lap_s": 15.87897639360511,
+        "fallback_count": 0,
+        "projection_count": 116
+      },
+      "obstacles": [
+        {
+          "s_m": 201.22857262455048,
+          "e_m": -0.1466917445950744,
+          "radius_m": 1.4010185439379677,
+          "margin_m": 0.3
+        }
+      ]
+    }
+  ]
+}

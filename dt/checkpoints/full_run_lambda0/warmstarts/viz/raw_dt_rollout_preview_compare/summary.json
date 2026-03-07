@@ -1,0 +1,24 @@
+[
+  {
+    "label": "noobs",
+    "plot": "dt/checkpoints/full_run_lambda0/warmstarts/viz/raw_dt_rollout_preview_compare/raw_dt_rollout_noobs.png",
+    "success": false,
+    "rejection_reason": "Track bounds violated at node 5: |e|=4.10 > hw=3.00",
+    "fallback_count": 12,
+    "projection_count": 0,
+    "mean_abs_e_over_hw": 0.7999371172344215,
+    "p90_abs_e_over_hw": 1.7352075815163612,
+    "max_abs_e_over_hw": 2.622545352895393
+  },
+  {
+    "label": "obs1",
+    "plot": "dt/checkpoints/full_run_lambda0/warmstarts/viz/raw_dt_rollout_preview_compare/raw_dt_rollout_obs1.png",
+    "success": false,
+    "rejection_reason": "Track bounds violated at node 5: |e|=4.10 > hw=3.00",
+    "fallback_count": 11,
+    "projection_count": 0,
+    "mean_abs_e_over_hw": 0.946262936535814,
+    "p90_abs_e_over_hw": 1.9841729658069092,
+    "max_abs_e_over_hw": 2.622545352895393
+  }
+]

@@ -20,8 +20,10 @@ sys.path.insert(0, str(project_root))
 
 from experiments.eval_warmstart import EvalConfig, sample_obstacles
 from models import load_vehicle_from_yaml
+from planning import ObstacleCircle
 from planning import TrajectoryOptimizer
 from planning.dt_warmstart import load_warmstarter
+from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 from utils.world import World
 
 
@@ -55,6 +57,8 @@ def _plot_case(
     scenario_id: int,
     seed: int,
     obstacles: List[Dict],
+    dt_init_s: np.ndarray,
+    dt_init_e: np.ndarray,
     base_result,
     dt_result,
     out_path: Path,
@@ -82,6 +86,7 @@ def _plot_case(
         )
 
     be, bn, _ = world.map_match_vectorized(base_result.s_m, base_result.X[6, :])
+    ie, inn, _ = world.map_match_vectorized(dt_init_s, dt_init_e)
     de, dn, _ = world.map_match_vectorized(dt_result.s_m, dt_result.X[6, :])
     ax.plot(
         be,
@@ -89,6 +94,15 @@ def _plot_case(
         color="tab:blue",
         lw=2.0,
         label=f"baseline ({base_result.cost:.2f}s, {base_result.iterations} it)",
+    )
+    ax.plot(
+        ie,
+        inn,
+        color="tab:green",
+        lw=1.8,
+        ls="--",
+        alpha=0.95,
+        label="DT_init warm-start (pre-solve)",
     )
     ax.plot(
         de,
@@ -139,6 +153,7 @@ def main() -> None:
     ap.add_argument("--scenario-id", default=0, type=int)
     ap.add_argument("--N", default=120, type=int)
     ap.add_argument("--target-lap-time", default=15.517, type=float)
+    ap.add_argument("--solver", choices=("ipopt", "fatrop"), default="ipopt")
     args = ap.parse_args()
 
     out_dir = Path(args.output_dir)
@@ -169,22 +184,40 @@ def main() -> None:
             scenario_id=args.scenario_id,
             num_obstacles=num_obs,
         )
-        baseline = optimizer.solve(
-            N=args.N,
-            ds_m=ds_m,
-            lambda_u=cfg.lambda_u,
-            ux_min=cfg.ux_min,
-            track_buffer_m=cfg.track_buffer_m,
-            obstacles=obstacles if obstacles else None,
-            obstacle_window_m=30.0,
-            obstacle_clearance_m=cfg.obstacle_clearance,
-            obstacle_use_slack=False,
-            obstacle_enforce_midpoints=False,
-            eps_s=cfg.eps_s,
-            eps_kappa=cfg.eps_kappa,
-            convergent_lap=True,
-            verbose=False,
-        )
+        if args.solver == "fatrop":
+            obs_norm = [ObstacleCircle(**obs) for obs in obstacles] if obstacles else None
+            baseline = solve_fatrop_native(
+                vehicle=vehicle,
+                world=world,
+                N=args.N,
+                ds_m=ds_m,
+                obstacles=obs_norm,
+                lambda_u=cfg.lambda_u,
+                ux_min=cfg.ux_min,
+                track_buffer_m=cfg.track_buffer_m,
+                obstacle_window_m=30.0,
+                obstacle_clearance_m=cfg.obstacle_clearance,
+                eps_s=cfg.eps_s,
+                eps_kappa=cfg.eps_kappa,
+                verbose=False,
+            )
+        else:
+            baseline = optimizer.solve(
+                N=args.N,
+                ds_m=ds_m,
+                lambda_u=cfg.lambda_u,
+                ux_min=cfg.ux_min,
+                track_buffer_m=cfg.track_buffer_m,
+                obstacles=obstacles if obstacles else None,
+                obstacle_window_m=30.0,
+                obstacle_clearance_m=cfg.obstacle_clearance,
+                obstacle_use_slack=False,
+                obstacle_enforce_midpoints=False,
+                eps_s=cfg.eps_s,
+                eps_kappa=cfg.eps_kappa,
+                convergent_lap=True,
+                verbose=False,
+            )
         ws = warmstarter.generate_warmstart(
             N=args.N,
             ds_m=ds_m,
@@ -194,24 +227,44 @@ def main() -> None:
             obstacle_clearance_m=cfg.obstacle_clearance,
             vehicle_radius_m=0.0,
         )
-        dt = optimizer.solve(
-            N=args.N,
-            ds_m=ds_m,
-            lambda_u=cfg.lambda_u,
-            ux_min=cfg.ux_min,
-            track_buffer_m=cfg.track_buffer_m,
-            obstacles=obstacles if obstacles else None,
-            obstacle_window_m=30.0,
-            obstacle_clearance_m=cfg.obstacle_clearance,
-            obstacle_use_slack=False,
-            obstacle_enforce_midpoints=False,
-            eps_s=cfg.eps_s,
-            eps_kappa=cfg.eps_kappa,
-            convergent_lap=True,
-            X_init=ws.X_init,
-            U_init=ws.U_init,
-            verbose=False,
-        )
+        if args.solver == "fatrop":
+            obs_norm = [ObstacleCircle(**obs) for obs in obstacles] if obstacles else None
+            dt = solve_fatrop_native(
+                vehicle=vehicle,
+                world=world,
+                N=args.N,
+                ds_m=ds_m,
+                obstacles=obs_norm,
+                lambda_u=cfg.lambda_u,
+                ux_min=cfg.ux_min,
+                track_buffer_m=cfg.track_buffer_m,
+                obstacle_window_m=30.0,
+                obstacle_clearance_m=cfg.obstacle_clearance,
+                eps_s=cfg.eps_s,
+                eps_kappa=cfg.eps_kappa,
+                X_init=ws.X_init,
+                U_init=ws.U_init,
+                verbose=False,
+            )
+        else:
+            dt = optimizer.solve(
+                N=args.N,
+                ds_m=ds_m,
+                lambda_u=cfg.lambda_u,
+                ux_min=cfg.ux_min,
+                track_buffer_m=cfg.track_buffer_m,
+                obstacles=obstacles if obstacles else None,
+                obstacle_window_m=30.0,
+                obstacle_clearance_m=cfg.obstacle_clearance,
+                obstacle_use_slack=False,
+                obstacle_enforce_midpoints=False,
+                eps_s=cfg.eps_s,
+                eps_kappa=cfg.eps_kappa,
+                convergent_lap=True,
+                X_init=ws.X_init,
+                U_init=ws.U_init,
+                verbose=False,
+            )
 
         out_png = out_dir / f"{label}_scenario{args.scenario_id}_compare.png"
         _plot_case(
@@ -220,6 +273,8 @@ def main() -> None:
             scenario_id=args.scenario_id,
             seed=args.seed,
             obstacles=obstacles,
+            dt_init_s=baseline.s_m,
+            dt_init_e=ws.X_init[6, :],
             base_result=baseline,
             dt_result=dt,
             out_path=out_png,

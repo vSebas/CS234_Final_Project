@@ -23,15 +23,21 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
 import numpy as np
+from matplotlib.patches import Circle
 
 # Add project root to path
 project_root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(project_root))
 
 from models import load_vehicle_from_yaml
+from planning import ObstacleCircle
 from planning import TrajectoryOptimizer
 from planning.dt_warmstart import DTWarmStarter, load_warmstarter
+from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 from utils.world import World
 
 
@@ -85,6 +91,7 @@ class EvalConfig:
     track_buffer_m: float = 0.0
     eps_s: float = 0.1
     eps_kappa: float = 0.05
+    solver: str = "ipopt"
 
     # Obstacle settings
     min_obstacles: int = 0
@@ -101,6 +108,7 @@ class EvalConfig:
     trace_clearance_thresh: float = 0.2
     trace_random_keep_prob: float = 0.01
     trace_max_keep_per_scenario: int = 200
+    save_compare_plots: bool = True
 
 
 def resolve_default_output_dir(config: EvalConfig) -> Path:
@@ -242,27 +250,45 @@ def run_baseline_solve(
     config: EvalConfig,
     obstacles: List[Dict],
     verbose: bool = False,
-) -> Tuple[bool, Dict]:
+) -> Tuple[bool, Dict, object]:
     """Run optimizer with baseline initialization."""
     ds_m = optimizer.world.length_m / config.N
+    obstacles_norm = [ObstacleCircle(**obs) for obs in obstacles] if obstacles else None
 
     t_start = time.time()
-    result = optimizer.solve(
-        N=config.N,
-        ds_m=ds_m,
-        lambda_u=config.lambda_u,
-        ux_min=config.ux_min,
-        track_buffer_m=config.track_buffer_m,
-        obstacles=obstacles if obstacles else None,
-        obstacle_window_m=30.0,
-        obstacle_clearance_m=config.obstacle_clearance,
-        obstacle_use_slack=False,
-        obstacle_enforce_midpoints=False,
-        eps_s=config.eps_s,
-        eps_kappa=config.eps_kappa,
-        convergent_lap=True,
-        verbose=verbose,
-    )
+    if config.solver == "fatrop":
+        result = solve_fatrop_native(
+            vehicle=optimizer.vehicle,
+            world=optimizer.world,
+            N=config.N,
+            ds_m=ds_m,
+            obstacles=obstacles_norm,
+            lambda_u=config.lambda_u,
+            ux_min=config.ux_min,
+            track_buffer_m=config.track_buffer_m,
+            obstacle_window_m=30.0,
+            obstacle_clearance_m=config.obstacle_clearance,
+            eps_s=config.eps_s,
+            eps_kappa=config.eps_kappa,
+            verbose=verbose,
+        )
+    else:
+        result = optimizer.solve(
+            N=config.N,
+            ds_m=ds_m,
+            lambda_u=config.lambda_u,
+            ux_min=config.ux_min,
+            track_buffer_m=config.track_buffer_m,
+            obstacles=obstacles if obstacles else None,
+            obstacle_window_m=30.0,
+            obstacle_clearance_m=config.obstacle_clearance,
+            obstacle_use_slack=False,
+            obstacle_enforce_midpoints=False,
+            eps_s=config.eps_s,
+            eps_kappa=config.eps_kappa,
+            convergent_lap=True,
+            verbose=verbose,
+        )
     solve_time = time.time() - t_start
 
     return result.success, {
@@ -270,7 +296,7 @@ def run_baseline_solve(
         "ipopt_iterations": result.iterations,
         "lap_time_s": result.cost if result.success else float('inf'),
         "min_clearance_m": getattr(result, 'min_obstacle_clearance', float('inf')),
-    }
+    }, result
 
 
 def run_dt_warmstart_solve(
@@ -279,7 +305,7 @@ def run_dt_warmstart_solve(
     config: EvalConfig,
     obstacles: List[Dict],
     verbose: bool = False,
-) -> Tuple[bool, bool, Dict, List[Dict]]:
+) -> Tuple[bool, bool, Dict, List[Dict], object, object]:
     """Run optimizer with DT warm-start."""
     ds_m = optimizer.world.length_m / config.N
 
@@ -301,35 +327,55 @@ def run_dt_warmstart_solve(
 
     if not warmstart_accepted:
         # Fall back to baseline
-        success, metrics = run_baseline_solve(optimizer, config, obstacles, verbose)
+        success, metrics, fallback_result = run_baseline_solve(optimizer, config, obstacles, verbose)
         metrics["warmstart_time_s"] = ws_result.inference_time_s
         metrics["warmstart_accepted"] = False
         metrics["ws_fallback_count"] = ws_result.fallback_count
         metrics["ws_projection_count"] = ws_result.projection_count
         metrics["ws_projection_total_magnitude"] = ws_result.projection_total_magnitude
         metrics["ws_projection_max_magnitude"] = ws_result.projection_max_magnitude
-        return success, False, metrics, rollout_trace
+        return success, False, metrics, rollout_trace, fallback_result, ws_result
 
-    # Run IPOPT with warm-start
+    # Run trajectory optimizer with warm-start
     t_start = time.time()
-    result = optimizer.solve(
-        N=config.N,
-        ds_m=ds_m,
-        lambda_u=config.lambda_u,
-        ux_min=config.ux_min,
-        track_buffer_m=config.track_buffer_m,
-        obstacles=obstacles if obstacles else None,
-        obstacle_window_m=30.0,
-        obstacle_clearance_m=config.obstacle_clearance,
-        obstacle_use_slack=False,
-        obstacle_enforce_midpoints=False,
-        eps_s=config.eps_s,
-        eps_kappa=config.eps_kappa,
-        convergent_lap=True,
-        X_init=ws_result.X_init,
-        U_init=ws_result.U_init,
-        verbose=verbose,
-    )
+    if config.solver == "fatrop":
+        obstacles_norm = [ObstacleCircle(**obs) for obs in obstacles] if obstacles else None
+        result = solve_fatrop_native(
+            vehicle=optimizer.vehicle,
+            world=optimizer.world,
+            N=config.N,
+            ds_m=ds_m,
+            obstacles=obstacles_norm,
+            lambda_u=config.lambda_u,
+            ux_min=config.ux_min,
+            track_buffer_m=config.track_buffer_m,
+            obstacle_window_m=30.0,
+            obstacle_clearance_m=config.obstacle_clearance,
+            eps_s=config.eps_s,
+            eps_kappa=config.eps_kappa,
+            X_init=ws_result.X_init,
+            U_init=ws_result.U_init,
+            verbose=verbose,
+        )
+    else:
+        result = optimizer.solve(
+            N=config.N,
+            ds_m=ds_m,
+            lambda_u=config.lambda_u,
+            ux_min=config.ux_min,
+            track_buffer_m=config.track_buffer_m,
+            obstacles=obstacles if obstacles else None,
+            obstacle_window_m=30.0,
+            obstacle_clearance_m=config.obstacle_clearance,
+            obstacle_use_slack=False,
+            obstacle_enforce_midpoints=False,
+            eps_s=config.eps_s,
+            eps_kappa=config.eps_kappa,
+            convergent_lap=True,
+            X_init=ws_result.X_init,
+            U_init=ws_result.U_init,
+            verbose=verbose,
+        )
     solve_time = time.time() - t_start
 
     return result.success, True, {
@@ -343,7 +389,92 @@ def run_dt_warmstart_solve(
         "ws_projection_count": ws_result.projection_count,
         "ws_projection_total_magnitude": ws_result.projection_total_magnitude,
         "ws_projection_max_magnitude": ws_result.projection_max_magnitude,
-    }, rollout_trace
+    }, rollout_trace, result, ws_result
+
+
+def _save_compare_plot(
+    optimizer: TrajectoryOptimizer,
+    output_dir: Path,
+    scenario_id: int,
+    num_obstacles: int,
+    obstacles: List[Dict],
+    baseline_result,
+    dt_result,
+    ws_result,
+) -> Optional[Path]:
+    """Save baseline vs DT (including DT_init) trajectory comparison plot."""
+    if baseline_result is None or dt_result is None or ws_result is None:
+        return None
+    if getattr(ws_result, "X_init", None) is None:
+        return None
+    if not bool(getattr(baseline_result, "success", False)):
+        return None
+    if not bool(getattr(dt_result, "success", False)):
+        return None
+
+    world = optimizer.world
+    fig, ax = plt.subplots(figsize=(8, 8))
+    inner = world.data["inner_bounds_m"]
+    outer = world.data["outer_bounds_m"]
+    ax.plot(inner[:, 0], inner[:, 1], color="0.6", lw=1.2)
+    ax.plot(outer[:, 0], outer[:, 1], color="0.6", lw=1.2)
+    ax.plot(world.data["posE_m"], world.data["posN_m"], color="0.8", lw=0.8, ls="--")
+
+    for obs in obstacles:
+        e_arr, n_arr, _ = world.map_match_vectorized(
+            np.array([obs["s_m"]]), np.array([obs["e_m"]])
+        )
+        e = float(e_arr[0])
+        n = float(n_arr[0])
+        r = float(obs["radius_m"])
+        r_safe = r + float(obs.get("margin_m", 0.0))
+        ax.add_patch(Circle((e, n), r, edgecolor="tab:red", facecolor="tab:red", alpha=0.25, lw=1.2))
+        ax.add_patch(Circle((e, n), r_safe, edgecolor="tab:red", facecolor="none", ls="--", lw=1.0))
+
+    be, bn, _ = world.map_match_vectorized(baseline_result.s_m, baseline_result.X[6, :])
+    ie, inn, _ = world.map_match_vectorized(dt_result.s_m, ws_result.X_init[6, :])
+    de, dn, _ = world.map_match_vectorized(dt_result.s_m, dt_result.X[6, :])
+    ax.plot(
+        be, bn, color="tab:blue", lw=2.0,
+        label=f"baseline ({baseline_result.cost:.2f}s, {baseline_result.iterations} it)",
+    )
+    ax.plot(
+        ie, inn, color="tab:green", lw=1.8, ls="--", alpha=0.95,
+        label="DT_init warm-start (pre-solve)",
+    )
+    ax.plot(
+        de, dn, color="tab:orange", lw=2.0,
+        label=f"DT warmstart ({dt_result.cost:.2f}s, {dt_result.iterations} it)",
+    )
+    ax.scatter([be[0]], [bn[0]], c="green", s=35, zorder=5)
+
+    lap_delta = float(dt_result.cost - baseline_result.cost)
+    solve_delta = float(dt_result.solve_time - baseline_result.solve_time)
+    iter_delta = int(dt_result.iterations - baseline_result.iterations)
+    metrics_text = (
+        f"Lap time: baseline {baseline_result.cost:.2f}s | DT {dt_result.cost:.2f}s | delta {lap_delta:+.2f}s\n"
+        f"Solve time: baseline {baseline_result.solve_time:.2f}s | DT {dt_result.solve_time:.2f}s | delta {solve_delta:+.2f}s\n"
+        f"Iterations: baseline {baseline_result.iterations} | DT {dt_result.iterations} | delta {iter_delta:+d}"
+    )
+    ax.text(
+        0.02,
+        0.02,
+        metrics_text,
+        transform=ax.transAxes,
+        fontsize=9,
+        ha="left",
+        va="bottom",
+        bbox={"boxstyle": "round,pad=0.35", "facecolor": "white", "alpha": 0.9, "edgecolor": "0.6"},
+    )
+
+    ax.set_aspect("equal")
+    ax.set_title(f"Scenario {scenario_id} (obs={num_obstacles})")
+    ax.legend(loc="upper right", fontsize=8)
+    ax.grid(alpha=0.2)
+    out_path = output_dir / f"scenario{scenario_id:03d}_obs{num_obstacles}_compare.png"
+    fig.savefig(out_path, dpi=180, bbox_inches="tight")
+    plt.close(fig)
+    return out_path
 
 
 def evaluate_scenario(
@@ -359,7 +490,7 @@ def evaluate_scenario(
     collected_trace_rows: List[Dict] = []
 
     # 1. Baseline
-    success, metrics = run_baseline_solve(optimizer, config, obstacles, verbose)
+    success, metrics, baseline_raw = run_baseline_solve(optimizer, config, obstacles, verbose)
     results.append(ScenarioResult(
         scenario_id=scenario_id,
         method="baseline",
@@ -373,7 +504,7 @@ def evaluate_scenario(
     # 2. Baseline with retry (if failed)
     if not success and config.max_retries > 0:
         for retry in range(config.max_retries):
-            success_retry, metrics_retry = run_baseline_solve(optimizer, config, obstacles, verbose)
+            success_retry, metrics_retry, _ = run_baseline_solve(optimizer, config, obstacles, verbose)
             if success_retry:
                 results.append(ScenarioResult(
                     scenario_id=scenario_id,
@@ -410,7 +541,7 @@ def evaluate_scenario(
 
     # 3. DT warm-start (if available)
     if warmstarter is not None:
-        success_dt, ws_accepted, metrics_dt, rollout_trace = run_dt_warmstart_solve(
+        success_dt, ws_accepted, metrics_dt, rollout_trace, dt_raw, ws_obj = run_dt_warmstart_solve(
             optimizer, warmstarter, config, obstacles, verbose
         )
         metrics_dt = dict(metrics_dt)
@@ -425,6 +556,23 @@ def evaluate_scenario(
             num_obstacles=len(obstacles),
             **metrics_dt,
         ))
+
+        if config.save_compare_plots and config.output_dir:
+            try:
+                compare_dir = Path(config.output_dir) / "compare_plots"
+                compare_dir.mkdir(parents=True, exist_ok=True)
+                _save_compare_plot(
+                    optimizer=optimizer,
+                    output_dir=compare_dir,
+                    scenario_id=scenario_id,
+                    num_obstacles=len(obstacles),
+                    obstacles=obstacles,
+                    baseline_result=baseline_raw,
+                    dt_result=dt_raw,
+                    ws_result=ws_obj,
+                )
+            except Exception:
+                pass
 
         if config.export_rollout_trace:
             kept = 0
@@ -602,6 +750,7 @@ def main():
         help="Explicit DT target lap time in seconds. If omitted, use a per-track dataset-calibrated target.",
     )
     parser.add_argument("--N", type=int, default=120)
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
     parser.add_argument("--min-obstacles", type=int, default=0)
     parser.add_argument("--max-obstacles", type=int, default=4)
     parser.add_argument("--verbose", action="store_true")
@@ -610,6 +759,7 @@ def main():
     parser.add_argument("--trace-clearance-thresh", type=float, default=0.2)
     parser.add_argument("--trace-random-keep-prob", type=float, default=0.01)
     parser.add_argument("--trace-max-keep-per-scenario", type=int, default=200)
+    parser.add_argument("--save-compare-plots", action=argparse.BooleanOptionalAction, default=True)
     args = parser.parse_args()
 
     config = EvalConfig(
@@ -621,6 +771,7 @@ def main():
         dataset_root=args.dataset_root,
         target_lap_time_s=args.target_lap_time,
         N=args.N,
+        solver=args.solver,
         min_obstacles=args.min_obstacles,
         max_obstacles=args.max_obstacles,
         export_rollout_trace=args.export_rollout_trace,
@@ -628,11 +779,13 @@ def main():
         trace_clearance_thresh=args.trace_clearance_thresh,
         trace_random_keep_prob=args.trace_random_keep_prob,
         trace_max_keep_per_scenario=args.trace_max_keep_per_scenario,
+        save_compare_plots=bool(args.save_compare_plots),
     )
 
     # Setup output
     output_dir = resolve_default_output_dir(config)
     output_dir.mkdir(parents=True, exist_ok=True)
+    config.output_dir = str(output_dir)
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
     print("=" * 60)
@@ -642,6 +795,7 @@ def main():
     print(f"Scenarios: {config.num_scenarios}")
     print(f"Obstacles: {config.min_obstacles}-{config.max_obstacles}")
     print(f"DT checkpoint: {config.checkpoint_path or 'None (baseline only)'}")
+    print(f"Solver: {config.solver}")
     print(f"Output dir: {output_dir}")
     print()
 

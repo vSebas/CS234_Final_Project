@@ -96,6 +96,27 @@ Remaining behavior is not catastrophic but systematic:
 Interpretation:
 - the policy appears to favor safer/easier-to-feasibilize trajectories rather than near-optimal baseline-like trajectories in difficult regions.
 
+### 2.1) Projection-dominated DT init (new finding)
+
+After adding explicit DT-init overlays in compare plots, the current warm-start behavior is clearer:
+- DT init is heavily corrected by the projection stage in `planning/dt_warmstart.py`.
+- Measured on this run/config (`N=120`):
+  - `projection_count = 116/120` steps (both noobs and obs1 scenario-0 checks)
+  - `max |e| / half_width = 0.9`
+  - about `95.9%` of nodes satisfy `|e|/half_width > 0.8`
+
+Interpretation:
+- The current `DT_init` is not mostly raw model rollout; it is mostly projected/clamped rollout.
+- This explains the observed inner-boundary hugging in warm-start visualizations.
+
+Raw-rollout preview (projection disabled) was generated:
+- `warmstarts/viz/raw_dt_rollout_preview/raw_dt_rollout_noobs.png`
+- `warmstarts/viz/raw_dt_rollout_preview/raw_dt_rollout_obs1.png`
+
+Observed in raw preview:
+- no projection corrections (as expected)
+- fallback still triggers (`8` steps noobs, `7` steps obs1), indicating rollout instability remains non-trivial without projection.
+
 ### 3) What this implies for post-projection data
 
 The current gap profile matches a data-coverage issue more than a pure optimizer/model-capacity issue:
@@ -148,5 +169,7 @@ Warm-start viz artifacts:
 ## Recommended Next Step
 
 1. Complete `data/datasets/Oval_Track_260m_repairs_postproj` to target `1000`.
-2. Retrain with the updated Oval-only shard mix.
-3. Re-run the same fixed benchmark gates and compare against this run as the current baseline DT reference.
+2. Resume training to `40` epochs max with benchmark-gated early stop.
+3. Keep checkpoint selection benchmark-first (lap/solve/iters), val loss second.
+4. Run one controlled with/without-postproj ablation after retrain.
+5. Add projection-mode ablation (`off/soft/full`) so DT-init quality is measured independently of aggressive projection clamps.

@@ -1,0 +1,24 @@
+[
+  {
+    "label": "noobs",
+    "plot": "dt/checkpoints/oval_hard400_train20/warmstarts/viz/raw_dt_rollout_preview_compare/raw_dt_rollout_noobs.png",
+    "success": false,
+    "rejection_reason": "Track bounds violated at node 5: |e|=3.82 > hw=3.00",
+    "fallback_count": 8,
+    "projection_count": 0,
+    "mean_abs_e_over_hw": 0.9044790731514256,
+    "p90_abs_e_over_hw": 1.8119553742940473,
+    "max_abs_e_over_hw": 2.60913651077689
+  },
+  {
+    "label": "obs1",
+    "plot": "dt/checkpoints/oval_hard400_train20/warmstarts/viz/raw_dt_rollout_preview_compare/raw_dt_rollout_obs1.png",
+    "success": false,
+    "rejection_reason": "Track bounds violated at node 5: |e|=3.82 > hw=3.00",
+    "fallback_count": 7,
+    "projection_count": 0,
+    "mean_abs_e_over_hw": 0.8681742344068365,
+    "p90_abs_e_over_hw": 1.802140050760147,
+    "max_abs_e_over_hw": 2.608890819342459
+  }
+]

@@ -29,6 +29,19 @@ This note summarizes the completed DT training runs and their downstream warm-st
     - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
   - continue post-projection labeled data (DAGGER-like) rather than naive repair-mix tuning
 
+## New Findings (March 2026)
+
+- Projection-dominated DT init in latest run:
+  - for `oval_hard400_train20` (`N=120`, scenario-0 checks), projection triggered on about `116/120` rollout steps.
+  - implication: current DT warm-start quality is strongly confounded by projection/clamping behavior.
+- Raw DT rollout (projection disabled) remains unstable across compared runs:
+  - `full_run_lambda0`: track-bounds failure at node `5` (`|e|=4.10`, `hw=3.00`)
+  - `full_run_lambda0_hard`: track-bounds failure at node `10` (`|e|=4.34`, `hw=3.00`)
+  - `oval_hard400_train20`: track-bounds failure at node `5` (`|e|=3.82`, `hw=3.00`)
+  - latest run is somewhat better (fewer fallback steps), but raw rollout is still non-robust without projection.
+- Evaluation consequence:
+  - add a projection-mode ablation (`off/soft/full`) so benchmark conclusions separate DT-init quality from projection effects.
+
 ## Active Split Defaults
 
 Current code-level default source mixes (`dt/run_train.sh`):
