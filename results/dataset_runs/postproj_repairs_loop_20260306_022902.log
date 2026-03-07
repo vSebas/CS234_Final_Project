@@ -1,0 +1,19 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260306_022902.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=610
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=600
+[postproj_loop] loop=1/50 current=600/610
+Logging to results/dataset_runs/postproj_repairs_20260306_022902.log
+[Oval_Track_260m attempt 2/30] accepted=600/610 elapsed=13.7s
+[Oval_Track_260m attempt 12/30] accepted=601/610 elapsed=116.3s
+[Oval_Track_260m attempt 22/30] accepted=601/610 elapsed=205.5s
+[Oval_Track_260m] done accepted=601/610 attempts=30/30 elapsed=264.4s
+Done. total_accepted=601 total_attempts=5368 elapsed=264.4s
+[postproj_loop] loop=1 finished current=601/610 delta=1
+[postproj_loop] loop=2/50 current=601/610
+Logging to results/dataset_runs/postproj_repairs_20260306_023330.log
+Done                       "${cmd[@]}" 2>&1 | tee "${log_file}"

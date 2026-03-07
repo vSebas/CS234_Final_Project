@@ -1,0 +1,25 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260306_022812.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=610
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=600
+[postproj_loop] loop=1/50 current=600/610
+Logging to results/dataset_runs/postproj_repairs_20260306_022812.log
+Traceback (most recent call last):
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_postprojection_repairs.py", line 561, in <module>
+    main()
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/data/build_postprojection_repairs.py", line 392, in main
+    result = solve_fatrop_native(
+             ^^^^^^^^^^^^^^^^^^^^
+  File "/run/media/saveas/Secondary-Storage/Masters/CS234/CS234_Reinforcement_Learning/Final Project/CS234_Final_Project/experiments/run_fatrop_native_trajopt.py", line 644, in solve_fatrop_native
+    sol = opti.solve()
+          ^^^^^^^^^^^^
+  File "/home/saveas/.conda/envs/DT_trajopt/lib/python3.11/site-packages/casadi/casadi.py", line 51396, in solve
+    return _casadi.Opti_solve(self, *args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: Error in Opti::solve [OptiNode] at .../casadi/core/optistack.cpp:217:
+.../casadi/core/optistack_internal.cpp:1338: Assertion "return_success(accept_limit)" failed:
+Solver failed. You may use opti.debug.value to investigate the latest values of variables. return_status is '1'

@@ -1,0 +1,751 @@
+[oval-pipeline] started at 2026-03-06T12:22:47-08:00
+[oval-pipeline] log_file=results/dataset_runs/oval_hardrepairs_then_train_20260306_122247.log
+[oval-pipeline] hard repairs current=372 target=400
+[oval-pipeline] generating hard repairs to target with FATROP (chunked timeout mode)
+[oval-pipeline] hard-pass 1/50 current=372/400
+[attempt 640/2400] repairs accepted=377/400 elapsed=14.8s
+[accepted 380/400] attempts=642/2400 elapsed=16.4s
+[attempt 650/2400] repairs accepted=385/400 elapsed=40.2s
+[accepted 390/400] attempts=654/2400 elapsed=46.2s
+[attempt 660/2400] repairs accepted=394/400 elapsed=52.1s
+[accepted 400/400] attempts=668/2400 elapsed=68.9s
+Done. accepted=400/400 attempts=668/2400 elapsed=68.9s
+[oval-pipeline] hard-pass rc=0 new_count=416/400
+[oval-pipeline] hard repairs ready=416
+[oval-pipeline] starting training for 20 epochs
+============================================================
+Decision Transformer Training
+============================================================
+Data source: data/datasets/Oval_Track_260m_shifts,data/datasets/Oval_Track_260m_repairs,data/datasets/Oval_Track_260m_repairs_hard,data/datasets/Oval_Track_260m_repairs_postproj
+Output directory: dt/checkpoints/oval_hard400_train20
+
+Loaded 2796 episodes from 4 shard(s)
+Computing dataset statistics...
+  state_mean shape: (34,)
+  rtg_mean: -7.3836, rtg_std: 4.7045
+Loaded 2796 episodes from 4 shard(s)
+Loaded 2796 episodes from 4 shard(s)
+Train: 197800 samples, 2424 episodes, 12 base trajectories
+Val: 32160 samples, 372 episodes, 2 base trajectories
+Model config: DTConfig(state_dim=8, track_dim=2, obstacle_slots=8, obstacle_feat_dim=3, act_dim=2, n_layer=4, n_head=4, d_model=128, d_ff=512, dropout=0.1, context_length=30, max_ep_len=300, action_tanh=False)
+State aug dim: 34
+Action dim: 2
+
+Starting training:
+  Device: cuda
+  Epochs: 20
+  Batch size: 64
+  Train batches: 3091
+  Val batches: 503
+  Model params: 838,410
+
+Epoch    1 | batch   100/ 3091 | step     100 | loss: 0.797060 | action: 0.797060 | state: 0.893036 | lr: 5.00e-06
+Epoch    1 | batch   200/ 3091 | step     200 | loss: 0.431332 | action: 0.431332 | state: 0.874111 | lr: 1.00e-05
+Epoch    1 | batch   300/ 3091 | step     300 | loss: 0.328615 | action: 0.328615 | state: 0.806498 | lr: 1.50e-05
+Epoch    1 | batch   400/ 3091 | step     400 | loss: 0.272528 | action: 0.272528 | state: 0.948475 | lr: 2.00e-05
+Epoch    1 | batch   500/ 3091 | step     500 | loss: 0.223832 | action: 0.223832 | state: 0.957382 | lr: 2.50e-05
+Epoch    1 | batch   600/ 3091 | step     600 | loss: 0.163785 | action: 0.163785 | state: 0.854549 | lr: 3.00e-05
+Epoch    1 | batch   700/ 3091 | step     700 | loss: 0.118516 | action: 0.118516 | state: 0.901793 | lr: 3.50e-05
+Epoch    1 | batch   800/ 3091 | step     800 | loss: 0.122968 | action: 0.122968 | state: 0.847886 | lr: 4.00e-05
+Epoch    1 | batch   900/ 3091 | step     900 | loss: 0.118044 | action: 0.118044 | state: 0.927645 | lr: 4.50e-05
+Epoch    1 | batch  1000/ 3091 | step    1000 | loss: 0.093905 | action: 0.093905 | state: 0.898931 | lr: 5.00e-05
+Epoch    1 | batch  1100/ 3091 | step    1100 | loss: 0.121033 | action: 0.121033 | state: 0.929981 | lr: 5.50e-05
+Epoch    1 | batch  1200/ 3091 | step    1200 | loss: 0.054157 | action: 0.054157 | state: 0.840571 | lr: 6.00e-05
+Epoch    1 | batch  1300/ 3091 | step    1300 | loss: 0.093463 | action: 0.093463 | state: 0.821263 | lr: 6.50e-05
+Epoch    1 | batch  1400/ 3091 | step    1400 | loss: 0.075076 | action: 0.075076 | state: 0.952214 | lr: 7.00e-05
+Epoch    1 | batch  1500/ 3091 | step    1500 | loss: 0.066385 | action: 0.066385 | state: 0.912047 | lr: 7.50e-05
+Epoch    1 | batch  1600/ 3091 | step    1600 | loss: 0.067079 | action: 0.067079 | state: 0.855742 | lr: 8.00e-05
+Epoch    1 | batch  1700/ 3091 | step    1700 | loss: 0.051431 | action: 0.051431 | state: 0.920148 | lr: 8.50e-05
+Epoch    1 | batch  1800/ 3091 | step    1800 | loss: 0.035228 | action: 0.035228 | state: 1.076666 | lr: 9.00e-05
+Epoch    1 | batch  1900/ 3091 | step    1900 | loss: 0.044541 | action: 0.044541 | state: 0.805845 | lr: 9.50e-05
+Epoch    1 | batch  2000/ 3091 | step    2000 | loss: 0.052575 | action: 0.052575 | state: 0.839258 | lr: 1.00e-04
+Epoch    1 | batch  2100/ 3091 | step    2100 | loss: 0.051990 | action: 0.051990 | state: 0.982276 | lr: 1.00e-04
+Epoch    1 | batch  2200/ 3091 | step    2200 | loss: 0.039259 | action: 0.039259 | state: 0.920319 | lr: 1.00e-04
+Epoch    1 | batch  2300/ 3091 | step    2300 | loss: 0.044548 | action: 0.044548 | state: 0.919006 | lr: 1.00e-04
+Epoch    1 | batch  2400/ 3091 | step    2400 | loss: 0.029872 | action: 0.029872 | state: 0.849295 | lr: 1.00e-04
+Epoch    1 | batch  2500/ 3091 | step    2500 | loss: 0.036679 | action: 0.036679 | state: 0.993331 | lr: 1.00e-04
+Epoch    1 | batch  2600/ 3091 | step    2600 | loss: 0.038415 | action: 0.038415 | state: 0.884359 | lr: 1.00e-04
+Epoch    1 | batch  2700/ 3091 | step    2700 | loss: 0.020861 | action: 0.020861 | state: 0.930807 | lr: 1.00e-04
+Epoch    1 | batch  2800/ 3091 | step    2800 | loss: 0.030277 | action: 0.030277 | state: 0.965426 | lr: 1.00e-04
+Epoch    1 | batch  2900/ 3091 | step    2900 | loss: 0.025452 | action: 0.025452 | state: 1.030780 | lr: 1.00e-04
+Epoch    1 | batch  3000/ 3091 | step    3000 | loss: 0.025921 | action: 0.025921 | state: 0.904071 | lr: 1.00e-04
+Epoch    1 | train_loss: 0.138211 | val_loss: 0.026331 | best: 0.026331 | time: 132.8s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Saved best checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt
+Epoch    2 | batch     9/ 3091 | step    3100 | loss: 0.016639 | action: 0.016639 | state: 1.037475 | lr: 1.00e-04
+Epoch    2 | batch   109/ 3091 | step    3200 | loss: 0.017382 | action: 0.017382 | state: 0.823361 | lr: 1.00e-04
+Epoch    2 | batch   209/ 3091 | step    3300 | loss: 0.026509 | action: 0.026509 | state: 1.009041 | lr: 1.00e-04
+Epoch    2 | batch   309/ 3091 | step    3400 | loss: 0.021021 | action: 0.021021 | state: 0.892015 | lr: 1.00e-04
+Epoch    2 | batch   409/ 3091 | step    3500 | loss: 0.021599 | action: 0.021599 | state: 0.941533 | lr: 1.00e-04
+Epoch    2 | batch   509/ 3091 | step    3600 | loss: 0.028413 | action: 0.028413 | state: 0.934007 | lr: 1.00e-04
+Epoch    2 | batch   609/ 3091 | step    3700 | loss: 0.016346 | action: 0.016346 | state: 0.982537 | lr: 1.00e-04
+Epoch    2 | batch   709/ 3091 | step    3800 | loss: 0.026972 | action: 0.026972 | state: 0.857933 | lr: 1.00e-04
+Epoch    2 | batch   809/ 3091 | step    3900 | loss: 0.018955 | action: 0.018955 | state: 0.930758 | lr: 1.00e-04
+Epoch    2 | batch   909/ 3091 | step    4000 | loss: 0.012825 | action: 0.012825 | state: 0.818516 | lr: 1.00e-04
+Epoch    2 | batch  1009/ 3091 | step    4100 | loss: 0.020415 | action: 0.020415 | state: 0.976375 | lr: 1.00e-04
+Epoch    2 | batch  1109/ 3091 | step    4200 | loss: 0.014424 | action: 0.014424 | state: 0.968037 | lr: 1.00e-04
+Epoch    2 | batch  1209/ 3091 | step    4300 | loss: 0.021822 | action: 0.021822 | state: 0.926723 | lr: 1.00e-04
+Epoch    2 | batch  1309/ 3091 | step    4400 | loss: 0.012726 | action: 0.012726 | state: 0.986839 | lr: 1.00e-04
+Epoch    2 | batch  1409/ 3091 | step    4500 | loss: 0.008051 | action: 0.008051 | state: 0.868435 | lr: 1.00e-04
+Epoch    2 | batch  1509/ 3091 | step    4600 | loss: 0.009514 | action: 0.009514 | state: 1.002172 | lr: 1.00e-04
+Epoch    2 | batch  1609/ 3091 | step    4700 | loss: 0.017932 | action: 0.017932 | state: 0.881110 | lr: 1.00e-04
+Epoch    2 | batch  1709/ 3091 | step    4800 | loss: 0.028592 | action: 0.028592 | state: 0.943925 | lr: 1.00e-04
+Epoch    2 | batch  1809/ 3091 | step    4900 | loss: 0.019197 | action: 0.019197 | state: 0.984103 | lr: 1.00e-04
+Epoch    2 | batch  1909/ 3091 | step    5000 | loss: 0.016421 | action: 0.016421 | state: 0.951908 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0005000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    2 | batch  2009/ 3091 | step    5100 | loss: 0.017205 | action: 0.017205 | state: 0.928800 | lr: 1.00e-04
+Epoch    2 | batch  2109/ 3091 | step    5200 | loss: 0.011934 | action: 0.011934 | state: 0.842575 | lr: 1.00e-04
+Epoch    2 | batch  2209/ 3091 | step    5300 | loss: 0.012054 | action: 0.012054 | state: 0.941467 | lr: 1.00e-04
+Epoch    2 | batch  2309/ 3091 | step    5400 | loss: 0.022740 | action: 0.022740 | state: 0.957316 | lr: 1.00e-04
+Epoch    2 | batch  2409/ 3091 | step    5500 | loss: 0.011350 | action: 0.011350 | state: 0.984947 | lr: 1.00e-04
+Epoch    2 | batch  2509/ 3091 | step    5600 | loss: 0.014047 | action: 0.014047 | state: 1.144873 | lr: 1.00e-04
+Epoch    2 | batch  2609/ 3091 | step    5700 | loss: 0.007759 | action: 0.007759 | state: 0.965408 | lr: 1.00e-04
+Epoch    2 | batch  2709/ 3091 | step    5800 | loss: 0.008245 | action: 0.008245 | state: 1.000940 | lr: 1.00e-04
+Epoch    2 | batch  2809/ 3091 | step    5900 | loss: 0.011242 | action: 0.011242 | state: 1.019067 | lr: 1.00e-04
+Epoch    2 | batch  2909/ 3091 | step    6000 | loss: 0.020585 | action: 0.020585 | state: 0.991264 | lr: 1.00e-04
+Epoch    2 | batch  3009/ 3091 | step    6100 | loss: 0.011625 | action: 0.011625 | state: 0.950603 | lr: 1.00e-04
+Epoch    2 | train_loss: 0.017129 | val_loss: 0.025070 | best: 0.025070 | time: 132.7s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0001.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Saved best checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt
+Epoch    3 | batch    18/ 3091 | step    6200 | loss: 0.008727 | action: 0.008727 | state: 1.000449 | lr: 1.00e-04
+Epoch    3 | batch   118/ 3091 | step    6300 | loss: 0.011479 | action: 0.011479 | state: 0.921619 | lr: 1.00e-04
+Epoch    3 | batch   218/ 3091 | step    6400 | loss: 0.009420 | action: 0.009420 | state: 0.988933 | lr: 1.00e-04
+Epoch    3 | batch   318/ 3091 | step    6500 | loss: 0.014999 | action: 0.014999 | state: 0.918672 | lr: 1.00e-04
+Epoch    3 | batch   418/ 3091 | step    6600 | loss: 0.011835 | action: 0.011835 | state: 0.905888 | lr: 1.00e-04
+Epoch    3 | batch   518/ 3091 | step    6700 | loss: 0.006507 | action: 0.006507 | state: 0.901717 | lr: 1.00e-04
+Epoch    3 | batch   618/ 3091 | step    6800 | loss: 0.011111 | action: 0.011111 | state: 0.901850 | lr: 1.00e-04
+Epoch    3 | batch   718/ 3091 | step    6900 | loss: 0.009840 | action: 0.009840 | state: 0.968453 | lr: 1.00e-04
+Epoch    3 | batch   818/ 3091 | step    7000 | loss: 0.007291 | action: 0.007291 | state: 0.943282 | lr: 1.00e-04
+Epoch    3 | batch   918/ 3091 | step    7100 | loss: 0.011339 | action: 0.011339 | state: 0.930763 | lr: 1.00e-04
+Epoch    3 | batch  1018/ 3091 | step    7200 | loss: 0.014833 | action: 0.014833 | state: 0.883030 | lr: 1.00e-04
+Epoch    3 | batch  1118/ 3091 | step    7300 | loss: 0.013413 | action: 0.013413 | state: 0.939579 | lr: 1.00e-04
+Epoch    3 | batch  1218/ 3091 | step    7400 | loss: 0.005618 | action: 0.005618 | state: 0.932037 | lr: 1.00e-04
+Epoch    3 | batch  1318/ 3091 | step    7500 | loss: 0.006993 | action: 0.006993 | state: 1.054796 | lr: 1.00e-04
+Epoch    3 | batch  1418/ 3091 | step    7600 | loss: 0.006639 | action: 0.006639 | state: 0.905191 | lr: 1.00e-04
+Epoch    3 | batch  1518/ 3091 | step    7700 | loss: 0.012683 | action: 0.012683 | state: 0.816971 | lr: 1.00e-04
+Epoch    3 | batch  1618/ 3091 | step    7800 | loss: 0.009217 | action: 0.009217 | state: 0.986250 | lr: 1.00e-04
+Epoch    3 | batch  1718/ 3091 | step    7900 | loss: 0.012179 | action: 0.012179 | state: 0.885587 | lr: 1.00e-04
+Epoch    3 | batch  1818/ 3091 | step    8000 | loss: 0.009898 | action: 0.009898 | state: 0.984394 | lr: 1.00e-04
+Epoch    3 | batch  1918/ 3091 | step    8100 | loss: 0.007722 | action: 0.007722 | state: 1.068370 | lr: 1.00e-04
+Epoch    3 | batch  2018/ 3091 | step    8200 | loss: 0.006959 | action: 0.006959 | state: 0.975121 | lr: 1.00e-04
+Epoch    3 | batch  2118/ 3091 | step    8300 | loss: 0.008227 | action: 0.008227 | state: 0.991813 | lr: 1.00e-04
+Epoch    3 | batch  2218/ 3091 | step    8400 | loss: 0.007354 | action: 0.007354 | state: 0.968722 | lr: 1.00e-04
+Epoch    3 | batch  2318/ 3091 | step    8500 | loss: 0.009545 | action: 0.009545 | state: 0.928962 | lr: 1.00e-04
+Epoch    3 | batch  2418/ 3091 | step    8600 | loss: 0.006288 | action: 0.006288 | state: 0.930466 | lr: 1.00e-04
+Epoch    3 | batch  2518/ 3091 | step    8700 | loss: 0.011820 | action: 0.011820 | state: 1.023024 | lr: 1.00e-04
+Epoch    3 | batch  2618/ 3091 | step    8800 | loss: 0.005584 | action: 0.005584 | state: 1.038965 | lr: 1.00e-04
+Epoch    3 | batch  2718/ 3091 | step    8900 | loss: 0.005605 | action: 0.005605 | state: 0.976478 | lr: 1.00e-04
+Epoch    3 | batch  2818/ 3091 | step    9000 | loss: 0.006451 | action: 0.006451 | state: 0.903092 | lr: 1.00e-04
+Epoch    3 | batch  2918/ 3091 | step    9100 | loss: 0.009740 | action: 0.009740 | state: 0.974065 | lr: 1.00e-04
+Epoch    3 | batch  3018/ 3091 | step    9200 | loss: 0.005993 | action: 0.005993 | state: 0.860411 | lr: 1.00e-04
+Epoch    3 | train_loss: 0.010105 | val_loss: 0.020312 | best: 0.020312 | time: 135.3s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0002.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Saved best checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt
+Epoch    4 | batch    27/ 3091 | step    9300 | loss: 0.005669 | action: 0.005669 | state: 0.927201 | lr: 1.00e-04
+Epoch    4 | batch   127/ 3091 | step    9400 | loss: 0.009551 | action: 0.009551 | state: 0.924841 | lr: 1.00e-04
+Epoch    4 | batch   227/ 3091 | step    9500 | loss: 0.006671 | action: 0.006671 | state: 0.948179 | lr: 1.00e-04
+Epoch    4 | batch   327/ 3091 | step    9600 | loss: 0.004681 | action: 0.004681 | state: 0.888151 | lr: 1.00e-04
+Epoch    4 | batch   427/ 3091 | step    9700 | loss: 0.011691 | action: 0.011691 | state: 0.920472 | lr: 1.00e-04
+Epoch    4 | batch   527/ 3091 | step    9800 | loss: 0.004918 | action: 0.004918 | state: 0.944341 | lr: 1.00e-04
+Epoch    4 | batch   627/ 3091 | step    9900 | loss: 0.008183 | action: 0.008183 | state: 0.930967 | lr: 1.00e-04
+Epoch    4 | batch   727/ 3091 | step   10000 | loss: 0.007033 | action: 0.007033 | state: 0.936294 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0010000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    4 | batch   827/ 3091 | step   10100 | loss: 0.009813 | action: 0.009813 | state: 0.964608 | lr: 1.00e-04
+Epoch    4 | batch   927/ 3091 | step   10200 | loss: 0.016438 | action: 0.016438 | state: 0.907908 | lr: 1.00e-04
+Epoch    4 | batch  1027/ 3091 | step   10300 | loss: 0.006109 | action: 0.006109 | state: 0.944970 | lr: 1.00e-04
+Epoch    4 | batch  1127/ 3091 | step   10400 | loss: 0.006864 | action: 0.006864 | state: 0.974080 | lr: 1.00e-04
+Epoch    4 | batch  1227/ 3091 | step   10500 | loss: 0.010512 | action: 0.010512 | state: 1.046595 | lr: 1.00e-04
+Epoch    4 | batch  1327/ 3091 | step   10600 | loss: 0.003644 | action: 0.003644 | state: 0.907358 | lr: 1.00e-04
+Epoch    4 | batch  1427/ 3091 | step   10700 | loss: 0.011174 | action: 0.011174 | state: 1.026913 | lr: 1.00e-04
+Epoch    4 | batch  1527/ 3091 | step   10800 | loss: 0.010997 | action: 0.010997 | state: 1.025253 | lr: 1.00e-04
+Epoch    4 | batch  1627/ 3091 | step   10900 | loss: 0.003799 | action: 0.003799 | state: 1.027580 | lr: 1.00e-04
+Epoch    4 | batch  1727/ 3091 | step   11000 | loss: 0.003904 | action: 0.003904 | state: 0.961639 | lr: 1.00e-04
+Epoch    4 | batch  1827/ 3091 | step   11100 | loss: 0.004351 | action: 0.004351 | state: 1.038816 | lr: 1.00e-04
+Epoch    4 | batch  1927/ 3091 | step   11200 | loss: 0.010203 | action: 0.010203 | state: 1.023274 | lr: 1.00e-04
+Epoch    4 | batch  2027/ 3091 | step   11300 | loss: 0.010116 | action: 0.010116 | state: 1.004506 | lr: 1.00e-04
+Epoch    4 | batch  2127/ 3091 | step   11400 | loss: 0.008145 | action: 0.008145 | state: 0.979227 | lr: 1.00e-04
+Epoch    4 | batch  2227/ 3091 | step   11500 | loss: 0.009335 | action: 0.009335 | state: 0.998600 | lr: 1.00e-04
+Epoch    4 | batch  2327/ 3091 | step   11600 | loss: 0.007388 | action: 0.007388 | state: 0.889816 | lr: 1.00e-04
+Epoch    4 | batch  2427/ 3091 | step   11700 | loss: 0.004453 | action: 0.004453 | state: 1.013913 | lr: 1.00e-04
+Epoch    4 | batch  2527/ 3091 | step   11800 | loss: 0.004168 | action: 0.004168 | state: 0.876958 | lr: 1.00e-04
+Epoch    4 | batch  2627/ 3091 | step   11900 | loss: 0.006721 | action: 0.006721 | state: 0.956554 | lr: 1.00e-04
+Epoch    4 | batch  2727/ 3091 | step   12000 | loss: 0.004081 | action: 0.004081 | state: 0.854718 | lr: 1.00e-04
+Epoch    4 | batch  2827/ 3091 | step   12100 | loss: 0.005552 | action: 0.005552 | state: 0.914283 | lr: 1.00e-04
+Epoch    4 | batch  2927/ 3091 | step   12200 | loss: 0.007105 | action: 0.007105 | state: 0.949671 | lr: 1.00e-04
+Epoch    4 | batch  3027/ 3091 | step   12300 | loss: 0.007857 | action: 0.007857 | state: 1.035496 | lr: 1.00e-04
+Epoch    4 | train_loss: 0.007277 | val_loss: 0.012688 | best: 0.012688 | time: 139.3s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0003.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Saved best checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt
+Epoch    5 | batch    36/ 3091 | step   12400 | loss: 0.006702 | action: 0.006702 | state: 1.011020 | lr: 1.00e-04
+Epoch    5 | batch   136/ 3091 | step   12500 | loss: 0.004047 | action: 0.004047 | state: 1.014582 | lr: 1.00e-04
+Epoch    5 | batch   236/ 3091 | step   12600 | loss: 0.018669 | action: 0.018669 | state: 0.960209 | lr: 1.00e-04
+Epoch    5 | batch   336/ 3091 | step   12700 | loss: 0.003731 | action: 0.003731 | state: 0.979181 | lr: 1.00e-04
+Epoch    5 | batch   436/ 3091 | step   12800 | loss: 0.009033 | action: 0.009033 | state: 0.880450 | lr: 1.00e-04
+Epoch    5 | batch   536/ 3091 | step   12900 | loss: 0.003439 | action: 0.003439 | state: 0.875163 | lr: 1.00e-04
+Epoch    5 | batch   636/ 3091 | step   13000 | loss: 0.007554 | action: 0.007554 | state: 0.984516 | lr: 1.00e-04
+Epoch    5 | batch   736/ 3091 | step   13100 | loss: 0.007752 | action: 0.007752 | state: 0.917939 | lr: 1.00e-04
+Epoch    5 | batch   836/ 3091 | step   13200 | loss: 0.002264 | action: 0.002264 | state: 0.996316 | lr: 1.00e-04
+Epoch    5 | batch   936/ 3091 | step   13300 | loss: 0.003220 | action: 0.003220 | state: 0.980868 | lr: 1.00e-04
+Epoch    5 | batch  1036/ 3091 | step   13400 | loss: 0.004321 | action: 0.004321 | state: 0.917817 | lr: 1.00e-04
+Epoch    5 | batch  1136/ 3091 | step   13500 | loss: 0.004504 | action: 0.004504 | state: 1.037217 | lr: 1.00e-04
+Epoch    5 | batch  1236/ 3091 | step   13600 | loss: 0.004577 | action: 0.004577 | state: 0.982161 | lr: 1.00e-04
+Epoch    5 | batch  1336/ 3091 | step   13700 | loss: 0.002949 | action: 0.002949 | state: 0.888178 | lr: 1.00e-04
+Epoch    5 | batch  1436/ 3091 | step   13800 | loss: 0.003077 | action: 0.003077 | state: 1.018297 | lr: 1.00e-04
+Epoch    5 | batch  1536/ 3091 | step   13900 | loss: 0.004478 | action: 0.004478 | state: 0.968421 | lr: 1.00e-04
+Epoch    5 | batch  1636/ 3091 | step   14000 | loss: 0.003281 | action: 0.003281 | state: 0.965784 | lr: 1.00e-04
+Epoch    5 | batch  1736/ 3091 | step   14100 | loss: 0.003171 | action: 0.003171 | state: 0.856309 | lr: 1.00e-04
+Epoch    5 | batch  1836/ 3091 | step   14200 | loss: 0.003024 | action: 0.003024 | state: 0.906700 | lr: 1.00e-04
+Epoch    5 | batch  1936/ 3091 | step   14300 | loss: 0.005273 | action: 0.005273 | state: 0.998452 | lr: 1.00e-04
+Epoch    5 | batch  2036/ 3091 | step   14400 | loss: 0.007230 | action: 0.007230 | state: 0.944272 | lr: 1.00e-04
+Epoch    5 | batch  2136/ 3091 | step   14500 | loss: 0.003216 | action: 0.003216 | state: 0.959166 | lr: 1.00e-04
+Epoch    5 | batch  2236/ 3091 | step   14600 | loss: 0.004364 | action: 0.004364 | state: 1.013997 | lr: 1.00e-04
+Epoch    5 | batch  2336/ 3091 | step   14700 | loss: 0.004502 | action: 0.004502 | state: 0.999683 | lr: 1.00e-04
+Epoch    5 | batch  2436/ 3091 | step   14800 | loss: 0.003405 | action: 0.003405 | state: 0.984619 | lr: 1.00e-04
+Epoch    5 | batch  2536/ 3091 | step   14900 | loss: 0.004980 | action: 0.004980 | state: 1.039743 | lr: 1.00e-04
+Epoch    5 | batch  2636/ 3091 | step   15000 | loss: 0.010915 | action: 0.010915 | state: 0.955231 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0015000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    5 | batch  2736/ 3091 | step   15100 | loss: 0.004865 | action: 0.004865 | state: 0.914827 | lr: 1.00e-04
+Epoch    5 | batch  2836/ 3091 | step   15200 | loss: 0.007130 | action: 0.007130 | state: 0.973018 | lr: 1.00e-04
+Epoch    5 | batch  2936/ 3091 | step   15300 | loss: 0.007982 | action: 0.007982 | state: 0.979845 | lr: 1.00e-04
+Epoch    5 | batch  3036/ 3091 | step   15400 | loss: 0.006461 | action: 0.006461 | state: 0.936033 | lr: 1.00e-04
+Epoch    5 | train_loss: 0.005795 | val_loss: 0.021018 | best: 0.012688 | time: 137.2s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0004.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    6 | batch    45/ 3091 | step   15500 | loss: 0.002653 | action: 0.002653 | state: 1.012000 | lr: 1.00e-04
+Epoch    6 | batch   145/ 3091 | step   15600 | loss: 0.005321 | action: 0.005321 | state: 0.996330 | lr: 1.00e-04
+Epoch    6 | batch   245/ 3091 | step   15700 | loss: 0.006668 | action: 0.006668 | state: 0.885531 | lr: 1.00e-04
+Epoch    6 | batch   345/ 3091 | step   15800 | loss: 0.003946 | action: 0.003946 | state: 0.900719 | lr: 1.00e-04
+Epoch    6 | batch   445/ 3091 | step   15900 | loss: 0.006407 | action: 0.006407 | state: 1.028781 | lr: 1.00e-04
+Epoch    6 | batch   545/ 3091 | step   16000 | loss: 0.004898 | action: 0.004898 | state: 0.908333 | lr: 1.00e-04
+Epoch    6 | batch   645/ 3091 | step   16100 | loss: 0.005012 | action: 0.005012 | state: 0.918209 | lr: 1.00e-04
+Epoch    6 | batch   745/ 3091 | step   16200 | loss: 0.003182 | action: 0.003182 | state: 0.984234 | lr: 1.00e-04
+Epoch    6 | batch   845/ 3091 | step   16300 | loss: 0.002433 | action: 0.002433 | state: 0.948194 | lr: 1.00e-04
+Epoch    6 | batch   945/ 3091 | step   16400 | loss: 0.008245 | action: 0.008245 | state: 1.032876 | lr: 1.00e-04
+Epoch    6 | batch  1045/ 3091 | step   16500 | loss: 0.003931 | action: 0.003931 | state: 0.941999 | lr: 1.00e-04
+Epoch    6 | batch  1145/ 3091 | step   16600 | loss: 0.004384 | action: 0.004384 | state: 0.975299 | lr: 1.00e-04
+Epoch    6 | batch  1245/ 3091 | step   16700 | loss: 0.004753 | action: 0.004753 | state: 0.996456 | lr: 1.00e-04
+Epoch    6 | batch  1345/ 3091 | step   16800 | loss: 0.003542 | action: 0.003542 | state: 0.878558 | lr: 1.00e-04
+Epoch    6 | batch  1445/ 3091 | step   16900 | loss: 0.003604 | action: 0.003604 | state: 0.979065 | lr: 1.00e-04
+Epoch    6 | batch  1545/ 3091 | step   17000 | loss: 0.004606 | action: 0.004606 | state: 0.860665 | lr: 1.00e-04
+Epoch    6 | batch  1645/ 3091 | step   17100 | loss: 0.003657 | action: 0.003657 | state: 0.971411 | lr: 1.00e-04
+Epoch    6 | batch  1745/ 3091 | step   17200 | loss: 0.005616 | action: 0.005616 | state: 1.001852 | lr: 1.00e-04
+Epoch    6 | batch  1845/ 3091 | step   17300 | loss: 0.005418 | action: 0.005418 | state: 1.048054 | lr: 1.00e-04
+Epoch    6 | batch  1945/ 3091 | step   17400 | loss: 0.006651 | action: 0.006651 | state: 0.852105 | lr: 1.00e-04
+Epoch    6 | batch  2045/ 3091 | step   17500 | loss: 0.004374 | action: 0.004374 | state: 0.926049 | lr: 1.00e-04
+Epoch    6 | batch  2145/ 3091 | step   17600 | loss: 0.002544 | action: 0.002544 | state: 1.032836 | lr: 1.00e-04
+Epoch    6 | batch  2245/ 3091 | step   17700 | loss: 0.004470 | action: 0.004470 | state: 0.998943 | lr: 1.00e-04
+Epoch    6 | batch  2345/ 3091 | step   17800 | loss: 0.005012 | action: 0.005012 | state: 0.934611 | lr: 1.00e-04
+Epoch    6 | batch  2445/ 3091 | step   17900 | loss: 0.013388 | action: 0.013388 | state: 0.991896 | lr: 1.00e-04
+Epoch    6 | batch  2545/ 3091 | step   18000 | loss: 0.004060 | action: 0.004060 | state: 1.053739 | lr: 1.00e-04
+Epoch    6 | batch  2645/ 3091 | step   18100 | loss: 0.004006 | action: 0.004006 | state: 1.005815 | lr: 1.00e-04
+Epoch    6 | batch  2745/ 3091 | step   18200 | loss: 0.005314 | action: 0.005314 | state: 0.903420 | lr: 1.00e-04
+Epoch    6 | batch  2845/ 3091 | step   18300 | loss: 0.001907 | action: 0.001907 | state: 0.991394 | lr: 1.00e-04
+Epoch    6 | batch  2945/ 3091 | step   18400 | loss: 0.002278 | action: 0.002278 | state: 0.813449 | lr: 1.00e-04
+Epoch    6 | batch  3045/ 3091 | step   18500 | loss: 0.006517 | action: 0.006517 | state: 0.848908 | lr: 1.00e-04
+Epoch    6 | train_loss: 0.004911 | val_loss: 0.015114 | best: 0.012688 | time: 134.5s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0005.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    7 | batch    54/ 3091 | step   18600 | loss: 0.007059 | action: 0.007059 | state: 0.915009 | lr: 1.00e-04
+Epoch    7 | batch   154/ 3091 | step   18700 | loss: 0.003073 | action: 0.003073 | state: 0.926272 | lr: 1.00e-04
+Epoch    7 | batch   254/ 3091 | step   18800 | loss: 0.003086 | action: 0.003086 | state: 0.823169 | lr: 1.00e-04
+Epoch    7 | batch   354/ 3091 | step   18900 | loss: 0.002268 | action: 0.002268 | state: 0.924498 | lr: 1.00e-04
+Epoch    7 | batch   454/ 3091 | step   19000 | loss: 0.003055 | action: 0.003055 | state: 0.937315 | lr: 1.00e-04
+Epoch    7 | batch   554/ 3091 | step   19100 | loss: 0.003808 | action: 0.003808 | state: 1.058818 | lr: 1.00e-04
+Epoch    7 | batch   654/ 3091 | step   19200 | loss: 0.003108 | action: 0.003108 | state: 0.898708 | lr: 1.00e-04
+Epoch    7 | batch   754/ 3091 | step   19300 | loss: 0.003497 | action: 0.003497 | state: 0.925837 | lr: 1.00e-04
+Epoch    7 | batch   854/ 3091 | step   19400 | loss: 0.009332 | action: 0.009332 | state: 0.957270 | lr: 1.00e-04
+Epoch    7 | batch   954/ 3091 | step   19500 | loss: 0.002999 | action: 0.002999 | state: 0.984873 | lr: 1.00e-04
+Epoch    7 | batch  1054/ 3091 | step   19600 | loss: 0.006466 | action: 0.006466 | state: 0.925622 | lr: 1.00e-04
+Epoch    7 | batch  1154/ 3091 | step   19700 | loss: 0.004689 | action: 0.004689 | state: 0.947556 | lr: 1.00e-04
+Epoch    7 | batch  1254/ 3091 | step   19800 | loss: 0.002243 | action: 0.002243 | state: 0.997920 | lr: 1.00e-04
+Epoch    7 | batch  1354/ 3091 | step   19900 | loss: 0.002526 | action: 0.002526 | state: 0.938262 | lr: 1.00e-04
+Epoch    7 | batch  1454/ 3091 | step   20000 | loss: 0.005411 | action: 0.005411 | state: 0.877333 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0020000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    7 | batch  1554/ 3091 | step   20100 | loss: 0.002852 | action: 0.002852 | state: 0.991220 | lr: 1.00e-04
+Epoch    7 | batch  1654/ 3091 | step   20200 | loss: 0.002474 | action: 0.002474 | state: 0.923817 | lr: 1.00e-04
+Epoch    7 | batch  1754/ 3091 | step   20300 | loss: 0.002876 | action: 0.002876 | state: 0.964823 | lr: 1.00e-04
+Epoch    7 | batch  1854/ 3091 | step   20400 | loss: 0.012751 | action: 0.012751 | state: 1.076590 | lr: 1.00e-04
+Epoch    7 | batch  1954/ 3091 | step   20500 | loss: 0.001719 | action: 0.001719 | state: 0.977289 | lr: 1.00e-04
+Epoch    7 | batch  2054/ 3091 | step   20600 | loss: 0.006303 | action: 0.006303 | state: 0.929465 | lr: 1.00e-04
+Epoch    7 | batch  2154/ 3091 | step   20700 | loss: 0.003654 | action: 0.003654 | state: 1.007302 | lr: 1.00e-04
+Epoch    7 | batch  2254/ 3091 | step   20800 | loss: 0.004205 | action: 0.004205 | state: 1.012068 | lr: 1.00e-04
+Epoch    7 | batch  2354/ 3091 | step   20900 | loss: 0.005959 | action: 0.005959 | state: 0.922069 | lr: 1.00e-04
+Epoch    7 | batch  2454/ 3091 | step   21000 | loss: 0.004643 | action: 0.004643 | state: 0.978112 | lr: 1.00e-04
+Epoch    7 | batch  2554/ 3091 | step   21100 | loss: 0.005371 | action: 0.005371 | state: 0.951152 | lr: 1.00e-04
+Epoch    7 | batch  2654/ 3091 | step   21200 | loss: 0.003143 | action: 0.003143 | state: 0.903342 | lr: 1.00e-04
+Epoch    7 | batch  2754/ 3091 | step   21300 | loss: 0.003177 | action: 0.003177 | state: 0.911569 | lr: 1.00e-04
+Epoch    7 | batch  2854/ 3091 | step   21400 | loss: 0.004588 | action: 0.004588 | state: 0.901947 | lr: 1.00e-04
+Epoch    7 | batch  2954/ 3091 | step   21500 | loss: 0.002177 | action: 0.002177 | state: 1.070908 | lr: 1.00e-04
+Epoch    7 | batch  3054/ 3091 | step   21600 | loss: 0.002120 | action: 0.002120 | state: 1.047839 | lr: 1.00e-04
+Epoch    7 | train_loss: 0.004250 | val_loss: 0.016362 | best: 0.012688 | time: 138.5s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0006.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    8 | batch    63/ 3091 | step   21700 | loss: 0.004577 | action: 0.004577 | state: 1.022787 | lr: 1.00e-04
+Epoch    8 | batch   163/ 3091 | step   21800 | loss: 0.002533 | action: 0.002533 | state: 0.905625 | lr: 1.00e-04
+Epoch    8 | batch   263/ 3091 | step   21900 | loss: 0.002878 | action: 0.002878 | state: 0.974693 | lr: 1.00e-04
+Epoch    8 | batch   363/ 3091 | step   22000 | loss: 0.005321 | action: 0.005321 | state: 1.021286 | lr: 1.00e-04
+Epoch    8 | batch   463/ 3091 | step   22100 | loss: 0.004482 | action: 0.004482 | state: 0.926611 | lr: 1.00e-04
+Epoch    8 | batch   563/ 3091 | step   22200 | loss: 0.003617 | action: 0.003617 | state: 0.891904 | lr: 1.00e-04
+Epoch    8 | batch   663/ 3091 | step   22300 | loss: 0.002570 | action: 0.002570 | state: 0.914443 | lr: 1.00e-04
+Epoch    8 | batch   763/ 3091 | step   22400 | loss: 0.002693 | action: 0.002693 | state: 1.008276 | lr: 1.00e-04
+Epoch    8 | batch   863/ 3091 | step   22500 | loss: 0.002670 | action: 0.002670 | state: 0.992789 | lr: 1.00e-04
+Epoch    8 | batch   963/ 3091 | step   22600 | loss: 0.004480 | action: 0.004480 | state: 1.110479 | lr: 1.00e-04
+Epoch    8 | batch  1063/ 3091 | step   22700 | loss: 0.003452 | action: 0.003452 | state: 1.088941 | lr: 1.00e-04
+Epoch    8 | batch  1163/ 3091 | step   22800 | loss: 0.002150 | action: 0.002150 | state: 1.059858 | lr: 1.00e-04
+Epoch    8 | batch  1263/ 3091 | step   22900 | loss: 0.002486 | action: 0.002486 | state: 1.053415 | lr: 1.00e-04
+Epoch    8 | batch  1363/ 3091 | step   23000 | loss: 0.005349 | action: 0.005349 | state: 0.975196 | lr: 1.00e-04
+Epoch    8 | batch  1463/ 3091 | step   23100 | loss: 0.002428 | action: 0.002428 | state: 0.887651 | lr: 1.00e-04
+Epoch    8 | batch  1563/ 3091 | step   23200 | loss: 0.002590 | action: 0.002590 | state: 0.934453 | lr: 1.00e-04
+Epoch    8 | batch  1663/ 3091 | step   23300 | loss: 0.003710 | action: 0.003710 | state: 0.991221 | lr: 1.00e-04
+Epoch    8 | batch  1763/ 3091 | step   23400 | loss: 0.009254 | action: 0.009254 | state: 0.943265 | lr: 1.00e-04
+Epoch    8 | batch  1863/ 3091 | step   23500 | loss: 0.005075 | action: 0.005075 | state: 0.961710 | lr: 1.00e-04
+Epoch    8 | batch  1963/ 3091 | step   23600 | loss: 0.006366 | action: 0.006366 | state: 1.035740 | lr: 1.00e-04
+Epoch    8 | batch  2063/ 3091 | step   23700 | loss: 0.007768 | action: 0.007768 | state: 0.956786 | lr: 1.00e-04
+Epoch    8 | batch  2163/ 3091 | step   23800 | loss: 0.003468 | action: 0.003468 | state: 0.924206 | lr: 1.00e-04
+Epoch    8 | batch  2263/ 3091 | step   23900 | loss: 0.002302 | action: 0.002302 | state: 0.939433 | lr: 1.00e-04
+Epoch    8 | batch  2363/ 3091 | step   24000 | loss: 0.002099 | action: 0.002099 | state: 1.025064 | lr: 1.00e-04
+Epoch    8 | batch  2463/ 3091 | step   24100 | loss: 0.003569 | action: 0.003569 | state: 0.870644 | lr: 1.00e-04
+Epoch    8 | batch  2563/ 3091 | step   24200 | loss: 0.002745 | action: 0.002745 | state: 0.916109 | lr: 1.00e-04
+Epoch    8 | batch  2663/ 3091 | step   24300 | loss: 0.002789 | action: 0.002789 | state: 0.989800 | lr: 1.00e-04
+Epoch    8 | batch  2763/ 3091 | step   24400 | loss: 0.001654 | action: 0.001654 | state: 0.982156 | lr: 1.00e-04
+Epoch    8 | batch  2863/ 3091 | step   24500 | loss: 0.002888 | action: 0.002888 | state: 0.906906 | lr: 1.00e-04
+Epoch    8 | batch  2963/ 3091 | step   24600 | loss: 0.002342 | action: 0.002342 | state: 0.968809 | lr: 1.00e-04
+Epoch    8 | batch  3063/ 3091 | step   24700 | loss: 0.002962 | action: 0.002962 | state: 0.856944 | lr: 1.00e-04
+Epoch    8 | train_loss: 0.003755 | val_loss: 0.013497 | best: 0.012688 | time: 138.1s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0007.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    9 | batch    72/ 3091 | step   24800 | loss: 0.002696 | action: 0.002696 | state: 0.979635 | lr: 1.00e-04
+Epoch    9 | batch   172/ 3091 | step   24900 | loss: 0.003152 | action: 0.003152 | state: 0.871046 | lr: 1.00e-04
+Epoch    9 | batch   272/ 3091 | step   25000 | loss: 0.002355 | action: 0.002355 | state: 0.830516 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0025000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch    9 | batch   372/ 3091 | step   25100 | loss: 0.001943 | action: 0.001943 | state: 0.972698 | lr: 1.00e-04
+Epoch    9 | batch   472/ 3091 | step   25200 | loss: 0.001965 | action: 0.001965 | state: 0.858245 | lr: 1.00e-04
+Epoch    9 | batch   572/ 3091 | step   25300 | loss: 0.008362 | action: 0.008362 | state: 0.954887 | lr: 1.00e-04
+Epoch    9 | batch   672/ 3091 | step   25400 | loss: 0.004033 | action: 0.004033 | state: 0.975335 | lr: 1.00e-04
+Epoch    9 | batch   772/ 3091 | step   25500 | loss: 0.002203 | action: 0.002203 | state: 0.930414 | lr: 1.00e-04
+Epoch    9 | batch   872/ 3091 | step   25600 | loss: 0.001287 | action: 0.001287 | state: 0.964486 | lr: 1.00e-04
+Epoch    9 | batch   972/ 3091 | step   25700 | loss: 0.002838 | action: 0.002838 | state: 0.851897 | lr: 1.00e-04
+Epoch    9 | batch  1072/ 3091 | step   25800 | loss: 0.003754 | action: 0.003754 | state: 0.945685 | lr: 1.00e-04
+Epoch    9 | batch  1172/ 3091 | step   25900 | loss: 0.002127 | action: 0.002127 | state: 0.980315 | lr: 1.00e-04
+Epoch    9 | batch  1272/ 3091 | step   26000 | loss: 0.005211 | action: 0.005211 | state: 0.971742 | lr: 1.00e-04
+Epoch    9 | batch  1372/ 3091 | step   26100 | loss: 0.001696 | action: 0.001696 | state: 1.100313 | lr: 1.00e-04
+Epoch    9 | batch  1472/ 3091 | step   26200 | loss: 0.003342 | action: 0.003342 | state: 0.932244 | lr: 1.00e-04
+Epoch    9 | batch  1572/ 3091 | step   26300 | loss: 0.003593 | action: 0.003593 | state: 0.917531 | lr: 1.00e-04
+Epoch    9 | batch  1672/ 3091 | step   26400 | loss: 0.002632 | action: 0.002632 | state: 0.873792 | lr: 1.00e-04
+Epoch    9 | batch  1772/ 3091 | step   26500 | loss: 0.002151 | action: 0.002151 | state: 0.970428 | lr: 1.00e-04
+Epoch    9 | batch  1872/ 3091 | step   26600 | loss: 0.003158 | action: 0.003158 | state: 0.945100 | lr: 1.00e-04
+Epoch    9 | batch  1972/ 3091 | step   26700 | loss: 0.003261 | action: 0.003261 | state: 0.999237 | lr: 1.00e-04
+Epoch    9 | batch  2072/ 3091 | step   26800 | loss: 0.004097 | action: 0.004097 | state: 0.946280 | lr: 1.00e-04
+Epoch    9 | batch  2172/ 3091 | step   26900 | loss: 0.003505 | action: 0.003505 | state: 0.929366 | lr: 1.00e-04
+Epoch    9 | batch  2272/ 3091 | step   27000 | loss: 0.001544 | action: 0.001544 | state: 0.963076 | lr: 1.00e-04
+Epoch    9 | batch  2372/ 3091 | step   27100 | loss: 0.006976 | action: 0.006976 | state: 0.937356 | lr: 1.00e-04
+Epoch    9 | batch  2472/ 3091 | step   27200 | loss: 0.004808 | action: 0.004808 | state: 0.933287 | lr: 1.00e-04
+Epoch    9 | batch  2572/ 3091 | step   27300 | loss: 0.003428 | action: 0.003428 | state: 0.888397 | lr: 1.00e-04
+Epoch    9 | batch  2672/ 3091 | step   27400 | loss: 0.003549 | action: 0.003549 | state: 1.023116 | lr: 1.00e-04
+Epoch    9 | batch  2772/ 3091 | step   27500 | loss: 0.003606 | action: 0.003606 | state: 1.001155 | lr: 1.00e-04
+Epoch    9 | batch  2872/ 3091 | step   27600 | loss: 0.001532 | action: 0.001532 | state: 0.974646 | lr: 1.00e-04
+Epoch    9 | batch  2972/ 3091 | step   27700 | loss: 0.002488 | action: 0.002488 | state: 0.867707 | lr: 1.00e-04
+Epoch    9 | batch  3072/ 3091 | step   27800 | loss: 0.003066 | action: 0.003066 | state: 1.086621 | lr: 1.00e-04
+Epoch    9 | train_loss: 0.003362 | val_loss: 0.007035 | best: 0.007035 | time: 139.2s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0008.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Saved best checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_best.pt
+Epoch   10 | batch    81/ 3091 | step   27900 | loss: 0.002171 | action: 0.002171 | state: 0.993617 | lr: 1.00e-04
+Epoch   10 | batch   181/ 3091 | step   28000 | loss: 0.002851 | action: 0.002851 | state: 0.977544 | lr: 1.00e-04
+Epoch   10 | batch   281/ 3091 | step   28100 | loss: 0.001457 | action: 0.001457 | state: 0.875237 | lr: 1.00e-04
+Epoch   10 | batch   381/ 3091 | step   28200 | loss: 0.002385 | action: 0.002385 | state: 0.823357 | lr: 1.00e-04
+Epoch   10 | batch   481/ 3091 | step   28300 | loss: 0.003316 | action: 0.003316 | state: 1.012984 | lr: 1.00e-04
+Epoch   10 | batch   581/ 3091 | step   28400 | loss: 0.003551 | action: 0.003551 | state: 0.903465 | lr: 1.00e-04
+Epoch   10 | batch   681/ 3091 | step   28500 | loss: 0.002321 | action: 0.002321 | state: 0.913095 | lr: 1.00e-04
+Epoch   10 | batch   781/ 3091 | step   28600 | loss: 0.002271 | action: 0.002271 | state: 0.916103 | lr: 1.00e-04
+Epoch   10 | batch   881/ 3091 | step   28700 | loss: 0.003604 | action: 0.003604 | state: 0.932556 | lr: 1.00e-04
+Epoch   10 | batch   981/ 3091 | step   28800 | loss: 0.002598 | action: 0.002598 | state: 0.957350 | lr: 1.00e-04
+Epoch   10 | batch  1081/ 3091 | step   28900 | loss: 0.004572 | action: 0.004572 | state: 1.037481 | lr: 1.00e-04
+Epoch   10 | batch  1181/ 3091 | step   29000 | loss: 0.002135 | action: 0.002135 | state: 0.908510 | lr: 1.00e-04
+Epoch   10 | batch  1281/ 3091 | step   29100 | loss: 0.001376 | action: 0.001376 | state: 0.977653 | lr: 1.00e-04
+Epoch   10 | batch  1381/ 3091 | step   29200 | loss: 0.003214 | action: 0.003214 | state: 0.844178 | lr: 1.00e-04
+Epoch   10 | batch  1481/ 3091 | step   29300 | loss: 0.002374 | action: 0.002374 | state: 0.827775 | lr: 1.00e-04
+Epoch   10 | batch  1581/ 3091 | step   29400 | loss: 0.001382 | action: 0.001382 | state: 1.027071 | lr: 1.00e-04
+Epoch   10 | batch  1681/ 3091 | step   29500 | loss: 0.001944 | action: 0.001944 | state: 1.003910 | lr: 1.00e-04
+Epoch   10 | batch  1781/ 3091 | step   29600 | loss: 0.002214 | action: 0.002214 | state: 1.046354 | lr: 1.00e-04
+Epoch   10 | batch  1881/ 3091 | step   29700 | loss: 0.001829 | action: 0.001829 | state: 0.933719 | lr: 1.00e-04
+Epoch   10 | batch  1981/ 3091 | step   29800 | loss: 0.001496 | action: 0.001496 | state: 0.868133 | lr: 1.00e-04
+Epoch   10 | batch  2081/ 3091 | step   29900 | loss: 0.001213 | action: 0.001213 | state: 0.903028 | lr: 1.00e-04
+Epoch   10 | batch  2181/ 3091 | step   30000 | loss: 0.002240 | action: 0.002240 | state: 1.024993 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0030000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   10 | batch  2281/ 3091 | step   30100 | loss: 0.001504 | action: 0.001504 | state: 0.894075 | lr: 1.00e-04
+Epoch   10 | batch  2381/ 3091 | step   30200 | loss: 0.002087 | action: 0.002087 | state: 0.890064 | lr: 1.00e-04
+Epoch   10 | batch  2481/ 3091 | step   30300 | loss: 0.003584 | action: 0.003584 | state: 0.926307 | lr: 1.00e-04
+Epoch   10 | batch  2581/ 3091 | step   30400 | loss: 0.003863 | action: 0.003863 | state: 1.054552 | lr: 1.00e-04
+Epoch   10 | batch  2681/ 3091 | step   30500 | loss: 0.003145 | action: 0.003145 | state: 0.910113 | lr: 1.00e-04
+Epoch   10 | batch  2781/ 3091 | step   30600 | loss: 0.002209 | action: 0.002209 | state: 0.997539 | lr: 1.00e-04
+Epoch   10 | batch  2881/ 3091 | step   30700 | loss: 0.001466 | action: 0.001466 | state: 0.950277 | lr: 1.00e-04
+Epoch   10 | batch  2981/ 3091 | step   30800 | loss: 0.002707 | action: 0.002707 | state: 0.989366 | lr: 1.00e-04
+Epoch   10 | batch  3081/ 3091 | step   30900 | loss: 0.003175 | action: 0.003175 | state: 0.924754 | lr: 1.00e-04
+Epoch   10 | train_loss: 0.003055 | val_loss: 0.014003 | best: 0.007035 | time: 138.6s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0009.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   11 | batch    90/ 3091 | step   31000 | loss: 0.001841 | action: 0.001841 | state: 0.903914 | lr: 1.00e-04
+Epoch   11 | batch   190/ 3091 | step   31100 | loss: 0.002845 | action: 0.002845 | state: 0.936428 | lr: 1.00e-04
+Epoch   11 | batch   290/ 3091 | step   31200 | loss: 0.001322 | action: 0.001322 | state: 1.028576 | lr: 1.00e-04
+Epoch   11 | batch   390/ 3091 | step   31300 | loss: 0.001442 | action: 0.001442 | state: 0.991748 | lr: 1.00e-04
+Epoch   11 | batch   490/ 3091 | step   31400 | loss: 0.001151 | action: 0.001151 | state: 0.999809 | lr: 1.00e-04
+Epoch   11 | batch   590/ 3091 | step   31500 | loss: 0.002157 | action: 0.002157 | state: 1.054297 | lr: 1.00e-04
+Epoch   11 | batch   690/ 3091 | step   31600 | loss: 0.002150 | action: 0.002150 | state: 0.866371 | lr: 1.00e-04
+Epoch   11 | batch   790/ 3091 | step   31700 | loss: 0.002360 | action: 0.002360 | state: 1.011860 | lr: 1.00e-04
+Epoch   11 | batch   890/ 3091 | step   31800 | loss: 0.002457 | action: 0.002457 | state: 0.976204 | lr: 1.00e-04
+Epoch   11 | batch   990/ 3091 | step   31900 | loss: 0.001624 | action: 0.001624 | state: 0.879595 | lr: 1.00e-04
+Epoch   11 | batch  1090/ 3091 | step   32000 | loss: 0.002119 | action: 0.002119 | state: 0.915633 | lr: 1.00e-04
+Epoch   11 | batch  1190/ 3091 | step   32100 | loss: 0.003852 | action: 0.003852 | state: 0.924623 | lr: 1.00e-04
+Epoch   11 | batch  1290/ 3091 | step   32200 | loss: 0.002806 | action: 0.002806 | state: 0.877546 | lr: 1.00e-04
+Epoch   11 | batch  1390/ 3091 | step   32300 | loss: 0.005988 | action: 0.005988 | state: 0.868430 | lr: 1.00e-04
+Epoch   11 | batch  1490/ 3091 | step   32400 | loss: 0.001715 | action: 0.001715 | state: 0.998943 | lr: 1.00e-04
+Epoch   11 | batch  1590/ 3091 | step   32500 | loss: 0.003465 | action: 0.003465 | state: 0.934060 | lr: 1.00e-04
+Epoch   11 | batch  1690/ 3091 | step   32600 | loss: 0.002663 | action: 0.002663 | state: 0.966334 | lr: 1.00e-04
+Epoch   11 | batch  1790/ 3091 | step   32700 | loss: 0.001494 | action: 0.001494 | state: 0.842603 | lr: 1.00e-04
+Epoch   11 | batch  1890/ 3091 | step   32800 | loss: 0.006213 | action: 0.006213 | state: 1.021184 | lr: 1.00e-04
+Epoch   11 | batch  1990/ 3091 | step   32900 | loss: 0.003992 | action: 0.003992 | state: 1.028756 | lr: 1.00e-04
+Epoch   11 | batch  2090/ 3091 | step   33000 | loss: 0.006864 | action: 0.006864 | state: 0.893006 | lr: 1.00e-04
+Epoch   11 | batch  2190/ 3091 | step   33100 | loss: 0.001982 | action: 0.001982 | state: 0.969340 | lr: 1.00e-04
+Epoch   11 | batch  2290/ 3091 | step   33200 | loss: 0.001438 | action: 0.001438 | state: 0.998349 | lr: 1.00e-04
+Epoch   11 | batch  2390/ 3091 | step   33300 | loss: 0.001770 | action: 0.001770 | state: 0.935957 | lr: 1.00e-04
+Epoch   11 | batch  2490/ 3091 | step   33400 | loss: 0.001973 | action: 0.001973 | state: 0.986587 | lr: 1.00e-04
+Epoch   11 | batch  2590/ 3091 | step   33500 | loss: 0.002929 | action: 0.002929 | state: 0.884773 | lr: 1.00e-04
+Epoch   11 | batch  2690/ 3091 | step   33600 | loss: 0.002464 | action: 0.002464 | state: 0.971194 | lr: 1.00e-04
+Epoch   11 | batch  2790/ 3091 | step   33700 | loss: 0.001476 | action: 0.001476 | state: 0.968814 | lr: 1.00e-04
+Epoch   11 | batch  2890/ 3091 | step   33800 | loss: 0.002510 | action: 0.002510 | state: 1.064205 | lr: 1.00e-04
+Epoch   11 | batch  2990/ 3091 | step   33900 | loss: 0.002018 | action: 0.002018 | state: 0.914810 | lr: 1.00e-04
+Epoch   11 | batch  3090/ 3091 | step   34000 | loss: 0.004493 | action: 0.004493 | state: 0.913356 | lr: 1.00e-04
+Epoch   11 | train_loss: 0.002791 | val_loss: 0.010140 | best: 0.007035 | time: 138.0s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0010.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   12 | batch    99/ 3091 | step   34100 | loss: 0.002351 | action: 0.002351 | state: 0.971766 | lr: 1.00e-04
+Epoch   12 | batch   199/ 3091 | step   34200 | loss: 0.003292 | action: 0.003292 | state: 0.905534 | lr: 1.00e-04
+Epoch   12 | batch   299/ 3091 | step   34300 | loss: 0.002388 | action: 0.002388 | state: 0.854256 | lr: 1.00e-04
+Epoch   12 | batch   399/ 3091 | step   34400 | loss: 0.002189 | action: 0.002189 | state: 0.955907 | lr: 1.00e-04
+Epoch   12 | batch   499/ 3091 | step   34500 | loss: 0.002498 | action: 0.002498 | state: 1.034758 | lr: 1.00e-04
+Epoch   12 | batch   599/ 3091 | step   34600 | loss: 0.001864 | action: 0.001864 | state: 0.919615 | lr: 1.00e-04
+Epoch   12 | batch   699/ 3091 | step   34700 | loss: 0.001730 | action: 0.001730 | state: 0.936738 | lr: 1.00e-04
+Epoch   12 | batch   799/ 3091 | step   34800 | loss: 0.002519 | action: 0.002519 | state: 0.934889 | lr: 1.00e-04
+Epoch   12 | batch   899/ 3091 | step   34900 | loss: 0.003938 | action: 0.003938 | state: 0.942739 | lr: 1.00e-04
+Epoch   12 | batch   999/ 3091 | step   35000 | loss: 0.001598 | action: 0.001598 | state: 0.904032 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0035000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   12 | batch  1099/ 3091 | step   35100 | loss: 0.001761 | action: 0.001761 | state: 0.873579 | lr: 1.00e-04
+Epoch   12 | batch  1199/ 3091 | step   35200 | loss: 0.001806 | action: 0.001806 | state: 0.883213 | lr: 1.00e-04
+Epoch   12 | batch  1299/ 3091 | step   35300 | loss: 0.003508 | action: 0.003508 | state: 0.818558 | lr: 1.00e-04
+Epoch   12 | batch  1399/ 3091 | step   35400 | loss: 0.001784 | action: 0.001784 | state: 0.934680 | lr: 1.00e-04
+Epoch   12 | batch  1499/ 3091 | step   35500 | loss: 0.004023 | action: 0.004023 | state: 0.895996 | lr: 1.00e-04
+Epoch   12 | batch  1599/ 3091 | step   35600 | loss: 0.001429 | action: 0.001429 | state: 0.934258 | lr: 1.00e-04
+Epoch   12 | batch  1699/ 3091 | step   35700 | loss: 0.002546 | action: 0.002546 | state: 1.016577 | lr: 1.00e-04
+Epoch   12 | batch  1799/ 3091 | step   35800 | loss: 0.002168 | action: 0.002168 | state: 0.915632 | lr: 1.00e-04
+Epoch   12 | batch  1899/ 3091 | step   35900 | loss: 0.002796 | action: 0.002796 | state: 0.937315 | lr: 1.00e-04
+Epoch   12 | batch  1999/ 3091 | step   36000 | loss: 0.003355 | action: 0.003355 | state: 0.940270 | lr: 1.00e-04
+Epoch   12 | batch  2099/ 3091 | step   36100 | loss: 0.002127 | action: 0.002127 | state: 0.966645 | lr: 1.00e-04
+Epoch   12 | batch  2199/ 3091 | step   36200 | loss: 0.001508 | action: 0.001508 | state: 0.968980 | lr: 1.00e-04
+Epoch   12 | batch  2299/ 3091 | step   36300 | loss: 0.001306 | action: 0.001306 | state: 0.933446 | lr: 1.00e-04
+Epoch   12 | batch  2399/ 3091 | step   36400 | loss: 0.002461 | action: 0.002461 | state: 0.979406 | lr: 1.00e-04
+Epoch   12 | batch  2499/ 3091 | step   36500 | loss: 0.002861 | action: 0.002861 | state: 0.900931 | lr: 1.00e-04
+Epoch   12 | batch  2599/ 3091 | step   36600 | loss: 0.001962 | action: 0.001962 | state: 0.889277 | lr: 1.00e-04
+Epoch   12 | batch  2699/ 3091 | step   36700 | loss: 0.001382 | action: 0.001382 | state: 0.963636 | lr: 1.00e-04
+Epoch   12 | batch  2799/ 3091 | step   36800 | loss: 0.001174 | action: 0.001174 | state: 0.996928 | lr: 1.00e-04
+Epoch   12 | batch  2899/ 3091 | step   36900 | loss: 0.003501 | action: 0.003501 | state: 0.912896 | lr: 1.00e-04
+Epoch   12 | batch  2999/ 3091 | step   37000 | loss: 0.003535 | action: 0.003535 | state: 1.015208 | lr: 1.00e-04
+Epoch   12 | train_loss: 0.002578 | val_loss: 0.015715 | best: 0.007035 | time: 133.1s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0011.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   13 | batch     8/ 3091 | step   37100 | loss: 0.003068 | action: 0.003068 | state: 0.961095 | lr: 1.00e-04
+Epoch   13 | batch   108/ 3091 | step   37200 | loss: 0.003347 | action: 0.003347 | state: 0.941995 | lr: 1.00e-04
+Epoch   13 | batch   208/ 3091 | step   37300 | loss: 0.003571 | action: 0.003571 | state: 0.982439 | lr: 1.00e-04
+Epoch   13 | batch   308/ 3091 | step   37400 | loss: 0.000779 | action: 0.000779 | state: 0.983950 | lr: 1.00e-04
+Epoch   13 | batch   408/ 3091 | step   37500 | loss: 0.003836 | action: 0.003836 | state: 1.060752 | lr: 1.00e-04
+Epoch   13 | batch   508/ 3091 | step   37600 | loss: 0.002828 | action: 0.002828 | state: 0.936008 | lr: 1.00e-04
+Epoch   13 | batch   608/ 3091 | step   37700 | loss: 0.001208 | action: 0.001208 | state: 0.992907 | lr: 1.00e-04
+Epoch   13 | batch   708/ 3091 | step   37800 | loss: 0.001096 | action: 0.001096 | state: 0.958520 | lr: 1.00e-04
+Epoch   13 | batch   808/ 3091 | step   37900 | loss: 0.002692 | action: 0.002692 | state: 0.954727 | lr: 1.00e-04
+Epoch   13 | batch   908/ 3091 | step   38000 | loss: 0.001608 | action: 0.001608 | state: 0.932611 | lr: 1.00e-04
+Epoch   13 | batch  1008/ 3091 | step   38100 | loss: 0.002218 | action: 0.002218 | state: 0.988674 | lr: 1.00e-04
+Epoch   13 | batch  1108/ 3091 | step   38200 | loss: 0.001944 | action: 0.001944 | state: 0.869512 | lr: 1.00e-04
+Epoch   13 | batch  1208/ 3091 | step   38300 | loss: 0.001492 | action: 0.001492 | state: 0.994259 | lr: 1.00e-04
+Epoch   13 | batch  1308/ 3091 | step   38400 | loss: 0.001908 | action: 0.001908 | state: 0.938945 | lr: 1.00e-04
+Epoch   13 | batch  1408/ 3091 | step   38500 | loss: 0.002518 | action: 0.002518 | state: 1.081488 | lr: 1.00e-04
+Epoch   13 | batch  1508/ 3091 | step   38600 | loss: 0.005752 | action: 0.005752 | state: 0.938393 | lr: 1.00e-04
+Epoch   13 | batch  1608/ 3091 | step   38700 | loss: 0.002523 | action: 0.002523 | state: 1.025400 | lr: 1.00e-04
+Epoch   13 | batch  1708/ 3091 | step   38800 | loss: 0.001432 | action: 0.001432 | state: 1.000876 | lr: 1.00e-04
+Epoch   13 | batch  1808/ 3091 | step   38900 | loss: 0.001713 | action: 0.001713 | state: 0.936045 | lr: 1.00e-04
+Epoch   13 | batch  1908/ 3091 | step   39000 | loss: 0.001729 | action: 0.001729 | state: 0.957293 | lr: 1.00e-04
+Epoch   13 | batch  2008/ 3091 | step   39100 | loss: 0.001393 | action: 0.001393 | state: 0.841449 | lr: 1.00e-04
+Epoch   13 | batch  2108/ 3091 | step   39200 | loss: 0.001230 | action: 0.001230 | state: 1.002642 | lr: 1.00e-04
+Epoch   13 | batch  2208/ 3091 | step   39300 | loss: 0.002534 | action: 0.002534 | state: 0.931740 | lr: 1.00e-04
+Epoch   13 | batch  2308/ 3091 | step   39400 | loss: 0.002603 | action: 0.002603 | state: 1.076503 | lr: 1.00e-04
+Epoch   13 | batch  2408/ 3091 | step   39500 | loss: 0.001294 | action: 0.001294 | state: 1.002555 | lr: 1.00e-04
+Epoch   13 | batch  2508/ 3091 | step   39600 | loss: 0.001493 | action: 0.001493 | state: 0.930730 | lr: 1.00e-04
+Epoch   13 | batch  2608/ 3091 | step   39700 | loss: 0.001881 | action: 0.001881 | state: 0.910335 | lr: 1.00e-04
+Epoch   13 | batch  2708/ 3091 | step   39800 | loss: 0.006065 | action: 0.006065 | state: 0.838500 | lr: 1.00e-04
+Epoch   13 | batch  2808/ 3091 | step   39900 | loss: 0.004692 | action: 0.004692 | state: 0.989844 | lr: 1.00e-04
+Epoch   13 | batch  2908/ 3091 | step   40000 | loss: 0.001503 | action: 0.001503 | state: 0.829616 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0040000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   13 | batch  3008/ 3091 | step   40100 | loss: 0.002010 | action: 0.002010 | state: 0.898827 | lr: 1.00e-04
+Epoch   13 | train_loss: 0.002390 | val_loss: 0.009899 | best: 0.007035 | time: 136.2s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0012.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   14 | batch    17/ 3091 | step   40200 | loss: 0.005176 | action: 0.005176 | state: 0.844976 | lr: 1.00e-04
+Epoch   14 | batch   117/ 3091 | step   40300 | loss: 0.002097 | action: 0.002097 | state: 0.883707 | lr: 1.00e-04
+Epoch   14 | batch   217/ 3091 | step   40400 | loss: 0.001838 | action: 0.001838 | state: 0.959563 | lr: 1.00e-04
+Epoch   14 | batch   317/ 3091 | step   40500 | loss: 0.000980 | action: 0.000980 | state: 0.870826 | lr: 1.00e-04
+Epoch   14 | batch   417/ 3091 | step   40600 | loss: 0.001502 | action: 0.001502 | state: 0.924742 | lr: 1.00e-04
+Epoch   14 | batch   517/ 3091 | step   40700 | loss: 0.002199 | action: 0.002199 | state: 0.993784 | lr: 1.00e-04
+Epoch   14 | batch   617/ 3091 | step   40800 | loss: 0.002387 | action: 0.002387 | state: 0.838480 | lr: 1.00e-04
+Epoch   14 | batch   717/ 3091 | step   40900 | loss: 0.003789 | action: 0.003789 | state: 0.965475 | lr: 1.00e-04
+Epoch   14 | batch   817/ 3091 | step   41000 | loss: 0.002428 | action: 0.002428 | state: 0.948461 | lr: 1.00e-04
+Epoch   14 | batch   917/ 3091 | step   41100 | loss: 0.001766 | action: 0.001766 | state: 0.983437 | lr: 1.00e-04
+Epoch   14 | batch  1017/ 3091 | step   41200 | loss: 0.002755 | action: 0.002755 | state: 1.034649 | lr: 1.00e-04
+Epoch   14 | batch  1117/ 3091 | step   41300 | loss: 0.001138 | action: 0.001138 | state: 0.974949 | lr: 1.00e-04
+Epoch   14 | batch  1217/ 3091 | step   41400 | loss: 0.002084 | action: 0.002084 | state: 0.969333 | lr: 1.00e-04
+Epoch   14 | batch  1317/ 3091 | step   41500 | loss: 0.001298 | action: 0.001298 | state: 0.924397 | lr: 1.00e-04
+Epoch   14 | batch  1417/ 3091 | step   41600 | loss: 0.002387 | action: 0.002387 | state: 0.864847 | lr: 1.00e-04
+Epoch   14 | batch  1517/ 3091 | step   41700 | loss: 0.002574 | action: 0.002574 | state: 1.001751 | lr: 1.00e-04
+Epoch   14 | batch  1617/ 3091 | step   41800 | loss: 0.002163 | action: 0.002163 | state: 0.935908 | lr: 1.00e-04
+Epoch   14 | batch  1717/ 3091 | step   41900 | loss: 0.002641 | action: 0.002641 | state: 0.938877 | lr: 1.00e-04
+Epoch   14 | batch  1817/ 3091 | step   42000 | loss: 0.004843 | action: 0.004843 | state: 0.967558 | lr: 1.00e-04
+Epoch   14 | batch  1917/ 3091 | step   42100 | loss: 0.001432 | action: 0.001432 | state: 0.900245 | lr: 1.00e-04
+Epoch   14 | batch  2017/ 3091 | step   42200 | loss: 0.002418 | action: 0.002418 | state: 0.974658 | lr: 1.00e-04
+Epoch   14 | batch  2117/ 3091 | step   42300 | loss: 0.001501 | action: 0.001501 | state: 0.880534 | lr: 1.00e-04
+Epoch   14 | batch  2217/ 3091 | step   42400 | loss: 0.001815 | action: 0.001815 | state: 0.899207 | lr: 1.00e-04
+Epoch   14 | batch  2317/ 3091 | step   42500 | loss: 0.001109 | action: 0.001109 | state: 0.951895 | lr: 1.00e-04
+Epoch   14 | batch  2417/ 3091 | step   42600 | loss: 0.001048 | action: 0.001048 | state: 0.939840 | lr: 1.00e-04
+Epoch   14 | batch  2517/ 3091 | step   42700 | loss: 0.001420 | action: 0.001420 | state: 1.028026 | lr: 1.00e-04
+Epoch   14 | batch  2617/ 3091 | step   42800 | loss: 0.001541 | action: 0.001541 | state: 0.887364 | lr: 1.00e-04
+Epoch   14 | batch  2717/ 3091 | step   42900 | loss: 0.002196 | action: 0.002196 | state: 1.064149 | lr: 1.00e-04
+Epoch   14 | batch  2817/ 3091 | step   43000 | loss: 0.002842 | action: 0.002842 | state: 0.899978 | lr: 1.00e-04
+Epoch   14 | batch  2917/ 3091 | step   43100 | loss: 0.000961 | action: 0.000961 | state: 0.950081 | lr: 1.00e-04
+Epoch   14 | batch  3017/ 3091 | step   43200 | loss: 0.002032 | action: 0.002032 | state: 0.889629 | lr: 1.00e-04
+Epoch   14 | train_loss: 0.002220 | val_loss: 0.008280 | best: 0.007035 | time: 136.8s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0013.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   15 | batch    26/ 3091 | step   43300 | loss: 0.003516 | action: 0.003516 | state: 0.950792 | lr: 1.00e-04
+Epoch   15 | batch   126/ 3091 | step   43400 | loss: 0.001515 | action: 0.001515 | state: 0.952593 | lr: 1.00e-04
+Epoch   15 | batch   226/ 3091 | step   43500 | loss: 0.003082 | action: 0.003082 | state: 0.794453 | lr: 1.00e-04
+Epoch   15 | batch   326/ 3091 | step   43600 | loss: 0.002051 | action: 0.002051 | state: 0.923647 | lr: 1.00e-04
+Epoch   15 | batch   426/ 3091 | step   43700 | loss: 0.001157 | action: 0.001157 | state: 0.922517 | lr: 1.00e-04
+Epoch   15 | batch   526/ 3091 | step   43800 | loss: 0.002044 | action: 0.002044 | state: 0.894798 | lr: 1.00e-04
+Epoch   15 | batch   626/ 3091 | step   43900 | loss: 0.001374 | action: 0.001374 | state: 0.896531 | lr: 1.00e-04
+Epoch   15 | batch   726/ 3091 | step   44000 | loss: 0.001755 | action: 0.001755 | state: 0.916481 | lr: 1.00e-04
+Epoch   15 | batch   826/ 3091 | step   44100 | loss: 0.002337 | action: 0.002337 | state: 0.952401 | lr: 1.00e-04
+Epoch   15 | batch   926/ 3091 | step   44200 | loss: 0.001500 | action: 0.001500 | state: 0.956954 | lr: 1.00e-04
+Epoch   15 | batch  1026/ 3091 | step   44300 | loss: 0.001654 | action: 0.001654 | state: 0.869475 | lr: 1.00e-04
+Epoch   15 | batch  1126/ 3091 | step   44400 | loss: 0.001778 | action: 0.001778 | state: 0.880479 | lr: 1.00e-04
+Epoch   15 | batch  1226/ 3091 | step   44500 | loss: 0.001101 | action: 0.001101 | state: 0.850171 | lr: 1.00e-04
+Epoch   15 | batch  1326/ 3091 | step   44600 | loss: 0.001463 | action: 0.001463 | state: 0.865438 | lr: 1.00e-04
+Epoch   15 | batch  1426/ 3091 | step   44700 | loss: 0.001310 | action: 0.001310 | state: 0.917802 | lr: 1.00e-04
+Epoch   15 | batch  1526/ 3091 | step   44800 | loss: 0.004408 | action: 0.004408 | state: 0.885014 | lr: 1.00e-04
+Epoch   15 | batch  1626/ 3091 | step   44900 | loss: 0.005989 | action: 0.005989 | state: 0.884893 | lr: 1.00e-04
+Epoch   15 | batch  1726/ 3091 | step   45000 | loss: 0.001408 | action: 0.001408 | state: 0.972269 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0045000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   15 | batch  1826/ 3091 | step   45100 | loss: 0.001901 | action: 0.001901 | state: 0.846487 | lr: 1.00e-04
+Epoch   15 | batch  1926/ 3091 | step   45200 | loss: 0.002312 | action: 0.002312 | state: 0.857693 | lr: 1.00e-04
+Epoch   15 | batch  2026/ 3091 | step   45300 | loss: 0.001758 | action: 0.001758 | state: 0.997771 | lr: 1.00e-04
+Epoch   15 | batch  2126/ 3091 | step   45400 | loss: 0.000945 | action: 0.000945 | state: 0.969635 | lr: 1.00e-04
+Epoch   15 | batch  2226/ 3091 | step   45500 | loss: 0.001473 | action: 0.001473 | state: 0.933730 | lr: 1.00e-04
+Epoch   15 | batch  2326/ 3091 | step   45600 | loss: 0.002377 | action: 0.002377 | state: 0.906045 | lr: 1.00e-04
+Epoch   15 | batch  2426/ 3091 | step   45700 | loss: 0.001391 | action: 0.001391 | state: 0.928573 | lr: 1.00e-04
+Epoch   15 | batch  2526/ 3091 | step   45800 | loss: 0.000836 | action: 0.000836 | state: 1.014102 | lr: 1.00e-04
+Epoch   15 | batch  2626/ 3091 | step   45900 | loss: 0.004522 | action: 0.004522 | state: 1.097050 | lr: 1.00e-04
+Epoch   15 | batch  2726/ 3091 | step   46000 | loss: 0.001567 | action: 0.001567 | state: 0.940793 | lr: 1.00e-04
+Epoch   15 | batch  2826/ 3091 | step   46100 | loss: 0.006243 | action: 0.006243 | state: 0.921340 | lr: 1.00e-04
+Epoch   15 | batch  2926/ 3091 | step   46200 | loss: 0.001626 | action: 0.001626 | state: 0.949085 | lr: 1.00e-04
+Epoch   15 | batch  3026/ 3091 | step   46300 | loss: 0.001135 | action: 0.001135 | state: 0.860156 | lr: 1.00e-04
+Epoch   15 | train_loss: 0.002064 | val_loss: 0.013072 | best: 0.007035 | time: 135.6s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0014.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   16 | batch    35/ 3091 | step   46400 | loss: 0.001405 | action: 0.001405 | state: 1.026394 | lr: 1.00e-04
+Epoch   16 | batch   135/ 3091 | step   46500 | loss: 0.008093 | action: 0.008093 | state: 0.908862 | lr: 1.00e-04
+Epoch   16 | batch   235/ 3091 | step   46600 | loss: 0.001346 | action: 0.001346 | state: 0.898372 | lr: 1.00e-04
+Epoch   16 | batch   335/ 3091 | step   46700 | loss: 0.001907 | action: 0.001907 | state: 0.993095 | lr: 1.00e-04
+Epoch   16 | batch   435/ 3091 | step   46800 | loss: 0.001057 | action: 0.001057 | state: 0.880845 | lr: 1.00e-04
+Epoch   16 | batch   535/ 3091 | step   46900 | loss: 0.001845 | action: 0.001845 | state: 0.879855 | lr: 1.00e-04
+Epoch   16 | batch   635/ 3091 | step   47000 | loss: 0.001030 | action: 0.001030 | state: 0.864667 | lr: 1.00e-04
+Epoch   16 | batch   735/ 3091 | step   47100 | loss: 0.001271 | action: 0.001271 | state: 0.989503 | lr: 1.00e-04
+Epoch   16 | batch   835/ 3091 | step   47200 | loss: 0.002630 | action: 0.002630 | state: 0.922060 | lr: 1.00e-04
+Epoch   16 | batch   935/ 3091 | step   47300 | loss: 0.001413 | action: 0.001413 | state: 1.013351 | lr: 1.00e-04
+Epoch   16 | batch  1035/ 3091 | step   47400 | loss: 0.001754 | action: 0.001754 | state: 0.986547 | lr: 1.00e-04
+Epoch   16 | batch  1135/ 3091 | step   47500 | loss: 0.001446 | action: 0.001446 | state: 0.944469 | lr: 1.00e-04
+Epoch   16 | batch  1235/ 3091 | step   47600 | loss: 0.001399 | action: 0.001399 | state: 0.991417 | lr: 1.00e-04
+Epoch   16 | batch  1335/ 3091 | step   47700 | loss: 0.001034 | action: 0.001034 | state: 0.951315 | lr: 1.00e-04
+Epoch   16 | batch  1435/ 3091 | step   47800 | loss: 0.000981 | action: 0.000981 | state: 0.864996 | lr: 1.00e-04
+Epoch   16 | batch  1535/ 3091 | step   47900 | loss: 0.002717 | action: 0.002717 | state: 0.900699 | lr: 1.00e-04
+Epoch   16 | batch  1635/ 3091 | step   48000 | loss: 0.001540 | action: 0.001540 | state: 0.950712 | lr: 1.00e-04
+Epoch   16 | batch  1735/ 3091 | step   48100 | loss: 0.001627 | action: 0.001627 | state: 1.002789 | lr: 1.00e-04
+Epoch   16 | batch  1835/ 3091 | step   48200 | loss: 0.002264 | action: 0.002264 | state: 0.894930 | lr: 1.00e-04
+Epoch   16 | batch  1935/ 3091 | step   48300 | loss: 0.003297 | action: 0.003297 | state: 1.035592 | lr: 1.00e-04
+Epoch   16 | batch  2035/ 3091 | step   48400 | loss: 0.003836 | action: 0.003836 | state: 0.923608 | lr: 1.00e-04
+Epoch   16 | batch  2135/ 3091 | step   48500 | loss: 0.002540 | action: 0.002540 | state: 0.899769 | lr: 1.00e-04
+Epoch   16 | batch  2235/ 3091 | step   48600 | loss: 0.000718 | action: 0.000718 | state: 0.997360 | lr: 1.00e-04
+Epoch   16 | batch  2335/ 3091 | step   48700 | loss: 0.001695 | action: 0.001695 | state: 1.077439 | lr: 1.00e-04
+Epoch   16 | batch  2435/ 3091 | step   48800 | loss: 0.002903 | action: 0.002903 | state: 0.910712 | lr: 1.00e-04
+Epoch   16 | batch  2535/ 3091 | step   48900 | loss: 0.003540 | action: 0.003540 | state: 1.065890 | lr: 1.00e-04
+Epoch   16 | batch  2635/ 3091 | step   49000 | loss: 0.002159 | action: 0.002159 | state: 0.935078 | lr: 1.00e-04
+Epoch   16 | batch  2735/ 3091 | step   49100 | loss: 0.001010 | action: 0.001010 | state: 0.943096 | lr: 1.00e-04
+Epoch   16 | batch  2835/ 3091 | step   49200 | loss: 0.001112 | action: 0.001112 | state: 0.972373 | lr: 1.00e-04
+Epoch   16 | batch  2935/ 3091 | step   49300 | loss: 0.001772 | action: 0.001772 | state: 0.984018 | lr: 1.00e-04
+Epoch   16 | batch  3035/ 3091 | step   49400 | loss: 0.002743 | action: 0.002743 | state: 0.942486 | lr: 1.00e-04
+Epoch   16 | train_loss: 0.001936 | val_loss: 0.015960 | best: 0.007035 | time: 136.4s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0015.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   17 | batch    44/ 3091 | step   49500 | loss: 0.001089 | action: 0.001089 | state: 0.931585 | lr: 1.00e-04
+Epoch   17 | batch   144/ 3091 | step   49600 | loss: 0.002642 | action: 0.002642 | state: 0.956061 | lr: 1.00e-04
+Epoch   17 | batch   244/ 3091 | step   49700 | loss: 0.000988 | action: 0.000988 | state: 0.924655 | lr: 1.00e-04
+Epoch   17 | batch   344/ 3091 | step   49800 | loss: 0.002340 | action: 0.002340 | state: 0.894485 | lr: 1.00e-04
+Epoch   17 | batch   444/ 3091 | step   49900 | loss: 0.001285 | action: 0.001285 | state: 0.955371 | lr: 1.00e-04
+Epoch   17 | batch   544/ 3091 | step   50000 | loss: 0.001167 | action: 0.001167 | state: 0.955000 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0050000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   17 | batch   644/ 3091 | step   50100 | loss: 0.001379 | action: 0.001379 | state: 0.978424 | lr: 1.00e-04
+Epoch   17 | batch   744/ 3091 | step   50200 | loss: 0.001074 | action: 0.001074 | state: 0.958536 | lr: 1.00e-04
+Epoch   17 | batch   844/ 3091 | step   50300 | loss: 0.001436 | action: 0.001436 | state: 0.951513 | lr: 1.00e-04
+Epoch   17 | batch   944/ 3091 | step   50400 | loss: 0.001821 | action: 0.001821 | state: 0.960391 | lr: 1.00e-04
+Epoch   17 | batch  1044/ 3091 | step   50500 | loss: 0.001347 | action: 0.001347 | state: 1.013232 | lr: 1.00e-04
+Epoch   17 | batch  1144/ 3091 | step   50600 | loss: 0.001742 | action: 0.001742 | state: 1.011729 | lr: 1.00e-04
+Epoch   17 | batch  1244/ 3091 | step   50700 | loss: 0.002213 | action: 0.002213 | state: 0.830106 | lr: 1.00e-04
+Epoch   17 | batch  1344/ 3091 | step   50800 | loss: 0.002235 | action: 0.002235 | state: 0.869899 | lr: 1.00e-04
+Epoch   17 | batch  1444/ 3091 | step   50900 | loss: 0.001899 | action: 0.001899 | state: 0.866800 | lr: 1.00e-04
+Epoch   17 | batch  1544/ 3091 | step   51000 | loss: 0.002575 | action: 0.002575 | state: 0.782280 | lr: 1.00e-04
+Epoch   17 | batch  1644/ 3091 | step   51100 | loss: 0.001012 | action: 0.001012 | state: 0.897893 | lr: 1.00e-04
+Epoch   17 | batch  1744/ 3091 | step   51200 | loss: 0.001619 | action: 0.001619 | state: 0.981490 | lr: 1.00e-04
+Epoch   17 | batch  1844/ 3091 | step   51300 | loss: 0.001532 | action: 0.001532 | state: 0.990910 | lr: 1.00e-04
+Epoch   17 | batch  1944/ 3091 | step   51400 | loss: 0.001649 | action: 0.001649 | state: 0.866283 | lr: 1.00e-04
+Epoch   17 | batch  2044/ 3091 | step   51500 | loss: 0.000890 | action: 0.000890 | state: 1.016855 | lr: 1.00e-04
+Epoch   17 | batch  2144/ 3091 | step   51600 | loss: 0.001315 | action: 0.001315 | state: 0.928531 | lr: 1.00e-04
+Epoch   17 | batch  2244/ 3091 | step   51700 | loss: 0.000930 | action: 0.000930 | state: 1.064909 | lr: 1.00e-04
+Epoch   17 | batch  2344/ 3091 | step   51800 | loss: 0.001229 | action: 0.001229 | state: 0.961849 | lr: 1.00e-04
+Epoch   17 | batch  2444/ 3091 | step   51900 | loss: 0.002527 | action: 0.002527 | state: 1.024953 | lr: 1.00e-04
+Epoch   17 | batch  2544/ 3091 | step   52000 | loss: 0.004870 | action: 0.004870 | state: 0.808448 | lr: 1.00e-04
+Epoch   17 | batch  2644/ 3091 | step   52100 | loss: 0.004124 | action: 0.004124 | state: 0.879630 | lr: 1.00e-04
+Epoch   17 | batch  2744/ 3091 | step   52200 | loss: 0.003389 | action: 0.003389 | state: 0.978659 | lr: 1.00e-04
+Epoch   17 | batch  2844/ 3091 | step   52300 | loss: 0.001813 | action: 0.001813 | state: 0.874929 | lr: 1.00e-04
+Epoch   17 | batch  2944/ 3091 | step   52400 | loss: 0.001143 | action: 0.001143 | state: 0.955542 | lr: 1.00e-04
+Epoch   17 | batch  3044/ 3091 | step   52500 | loss: 0.003074 | action: 0.003074 | state: 0.949281 | lr: 1.00e-04
+Epoch   17 | train_loss: 0.001817 | val_loss: 0.019701 | best: 0.007035 | time: 133.7s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0016.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   18 | batch    53/ 3091 | step   52600 | loss: 0.001567 | action: 0.001567 | state: 0.810211 | lr: 1.00e-04
+Epoch   18 | batch   153/ 3091 | step   52700 | loss: 0.001240 | action: 0.001240 | state: 0.957185 | lr: 1.00e-04
+Epoch   18 | batch   253/ 3091 | step   52800 | loss: 0.000856 | action: 0.000856 | state: 0.979210 | lr: 1.00e-04
+Epoch   18 | batch   353/ 3091 | step   52900 | loss: 0.002219 | action: 0.002219 | state: 0.993542 | lr: 1.00e-04
+Epoch   18 | batch   453/ 3091 | step   53000 | loss: 0.001536 | action: 0.001536 | state: 1.034898 | lr: 1.00e-04
+Epoch   18 | batch   553/ 3091 | step   53100 | loss: 0.001556 | action: 0.001556 | state: 0.952377 | lr: 1.00e-04
+Epoch   18 | batch   653/ 3091 | step   53200 | loss: 0.000814 | action: 0.000814 | state: 0.849947 | lr: 1.00e-04
+Epoch   18 | batch   753/ 3091 | step   53300 | loss: 0.001659 | action: 0.001659 | state: 0.956155 | lr: 1.00e-04
+Epoch   18 | batch   853/ 3091 | step   53400 | loss: 0.001029 | action: 0.001029 | state: 0.961050 | lr: 1.00e-04
+Epoch   18 | batch   953/ 3091 | step   53500 | loss: 0.002584 | action: 0.002584 | state: 1.059097 | lr: 1.00e-04
+Epoch   18 | batch  1053/ 3091 | step   53600 | loss: 0.001334 | action: 0.001334 | state: 1.105928 | lr: 1.00e-04
+Epoch   18 | batch  1153/ 3091 | step   53700 | loss: 0.001557 | action: 0.001557 | state: 0.913937 | lr: 1.00e-04
+Epoch   18 | batch  1253/ 3091 | step   53800 | loss: 0.001533 | action: 0.001533 | state: 0.986204 | lr: 1.00e-04
+Epoch   18 | batch  1353/ 3091 | step   53900 | loss: 0.001940 | action: 0.001940 | state: 0.935128 | lr: 1.00e-04
+Epoch   18 | batch  1453/ 3091 | step   54000 | loss: 0.002131 | action: 0.002131 | state: 0.910736 | lr: 1.00e-04
+Epoch   18 | batch  1553/ 3091 | step   54100 | loss: 0.002090 | action: 0.002090 | state: 0.982162 | lr: 1.00e-04
+Epoch   18 | batch  1653/ 3091 | step   54200 | loss: 0.002412 | action: 0.002412 | state: 0.944401 | lr: 1.00e-04
+Epoch   18 | batch  1753/ 3091 | step   54300 | loss: 0.000774 | action: 0.000774 | state: 1.020265 | lr: 1.00e-04
+Epoch   18 | batch  1853/ 3091 | step   54400 | loss: 0.000779 | action: 0.000779 | state: 0.928743 | lr: 1.00e-04
+Epoch   18 | batch  1953/ 3091 | step   54500 | loss: 0.000941 | action: 0.000941 | state: 0.910988 | lr: 1.00e-04
+Epoch   18 | batch  2053/ 3091 | step   54600 | loss: 0.001580 | action: 0.001580 | state: 0.909783 | lr: 1.00e-04
+Epoch   18 | batch  2153/ 3091 | step   54700 | loss: 0.002746 | action: 0.002746 | state: 0.907399 | lr: 1.00e-04
+Epoch   18 | batch  2253/ 3091 | step   54800 | loss: 0.002175 | action: 0.002175 | state: 0.885468 | lr: 1.00e-04
+Epoch   18 | batch  2353/ 3091 | step   54900 | loss: 0.001422 | action: 0.001422 | state: 0.908222 | lr: 1.00e-04
+Epoch   18 | batch  2453/ 3091 | step   55000 | loss: 0.001426 | action: 0.001426 | state: 0.887345 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0055000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   18 | batch  2553/ 3091 | step   55100 | loss: 0.002640 | action: 0.002640 | state: 0.857013 | lr: 1.00e-04
+Epoch   18 | batch  2653/ 3091 | step   55200 | loss: 0.001285 | action: 0.001285 | state: 0.931197 | lr: 1.00e-04
+Epoch   18 | batch  2753/ 3091 | step   55300 | loss: 0.000917 | action: 0.000917 | state: 0.941479 | lr: 1.00e-04
+Epoch   18 | batch  2853/ 3091 | step   55400 | loss: 0.001025 | action: 0.001025 | state: 0.953469 | lr: 1.00e-04
+Epoch   18 | batch  2953/ 3091 | step   55500 | loss: 0.001015 | action: 0.001015 | state: 0.903987 | lr: 1.00e-04
+Epoch   18 | batch  3053/ 3091 | step   55600 | loss: 0.001663 | action: 0.001663 | state: 0.977851 | lr: 1.00e-04
+Epoch   18 | train_loss: 0.001706 | val_loss: 0.018469 | best: 0.007035 | time: 138.9s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0017.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   19 | batch    62/ 3091 | step   55700 | loss: 0.002469 | action: 0.002469 | state: 0.937437 | lr: 1.00e-04
+Epoch   19 | batch   162/ 3091 | step   55800 | loss: 0.006330 | action: 0.006330 | state: 0.992827 | lr: 1.00e-04
+Epoch   19 | batch   262/ 3091 | step   55900 | loss: 0.001024 | action: 0.001024 | state: 1.037142 | lr: 1.00e-04
+Epoch   19 | batch   362/ 3091 | step   56000 | loss: 0.000660 | action: 0.000660 | state: 0.999166 | lr: 1.00e-04
+Epoch   19 | batch   462/ 3091 | step   56100 | loss: 0.004654 | action: 0.004654 | state: 1.023813 | lr: 1.00e-04
+Epoch   19 | batch   562/ 3091 | step   56200 | loss: 0.001040 | action: 0.001040 | state: 0.951546 | lr: 1.00e-04
+Epoch   19 | batch   662/ 3091 | step   56300 | loss: 0.001048 | action: 0.001048 | state: 0.879606 | lr: 1.00e-04
+Epoch   19 | batch   762/ 3091 | step   56400 | loss: 0.001539 | action: 0.001539 | state: 0.914082 | lr: 1.00e-04
+Epoch   19 | batch   862/ 3091 | step   56500 | loss: 0.004720 | action: 0.004720 | state: 0.959055 | lr: 1.00e-04
+Epoch   19 | batch   962/ 3091 | step   56600 | loss: 0.002479 | action: 0.002479 | state: 0.998791 | lr: 1.00e-04
+Epoch   19 | batch  1062/ 3091 | step   56700 | loss: 0.002865 | action: 0.002865 | state: 0.893293 | lr: 1.00e-04
+Epoch   19 | batch  1162/ 3091 | step   56800 | loss: 0.000900 | action: 0.000900 | state: 0.894907 | lr: 1.00e-04
+Epoch   19 | batch  1262/ 3091 | step   56900 | loss: 0.001673 | action: 0.001673 | state: 0.914346 | lr: 1.00e-04
+Epoch   19 | batch  1362/ 3091 | step   57000 | loss: 0.000956 | action: 0.000956 | state: 0.951507 | lr: 1.00e-04
+Epoch   19 | batch  1462/ 3091 | step   57100 | loss: 0.001080 | action: 0.001080 | state: 0.902572 | lr: 1.00e-04
+Epoch   19 | batch  1562/ 3091 | step   57200 | loss: 0.000802 | action: 0.000802 | state: 0.903466 | lr: 1.00e-04
+Epoch   19 | batch  1662/ 3091 | step   57300 | loss: 0.002361 | action: 0.002361 | state: 1.046526 | lr: 1.00e-04
+Epoch   19 | batch  1762/ 3091 | step   57400 | loss: 0.001404 | action: 0.001404 | state: 0.894378 | lr: 1.00e-04
+Epoch   19 | batch  1862/ 3091 | step   57500 | loss: 0.001130 | action: 0.001130 | state: 0.887690 | lr: 1.00e-04
+Epoch   19 | batch  1962/ 3091 | step   57600 | loss: 0.001074 | action: 0.001074 | state: 0.934775 | lr: 1.00e-04
+Epoch   19 | batch  2062/ 3091 | step   57700 | loss: 0.000691 | action: 0.000691 | state: 0.922430 | lr: 1.00e-04
+Epoch   19 | batch  2162/ 3091 | step   57800 | loss: 0.002119 | action: 0.002119 | state: 0.923506 | lr: 1.00e-04
+Epoch   19 | batch  2262/ 3091 | step   57900 | loss: 0.001321 | action: 0.001321 | state: 1.029120 | lr: 1.00e-04
+Epoch   19 | batch  2362/ 3091 | step   58000 | loss: 0.004177 | action: 0.004177 | state: 0.977642 | lr: 1.00e-04
+Epoch   19 | batch  2462/ 3091 | step   58100 | loss: 0.002417 | action: 0.002417 | state: 0.889572 | lr: 1.00e-04
+Epoch   19 | batch  2562/ 3091 | step   58200 | loss: 0.001018 | action: 0.001018 | state: 0.868399 | lr: 1.00e-04
+Epoch   19 | batch  2662/ 3091 | step   58300 | loss: 0.001559 | action: 0.001559 | state: 0.926866 | lr: 1.00e-04
+Epoch   19 | batch  2762/ 3091 | step   58400 | loss: 0.000984 | action: 0.000984 | state: 0.846739 | lr: 1.00e-04
+Epoch   19 | batch  2862/ 3091 | step   58500 | loss: 0.001139 | action: 0.001139 | state: 0.887947 | lr: 1.00e-04
+Epoch   19 | batch  2962/ 3091 | step   58600 | loss: 0.001876 | action: 0.001876 | state: 0.954629 | lr: 1.00e-04
+Epoch   19 | batch  3062/ 3091 | step   58700 | loss: 0.001429 | action: 0.001429 | state: 0.957012 | lr: 1.00e-04
+Epoch   19 | train_loss: 0.001616 | val_loss: 0.014639 | best: 0.007035 | time: 138.0s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0018.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   20 | batch    71/ 3091 | step   58800 | loss: 0.001084 | action: 0.001084 | state: 0.847854 | lr: 1.00e-04
+Epoch   20 | batch   171/ 3091 | step   58900 | loss: 0.001126 | action: 0.001126 | state: 0.954916 | lr: 1.00e-04
+Epoch   20 | batch   271/ 3091 | step   59000 | loss: 0.001319 | action: 0.001319 | state: 0.857174 | lr: 1.00e-04
+Epoch   20 | batch   371/ 3091 | step   59100 | loss: 0.001754 | action: 0.001754 | state: 0.988089 | lr: 1.00e-04
+Epoch   20 | batch   471/ 3091 | step   59200 | loss: 0.001481 | action: 0.001481 | state: 1.071747 | lr: 1.00e-04
+Epoch   20 | batch   571/ 3091 | step   59300 | loss: 0.001443 | action: 0.001443 | state: 0.878040 | lr: 1.00e-04
+Epoch   20 | batch   671/ 3091 | step   59400 | loss: 0.000812 | action: 0.000812 | state: 0.880885 | lr: 1.00e-04
+Epoch   20 | batch   771/ 3091 | step   59500 | loss: 0.001349 | action: 0.001349 | state: 0.977924 | lr: 1.00e-04
+Epoch   20 | batch   871/ 3091 | step   59600 | loss: 0.004974 | action: 0.004974 | state: 0.914867 | lr: 1.00e-04
+Epoch   20 | batch   971/ 3091 | step   59700 | loss: 0.001672 | action: 0.001672 | state: 0.951519 | lr: 1.00e-04
+Epoch   20 | batch  1071/ 3091 | step   59800 | loss: 0.002621 | action: 0.002621 | state: 0.822742 | lr: 1.00e-04
+Epoch   20 | batch  1171/ 3091 | step   59900 | loss: 0.000941 | action: 0.000941 | state: 0.897463 | lr: 1.00e-04
+Epoch   20 | batch  1271/ 3091 | step   60000 | loss: 0.001381 | action: 0.001381 | state: 0.978643 | lr: 1.00e-04
+Saved step checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_step_0060000.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+Epoch   20 | batch  1371/ 3091 | step   60100 | loss: 0.001257 | action: 0.001257 | state: 0.952038 | lr: 1.00e-04
+Epoch   20 | batch  1471/ 3091 | step   60200 | loss: 0.001579 | action: 0.001579 | state: 0.898357 | lr: 1.00e-04
+Epoch   20 | batch  1571/ 3091 | step   60300 | loss: 0.002108 | action: 0.002108 | state: 0.883368 | lr: 1.00e-04
+Epoch   20 | batch  1671/ 3091 | step   60400 | loss: 0.001629 | action: 0.001629 | state: 0.888994 | lr: 1.00e-04
+Epoch   20 | batch  1771/ 3091 | step   60500 | loss: 0.000478 | action: 0.000478 | state: 0.959720 | lr: 1.00e-04
+Epoch   20 | batch  1871/ 3091 | step   60600 | loss: 0.000685 | action: 0.000685 | state: 0.898128 | lr: 1.00e-04
+Epoch   20 | batch  1971/ 3091 | step   60700 | loss: 0.001460 | action: 0.001460 | state: 0.920970 | lr: 1.00e-04
+Epoch   20 | batch  2071/ 3091 | step   60800 | loss: 0.000616 | action: 0.000616 | state: 0.970337 | lr: 1.00e-04
+Epoch   20 | batch  2171/ 3091 | step   60900 | loss: 0.003892 | action: 0.003892 | state: 0.935688 | lr: 1.00e-04
+Epoch   20 | batch  2271/ 3091 | step   61000 | loss: 0.000751 | action: 0.000751 | state: 0.949363 | lr: 1.00e-04
+Epoch   20 | batch  2371/ 3091 | step   61100 | loss: 0.001281 | action: 0.001281 | state: 0.978827 | lr: 1.00e-04
+Epoch   20 | batch  2471/ 3091 | step   61200 | loss: 0.001034 | action: 0.001034 | state: 0.972135 | lr: 1.00e-04
+Epoch   20 | batch  2571/ 3091 | step   61300 | loss: 0.000793 | action: 0.000793 | state: 0.942812 | lr: 1.00e-04
+Epoch   20 | batch  2671/ 3091 | step   61400 | loss: 0.001237 | action: 0.001237 | state: 0.957345 | lr: 1.00e-04
+Epoch   20 | batch  2771/ 3091 | step   61500 | loss: 0.001068 | action: 0.001068 | state: 1.048995 | lr: 1.00e-04
+Epoch   20 | batch  2871/ 3091 | step   61600 | loss: 0.001254 | action: 0.001254 | state: 0.980390 | lr: 1.00e-04
+Epoch   20 | batch  2971/ 3091 | step   61700 | loss: 0.001344 | action: 0.001344 | state: 0.914963 | lr: 1.00e-04
+Epoch   20 | batch  3071/ 3091 | step   61800 | loss: 0.000807 | action: 0.000807 | state: 0.915378 | lr: 1.00e-04
+Epoch   20 | train_loss: 0.001523 | val_loss: 0.013675 | best: 0.007035 | time: 137.0s
+Saved checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_epoch_0019.pt
+Updated last checkpoint: dt/checkpoints/oval_hard400_train20/checkpoints/checkpoint_last.pt
+
+Training complete. Best val loss: 0.007035
+[oval-pipeline] finished at 2026-03-06T13:10:45-08:00

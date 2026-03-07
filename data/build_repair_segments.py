@@ -6,6 +6,7 @@ Build short-horizon repair segments (Fix B).
 import argparse
 import json
 import os
+import signal
 import sys
 import time
 from pathlib import Path
@@ -22,6 +23,31 @@ from world.world import World
 from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 
 from data.schema import EpisodeHeader, compute_rtg, sha256_file, sha256_json
+
+
+class SolveTimeoutError(RuntimeError):
+    """Raised when a single solver attempt exceeds the configured timeout."""
+
+
+def _run_with_timeout(seconds: float, fn, *args, **kwargs):
+    """Run fn(*args, **kwargs) with a wall-clock timeout on Unix platforms."""
+    if seconds <= 0:
+        return fn(*args, **kwargs)
+    if os.name == "nt":
+        # Windows does not support SIGALRM; keep behavior unchanged.
+        return fn(*args, **kwargs)
+
+    def _handler(signum, frame):  # noqa: ARG001
+        raise SolveTimeoutError(f"solve attempt exceeded timeout ({seconds:.1f}s)")
+
+    prev_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, float(seconds))
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, prev_handler)
 
 
 def _yaw_wrap(angle: np.ndarray) -> np.ndarray:
@@ -311,6 +337,12 @@ def main() -> None:
         help="Maximum solve attempts. Defaults to 5x target repairs.",
     )
     parser.add_argument(
+        "--solve-timeout-s",
+        type=float,
+        default=0.0,
+        help="Per-attempt solve timeout in seconds; 0 disables timeout.",
+    )
+    parser.add_argument(
         "--resume",
         action=argparse.BooleanOptionalAction,
         default=True,
@@ -475,10 +507,15 @@ def main() -> None:
         term_state = X_seg[:, -1].copy()
 
         x0_masked = build_initial_masked_state(x0)
+        # Persist progress before solve so forced process timeouts do not repeat
+        # the exact same attempt/RNG state on the next resumed pass.
+        save_repair_state(state_path, attempts, rng)
 
         try:
             if args.solver == "fatrop":
-                result = solve_fatrop_native(
+                result = _run_with_timeout(
+                    float(args.solve_timeout_s),
+                    solve_fatrop_native,
                     vehicle=vehicle,
                     world=world,
                     N=int(H_cur),
@@ -502,7 +539,9 @@ def main() -> None:
                     verbose=False,
                 )
             else:
-                result = optimizer.solve(
+                result = _run_with_timeout(
+                    float(args.solve_timeout_s),
+                    optimizer.solve,
                     N=int(H_cur),
                     ds_m=float(s_m[1] - s_m[0]),
                     x0=x0_masked,

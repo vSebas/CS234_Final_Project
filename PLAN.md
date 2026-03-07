@@ -19,6 +19,25 @@ Immediate training objective:
 - retrain/evaluate DT on Oval with downstream benchmark gating
 - continue using validation loss only as shortlist signal, not final checkpoint criterion
 
+### Oval-only dataset expansion (current execution)
+
+For the current training cycle, use only Oval with and without obstacles and
+increase recovery-style data before retraining.
+
+Targets:
+- `data/datasets/Oval_Track_260m_repairs_hard`: `400` accepted episodes
+- `data/datasets/Oval_Track_260m_repairs_postproj`: `1000` accepted episodes
+
+Execution order:
+1. Resume hard-repair generation to `400` (`--resume`).
+2. Resume post-projection generation loop to `1000` (`TOTAL_TARGET=1000`, `SINGLE_MAP_CAP=0`).
+3. Recompute shard counts/timesteps and retrain DT on Oval-only shards.
+
+Solver policy for current Oval-only run:
+- hard-repair: FATROP profile
+- post-projection: IPOPT default (`POSTPROJ_SOLVER=ipopt`)
+- keep FATROP as an optional post-proj override only for targeted experiments
+
 Pinned cleanup:
 - Remove the redundant obstacle `margin` vs `clearance` split. Keep a single obstacle inflation / clearance parameter across map generation, optimizer constraints, dataset generation, and docs.
 - Store or recover the final effective obstacle radius explicitly in dataset metadata, so the enforced obstacle size does not need to be reconstructed indirectly from `radius + margin + clearance (+ vehicle radius)`.

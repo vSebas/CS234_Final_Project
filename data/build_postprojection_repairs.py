@@ -22,6 +22,7 @@ sys.path.insert(0, str(project_root))
 from models import load_vehicle_from_yaml
 from planning import TrajectoryOptimizer
 from world.world import World
+from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 
 from data.schema import EpisodeHeader, compute_rtg, sha256_file, sha256_json
 from data.build_repair_segments import (
@@ -31,6 +32,7 @@ from data.build_repair_segments import (
     compute_track_features,
     load_existing_repairs,
     load_repair_state,
+    normalize_obstacles,
     save_repair_state,
 )
 
@@ -142,6 +144,7 @@ def main() -> None:
     parser.add_argument("--track-buffer-m", type=float, default=0.0)
     parser.add_argument("--eps-s", type=float, default=0.1)
     parser.add_argument("--eps-kappa", type=float, default=0.05)
+    parser.add_argument("--solver", type=str, choices=("ipopt", "fatrop"), default="ipopt")
     parser.add_argument("--terminal-weight", type=float, default=5.0)
     parser.add_argument("--obs-window-m", type=float, default=30.0)
     parser.add_argument("--obs-subsamples", type=int, default=11)
@@ -179,9 +182,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    os.environ["IPOPT_TOL"] = str(args.ipopt_tol)
-    os.environ["IPOPT_ACCEPTABLE_TOL"] = str(args.ipopt_acceptable_tol)
-    os.environ["IPOPT_MAX_ITER"] = str(args.ipopt_max_iter)
+    if args.solver == "ipopt":
+        os.environ["IPOPT_TOL"] = str(args.ipopt_tol)
+        os.environ["IPOPT_ACCEPTABLE_TOL"] = str(args.ipopt_acceptable_tol)
+        os.environ["IPOPT_MAX_ITER"] = str(args.ipopt_max_iter)
 
     rng = np.random.default_rng(args.seed)
     trace_paths = parse_trace_inputs(args.trace_jsonl)
@@ -223,7 +227,7 @@ def main() -> None:
             raise FileNotFoundError(f"Map file not found for trace rows: {map_file}")
 
         world = build_world(map_file)
-        optimizer = TrajectoryOptimizer(vehicle, world)
+        optimizer = TrajectoryOptimizer(vehicle, world) if args.solver == "ipopt" else None
         map_hash = sha256_file(str(map_file))
 
         base_dir = base_root / map_stem
@@ -272,9 +276,14 @@ def main() -> None:
         base_cache: Dict[str, Dict] = {}
         while successes < target and (attempts - attempts_start) < max_additional_attempts:
             attempts += 1
-            if args.clear_cache_every > 0 and attempts % int(args.clear_cache_every) == 0:
+            if (
+                args.solver == "ipopt"
+                and args.clear_cache_every > 0
+                and attempts % int(args.clear_cache_every) == 0
+            ):
                 # Obstacles vary per trace row; clearing cached NLP templates prevents
                 # unbounded memory growth from per-obstacle cache keys.
+                assert optimizer is not None
                 optimizer._nlp_cache.clear()
                 gc.collect()
             if attempts > 1 and attempts % max(1, args.save_every) == 0:
@@ -360,6 +369,7 @@ def main() -> None:
             solver_config_seg = dict(cached["solver_config"])
             solver_config_seg.update(
                 {
+                    "solver": str(args.solver),
                     "H": int(H_cur),
                     "lambda_u": float(args.lambda_u),
                     "ux_min": float(args.ux_min),
@@ -378,35 +388,65 @@ def main() -> None:
             )
             solver_config_hash = sha256_json(solver_config_seg) if solver_config_seg else ""
 
-            result = optimizer.solve(
-                N=int(H_cur),
-                ds_m=float(s_m[1] - s_m[0]),
-                x0=x0_masked,
-                X_init=X_init,
-                U_init=U_seg,
-                lambda_u=float(args.lambda_u),
-                ux_min=float(args.ux_min),
-                track_buffer_m=float(args.track_buffer_m),
-                obstacles=obstacles_list if obstacles_list else None,
-                obstacle_window_m=float(args.obs_window_m),
-                obstacle_clearance_m=0.0,
-                obstacle_use_slack=False,
-                obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
-                obstacle_subsamples_per_segment=int(args.obs_subsamples),
-                obstacle_slack_weight=1e4,
-                obstacle_aware_init=True,
-                obstacle_init_sigma_m=float(args.obs_init_sigma_m),
-                obstacle_init_margin_m=float(args.obs_init_margin_m),
-                vehicle_radius_m=0.0,
-                eps_s=float(args.eps_s),
-                eps_kappa=float(args.eps_kappa),
-                convergent_lap=False,
-                s0_offset_m=s0_abs,
-                terminal_state=term_state,
-                terminal_mask=term_mask,
-                terminal_weight=float(args.terminal_weight),
-                verbose=False,
-            )
+            try:
+                if args.solver == "fatrop":
+                    result = solve_fatrop_native(
+                        vehicle,
+                        world,
+                        N=int(H_cur),
+                        ds_m=float(s_m[1] - s_m[0]),
+                        obstacles=normalize_obstacles(obstacles_list) if obstacles_list else None,
+                        lambda_u=float(args.lambda_u),
+                        ux_min=float(args.ux_min),
+                        track_buffer_m=float(args.track_buffer_m),
+                        obstacle_window_m=float(args.obs_window_m),
+                        obstacle_clearance_m=0.0,
+                        vehicle_radius_m=0.0,
+                        eps_s=float(args.eps_s),
+                        eps_kappa=float(args.eps_kappa),
+                        X_init=X_init,
+                        U_init=U_seg,
+                        x0=x0_masked,
+                        s0_offset_m=s0_abs,
+                        terminal_state=term_state,
+                        terminal_mask=term_mask,
+                        terminal_weight=float(args.terminal_weight),
+                        verbose=False,
+                    )
+                else:
+                    assert optimizer is not None
+                    result = optimizer.solve(
+                        N=int(H_cur),
+                        ds_m=float(s_m[1] - s_m[0]),
+                        x0=x0_masked,
+                        X_init=X_init,
+                        U_init=U_seg,
+                        lambda_u=float(args.lambda_u),
+                        ux_min=float(args.ux_min),
+                        track_buffer_m=float(args.track_buffer_m),
+                        obstacles=obstacles_list if obstacles_list else None,
+                        obstacle_window_m=float(args.obs_window_m),
+                        obstacle_clearance_m=0.0,
+                        obstacle_use_slack=False,
+                        obstacle_enforce_midpoints=bool(args.obs_enforce_midpoints),
+                        obstacle_subsamples_per_segment=int(args.obs_subsamples),
+                        obstacle_slack_weight=1e4,
+                        obstacle_aware_init=True,
+                        obstacle_init_sigma_m=float(args.obs_init_sigma_m),
+                        obstacle_init_margin_m=float(args.obs_init_margin_m),
+                        vehicle_radius_m=0.0,
+                        eps_s=float(args.eps_s),
+                        eps_kappa=float(args.eps_kappa),
+                        convergent_lap=False,
+                        s0_offset_m=s0_abs,
+                        terminal_state=term_state,
+                        terminal_mask=term_mask,
+                        terminal_weight=float(args.terminal_weight),
+                        verbose=False,
+                    )
+            except Exception:
+                save_repair_state(state_path, attempts, rng)
+                continue
 
             if not result.success:
                 save_repair_state(state_path, attempts, rng)

@@ -1,0 +1,39 @@
+[2026-03-06 02:04:43] Starting dataset build.
+[2026-03-06 02:04:43] Stage A1: base laps already present; skipping.
+[2026-03-06 02:04:43] Stage A2: shifts already present for Oval_Track_260m; skipping.
+[2026-03-06 02:04:43] Stage B: target accepted repairs for Oval_Track_260m (target=0)
+[2026-03-06 02:04:43] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=84/0 attempts=140 elapsed=0.0s
+[2026-03-06 02:04:45] Stage B complete for Oval_Track_260m. accepted=84/0
+[2026-03-06 02:04:45] Stage B2: target accepted hard repairs already present for Oval_Track_260m; skipping.
+[2026-03-06 02:04:45] Stage A2: shifts already present for TRACK1_280m; skipping.
+[2026-03-06 02:04:45] Stage B: target accepted repairs for TRACK1_280m (target=0)
+[2026-03-06 02:04:45] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK1_280m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK1_280m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=84/0 attempts=152 elapsed=0.0s
+[2026-03-06 02:04:46] Stage B complete for TRACK1_280m. accepted=84/0
+[2026-03-06 02:04:46] Stage B2: target accepted hard repairs already present for TRACK1_280m; skipping.
+[2026-03-06 02:04:46] Stage A2: shifts already present for TRACK2; skipping.
+[2026-03-06 02:04:46] Stage B: target accepted repairs for TRACK2 (target=0)
+[2026-03-06 02:04:46] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK2.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK2_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=83/0 attempts=110 elapsed=0.0s
+[2026-03-06 02:04:48] Stage B complete for TRACK2. accepted=83/0
+[2026-03-06 02:04:48] Stage B2: target accepted hard repairs already present for TRACK2; skipping.
+[2026-03-06 02:04:48] Stage A2: shifts already present for TRACK3_300m; skipping.
+[2026-03-06 02:04:48] Stage B: target accepted repairs for TRACK3_300m (target=0)
+[2026-03-06 02:04:48] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK3_300m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK3_300m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=83/0 attempts=143 elapsed=0.0s
+[2026-03-06 02:04:50] Stage B complete for TRACK3_300m. accepted=83/0
+[2026-03-06 02:04:50] Stage B2: target accepted hard repairs already present for TRACK3_300m; skipping.
+[2026-03-06 02:04:50] Stage A2: shifts already present for TRACK4_315m; skipping.
+[2026-03-06 02:04:50] Stage B: target accepted repairs for TRACK4_315m (target=0)
+[2026-03-06 02:04:50] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK4_315m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK4_315m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=83/0 attempts=124 elapsed=0.0s
+[2026-03-06 02:04:51] Stage B complete for TRACK4_315m. accepted=83/0
+[2026-03-06 02:04:51] Stage B2: target accepted hard repairs already present for TRACK4_315m; skipping.
+[2026-03-06 02:04:51] Stage A2: shifts already present for TRACK5_330m; skipping.
+[2026-03-06 02:04:51] Stage B: target accepted repairs for TRACK5_330m (target=0)
+[2026-03-06 02:04:51] RUN: /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair_segments.py --map-file maps/TRACK5_330m.mat --base-laps-dir data/base_laps --output-dir data/datasets/TRACK5_330m_repairs --num-segments 0 --seed 0 --H 20 --save-every 10 --resume
+Done. accepted=83/0 attempts=114 elapsed=0.0s
+[2026-03-06 02:04:52] Stage B complete for TRACK5_330m. accepted=83/0
+[2026-03-06 02:04:52] Stage B2: target accepted hard repairs already present for TRACK5_330m; skipping.
+[2026-03-06 02:04:52] Dataset build finished.

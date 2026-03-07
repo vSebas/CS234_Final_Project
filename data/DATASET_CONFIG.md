@@ -21,6 +21,28 @@ Why `SINGLE_MAP_CAP=0`:
 - default safety cap can stop single-map runs early
 - setting to `0` disables that cap for intentional Oval-only completion
 
+### Oval-only training expansion plan (current)
+
+For current DT training iterations, use only:
+- `Oval_Track_260m` (no obstacles)
+- `Oval_Track_260m` with obstacles
+
+Expanded recovery-data targets for this Oval-only phase:
+- hard repairs (`data/datasets/Oval_Track_260m_repairs_hard`): target `400`
+- post-projection repairs (`data/datasets/Oval_Track_260m_repairs_postproj`): target `1000`
+
+Resumable commands:
+- hard repairs (FATROP smooth-controls profile at `N=120`):
+  - `PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_SMOOTH_CONTROLS=1 FATROP_CLOSURE_MODE=open FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_TOL=5e-3 /home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps --output-dir data/datasets/Oval_Track_260m_repairs_hard --num-segments 400 --seed 0 --H 20 --hard-mode --save-every 10 --solver fatrop --resume`
+- post-projection repairs:
+  - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+
+Current solver defaults for this phase:
+- hard-repair generation: FATROP (`data/run_hard_repairs_fatrop.sh` or `--solver fatrop`)
+- post-projection generation: IPOPT by default (`POSTPROJ_SOLVER=ipopt`)
+- optional override for post-proj:
+  - `POSTPROJ_SOLVER=fatrop ./data/run_postprojection_repairs.sh`
+
 **Scripts**
 - Build base laps (no obstacles + obstacle scenarios):
   - `data/build_base_laps.py`

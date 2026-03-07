@@ -8,7 +8,7 @@ Current FATROP runtime knobs and canonical command are documented in
 
 - **Primary runner:** `experiments/run_fatrop_native_trajopt.py`
 - **Primary baseline/reference solver in planner path:** IPOPT via `planning/optimizer.py`
-- **Recommended FATROP config (Oval, N=120 stable):**
+- **Recommended FATROP config for standalone Oval run (N=120 stable):**
   - `FATROP_PRESET=obstacle_fast`
   - `FATROP_STRUCTURE_DETECTION=auto`
   - `FATROP_EXPAND=0`
@@ -18,6 +18,18 @@ Current FATROP runtime knobs and canonical command are documented in
   - `FATROP_MAX_ITER=800`
   - `FATROP_TOL=0.01`
   - `FATROP_ACCEPTABLE_TOL=0.01`
+- **Hard-repair pipeline FATROP defaults (current code path):**
+  - Source: `data/run_hard_repairs_fatrop.sh`
+  - `FATROP_PRESET=obstacle_fast`
+  - `FATROP_STRUCTURE_DETECTION=auto`
+  - `FATROP_EXPAND=0`
+  - `FATROP_STAGE_LOCAL_COST=1`
+  - `FATROP_DYNAMICS_SCHEME=euler`
+  - `FATROP_SMOOTH_CONTROLS=1`
+  - `FATROP_CLOSURE_MODE=open`
+  - `FATROP_MAX_ITER=800`
+  - `FATROP_TOL=5e-3`
+  - `FATROP_ACCEPTABLE_TOL=5e-3`
 - **Default FATROP output dir:** `results/trajectory_optimization/fatrop`
 
 ## Historical summary
@@ -48,13 +60,24 @@ Current FATROP runtime knobs and canonical command are documented in
 
 ## Canonical commands
 
-### FATROP run
+### FATROP standalone run
 ```bash
 PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 \
 FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_CLOSURE_MODE=open \
 FATROP_MAX_ITER=800 FATROP_TOL=0.01 FATROP_ACCEPTABLE_TOL=0.01 \
 /home/saveas/.conda/envs/DT_trajopt/bin/python experiments/run_fatrop_native_trajopt.py \
   --map-file maps/Oval_Track_260m.mat --N 120
+```
+
+### FATROP hard-repair benchmark run
+```bash
+PYTHONPATH=. FATROP_PRESET=obstacle_fast FATROP_STRUCTURE_DETECTION=auto FATROP_EXPAND=0 \
+FATROP_STAGE_LOCAL_COST=1 FATROP_DYNAMICS_SCHEME=euler FATROP_SMOOTH_CONTROLS=1 \
+FATROP_CLOSURE_MODE=open FATROP_MAX_ITER=800 FATROP_TOL=5e-3 FATROP_ACCEPTABLE_TOL=5e-3 \
+/home/saveas/.conda/envs/DT_trajopt/bin/python data/build_repair_segments.py \
+  --map-file maps/Oval_Track_260m.mat --base-laps-dir data/base_laps \
+  --output-dir /tmp/hard_repairs_fatrop --num-segments 20 --seed 0 --H 20 \
+  --hard-mode --save-every 5 --max-attempts 100 --solver fatrop --no-resume
 ```
 
 ### IPOPT baseline run

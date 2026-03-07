@@ -1,0 +1,15 @@
+[oval-pipeline] started at 2026-03-06T11:46:30-08:00
+[oval-pipeline] hard repairs current=301 target=400
+[oval-pipeline] generating hard repairs to target with FATROP (chunked timeout mode)
+[oval-pipeline] hard-pass 1/120 current=301/400
+[accepted 310/400] attempts=549/2400 elapsed=12.0s
+[attempt 550/2400] repairs accepted=310/400 elapsed=12.0s
+[attempt 560/2400] repairs accepted=318/400 elapsed=24.7s
+[accepted 320/400] attempts=561/2400 elapsed=25.8s
+KeyboardInterrupt
+[attempt 570/2400] repairs accepted=326/400 elapsed=46.1s
+[accepted 330/400] attempts=573/2400 elapsed=48.2s
+[attempt 580/2400] repairs accepted=335/400 elapsed=58.4s
+[accepted 340/400] attempts=584/2400 elapsed=62.0s
+[attempt 590/2400] repairs accepted=343/400 elapsed=67.8s
+[attempt 600/2400] repairs accepted=347/400 elapsed=83.3s

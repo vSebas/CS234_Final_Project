@@ -1,0 +1,17 @@
+nohup: ignoring input
+[oval-pipeline] started at 2026-03-06T12:22:00-08:00
+[oval-pipeline] hard repairs current=349 target=400
+[oval-pipeline] generating hard repairs to target with FATROP (chunked timeout mode)
+[oval-pipeline] hard-pass 1/120 current=349/400
+[accepted 350/400] attempts=604/2400 elapsed=1.3s
+[attempt 610/2400] repairs accepted=354/400 elapsed=6.2s
+[accepted 360/400] attempts=617/2400 elapsed=24.8s
+[attempt 620/2400] repairs accepted=362/400 elapsed=29.4s
+[accepted 370/400] attempts=628/2400 elapsed=43.2s
+[attempt 630/2400] repairs accepted=371/400 elapsed=43.5s
+[attempt 640/2400] repairs accepted=378/400 elapsed=62.2s
+[accepted 380/400] attempts=641/2400 elapsed=62.9s
+KeyboardInterrupt
+[attempt 650/2400] repairs accepted=386/400 elapsed=87.8s
+[oval-pipeline] hard-pass rc=124 new_count=404/400
+./data/run_oval_hardrepairs_then_train.sh: line 105: syntax error near unexpected token `else'

@@ -74,7 +74,7 @@ class EvalConfig:
     map_file: str = "maps/Oval_Track_260m.mat"
     num_scenarios: int = 50
     seed: int = 42
-    output_dir: str = "results/warmstarts/eval"
+    output_dir: Optional[str] = None
     dataset_root: str = "data/datasets"
     target_lap_time_s: Optional[float] = None
 
@@ -101,6 +101,35 @@ class EvalConfig:
     trace_clearance_thresh: float = 0.2
     trace_random_keep_prob: float = 0.01
     trace_max_keep_per_scenario: int = 200
+
+
+def resolve_default_output_dir(config: EvalConfig) -> Path:
+    """
+    Resolve default output directory for warm-start evaluations.
+
+    Priority:
+    1) explicit config.output_dir
+    2) checkpoint-local: dt/checkpoints/<run>/warmstarts/eval/<tag>
+    3) fallback: results/warmstarts/eval/<tag>
+    """
+    if config.output_dir:
+        return Path(config.output_dir)
+
+    map_id = Path(config.map_file).stem
+    tag = (
+        f"{map_id}_obs{int(config.min_obstacles)}-{int(config.max_obstacles)}_"
+        f"seed{int(config.seed)}_N{int(config.N)}"
+    )
+
+    if config.checkpoint_path:
+        ckpt = Path(config.checkpoint_path)
+        # Expected checkpoint layout:
+        # dt/checkpoints/<run>/checkpoints/checkpoint_*.pt
+        if ckpt.parent.name == "checkpoints":
+            run_dir = ckpt.parent.parent
+            return run_dir / "warmstarts" / "eval" / tag
+
+    return Path("results/warmstarts/eval") / tag
 
 
 def infer_track_target_lap_time_s(map_file: str, dataset_root: str) -> Optional[float]:
@@ -555,7 +584,16 @@ def main():
     parser.add_argument("--map-file", type=str, default="maps/Oval_Track_260m.mat")
     parser.add_argument("--num-scenarios", type=int, default=50)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--output-dir", type=str, default="results/warmstarts/eval")
+    parser.add_argument(
+        "--output-dir",
+        type=str,
+        default=None,
+        help=(
+            "Output directory override. Default behavior saves under "
+            "dt/checkpoints/<run>/warmstarts/eval/<map_obs_seed_N>/ when --checkpoint "
+            "matches the checkpoint layout."
+        ),
+    )
     parser.add_argument("--dataset-root", type=str, default="data/datasets")
     parser.add_argument(
         "--target-lap-time",
@@ -593,7 +631,7 @@ def main():
     )
 
     # Setup output
-    output_dir = Path(config.output_dir)
+    output_dir = resolve_default_output_dir(config)
     output_dir.mkdir(parents=True, exist_ok=True)
     timestamp = time.strftime("%Y%m%d_%H%M%S")
 
@@ -604,6 +642,7 @@ def main():
     print(f"Scenarios: {config.num_scenarios}")
     print(f"Obstacles: {config.min_obstacles}-{config.max_obstacles}")
     print(f"DT checkpoint: {config.checkpoint_path or 'None (baseline only)'}")
+    print(f"Output dir: {output_dir}")
     print()
 
     if config.target_lap_time_s is None:

@@ -1,0 +1,5 @@
+[Oval_Track_260m attempt 2/30] accepted=600/610 elapsed=13.7s
+[Oval_Track_260m attempt 12/30] accepted=601/610 elapsed=116.3s
+[Oval_Track_260m attempt 22/30] accepted=601/610 elapsed=205.5s
+[Oval_Track_260m] done accepted=601/610 attempts=30/30 elapsed=264.4s
+Done. total_accepted=601 total_attempts=5368 elapsed=264.4s
