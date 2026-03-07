@@ -1,0 +1,49 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260307_002943.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=1000
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=756
+[postproj_loop] loop=1/50 current=756/1000
+Logging to results/dataset_runs/postproj_repairs_20260307_002943.log
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 9/732] accepted=758/1000 elapsed=38.1s
+[Oval_Track_260m accepted 760/1000] attempts=16/732 elapsed=75.3s
+[Oval_Track_260m attempt 19/732] accepted=760/1000 elapsed=87.8s
+[Oval_Track_260m attempt 29/732] accepted=763/1000 elapsed=124.1s
+[Oval_Track_260m attempt 39/732] accepted=763/1000 elapsed=166.4s
+[Oval_Track_260m attempt 49/732] accepted=764/1000 elapsed=223.5s
+[Oval_Track_260m attempt 59/732] accepted=764/1000 elapsed=273.9s
+[Oval_Track_260m attempt 69/732] accepted=764/1000 elapsed=316.6s
+[Oval_Track_260m attempt 79/732] accepted=765/1000 elapsed=363.9s
+[Oval_Track_260m attempt 89/732] accepted=767/1000 elapsed=404.3s
+[Oval_Track_260m attempt 99/732] accepted=767/1000 elapsed=458.6s
+[Oval_Track_260m attempt 109/732] accepted=768/1000 elapsed=507.5s
+[Oval_Track_260m attempt 119/732] accepted=768/1000 elapsed=552.7s
+[Oval_Track_260m attempt 129/732] accepted=769/1000 elapsed=596.9s
+[Oval_Track_260m accepted 770/1000] attempts=136/732 elapsed=638.6s
+[Oval_Track_260m attempt 139/732] accepted=770/1000 elapsed=646.4s
+[Oval_Track_260m attempt 149/732] accepted=770/1000 elapsed=682.8s
+CasADi - 2026-03-07 00:41:22 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 9, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 159/732] accepted=770/1000 elapsed=723.7s
+[Oval_Track_260m attempt 169/732] accepted=770/1000 elapsed=767.6s
+[Oval_Track_260m attempt 179/732] accepted=770/1000 elapsed=812.0s
+[Oval_Track_260m attempt 189/732] accepted=770/1000 elapsed=861.6s
+[Oval_Track_260m attempt 199/732] accepted=771/1000 elapsed=896.9s
+[Oval_Track_260m attempt 209/732] accepted=773/1000 elapsed=936.8s
+[Oval_Track_260m attempt 219/732] accepted=774/1000 elapsed=973.4s
+[Oval_Track_260m attempt 229/732] accepted=776/1000 elapsed=1017.0s
+[Oval_Track_260m attempt 239/732] accepted=779/1000 elapsed=1054.9s
+[Oval_Track_260m accepted 780/1000] attempts=248/732 elapsed=1099.0s
+[Oval_Track_260m attempt 249/732] accepted=780/1000 elapsed=1099.7s
+[Oval_Track_260m attempt 259/732] accepted=783/1000 elapsed=1141.2s
+CasADi - 2026-03-07 00:49:18 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 1, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 269/732] accepted=784/1000 elapsed=1177.9s

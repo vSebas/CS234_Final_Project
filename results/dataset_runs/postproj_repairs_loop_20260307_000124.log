@@ -1,0 +1,50 @@
+[postproj_loop] wrapper_log=results/dataset_runs/postproj_repairs_loop_20260307_000124.log
+[postproj_loop] map_name=Oval_Track_260m
+[postproj_loop] manifest_path=data/datasets/Oval_Track_260m_repairs_postproj/manifest.jsonl
+[postproj_loop] total_target=1000
+[postproj_loop] max_loops=50
+[postproj_loop] max_no_progress_loops=5
+[postproj_loop] single_map_cap=0
+[postproj_loop] start_count=725
+[postproj_loop] loop=1/50 current=725/1000
+Logging to results/dataset_runs/postproj_repairs_20260307_000124.log
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 8/825] accepted=725/1000 elapsed=28.3s
+[Oval_Track_260m attempt 18/825] accepted=726/1000 elapsed=72.1s
+[Oval_Track_260m attempt 28/825] accepted=726/1000 elapsed=118.0s
+[Oval_Track_260m attempt 38/825] accepted=726/1000 elapsed=168.0s
+[Oval_Track_260m attempt 48/825] accepted=728/1000 elapsed=216.2s
+[Oval_Track_260m attempt 58/825] accepted=728/1000 elapsed=264.1s
+[Oval_Track_260m attempt 68/825] accepted=729/1000 elapsed=307.4s
+[Oval_Track_260m attempt 78/825] accepted=729/1000 elapsed=346.6s
+[Oval_Track_260m accepted 730/1000] attempts=82/825 elapsed=363.2s
+[Oval_Track_260m attempt 88/825] accepted=730/1000 elapsed=380.6s
+[Oval_Track_260m attempt 98/825] accepted=731/1000 elapsed=430.4s
+[Oval_Track_260m attempt 108/825] accepted=733/1000 elapsed=467.0s
+[Oval_Track_260m attempt 118/825] accepted=734/1000 elapsed=505.5s
+[Oval_Track_260m attempt 128/825] accepted=735/1000 elapsed=543.3s
+CasADi - 2026-03-07 00:10:44 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 1, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 138/825] accepted=735/1000 elapsed=577.9s
+[Oval_Track_260m attempt 148/825] accepted=736/1000 elapsed=616.7s
+[Oval_Track_260m attempt 158/825] accepted=738/1000 elapsed=655.5s
+[Oval_Track_260m accepted 740/1000] attempts=162/825 elapsed=672.8s
+[Oval_Track_260m attempt 168/825] accepted=741/1000 elapsed=694.2s
+[Oval_Track_260m attempt 178/825] accepted=743/1000 elapsed=731.3s
+[Oval_Track_260m attempt 188/825] accepted=744/1000 elapsed=773.3s
+[Oval_Track_260m attempt 198/825] accepted=746/1000 elapsed=810.6s
+[Oval_Track_260m attempt 208/825] accepted=746/1000 elapsed=858.0s
+[Oval_Track_260m attempt 218/825] accepted=748/1000 elapsed=893.8s
+[Oval_Track_260m attempt 228/825] accepted=748/1000 elapsed=942.6s
+[Oval_Track_260m attempt 238/825] accepted=748/1000 elapsed=984.2s
+[Oval_Track_260m attempt 248/825] accepted=749/1000 elapsed=1023.3s
+[Oval_Track_260m accepted 750/1000] attempts=252/825 elapsed=1047.2s
+[Oval_Track_260m attempt 258/825] accepted=751/1000 elapsed=1073.2s
+[Oval_Track_260m attempt 268/825] accepted=752/1000 elapsed=1110.4s
+[Oval_Track_260m attempt 278/825] accepted=754/1000 elapsed=1151.9s
+[Oval_Track_260m attempt 288/825] accepted=756/1000 elapsed=1189.4s

@@ -1,0 +1,39 @@
+
+******************************************************************************
+This program contains Ipopt, a library for large-scale nonlinear optimization.
+ Ipopt is released as open source code under the Eclipse Public License (EPL).
+         For more information visit https://github.com/coin-or/Ipopt
+******************************************************************************
+
+[Oval_Track_260m attempt 5/915] accepted=695/1000 elapsed=27.5s
+[Oval_Track_260m attempt 15/915] accepted=696/1000 elapsed=77.2s
+[Oval_Track_260m attempt 25/915] accepted=697/1000 elapsed=121.2s
+[Oval_Track_260m attempt 35/915] accepted=698/1000 elapsed=160.1s
+CasADi - 2026-03-06 23:44:14 WARNING("solver:nlp_g failed: NaN detected for output g, at (row 0, col 0).") [.../casadi/core/oracle_function.cpp:408]
+[Oval_Track_260m attempt 45/915] accepted=698/1000 elapsed=199.8s
+[Oval_Track_260m accepted 700/1000] attempts=49/915 elapsed=219.3s
+[Oval_Track_260m attempt 55/915] accepted=700/1000 elapsed=241.7s
+[Oval_Track_260m attempt 65/915] accepted=701/1000 elapsed=281.5s
+[Oval_Track_260m attempt 75/915] accepted=702/1000 elapsed=325.2s
+[Oval_Track_260m attempt 85/915] accepted=702/1000 elapsed=375.8s
+[Oval_Track_260m attempt 95/915] accepted=702/1000 elapsed=421.2s
+[Oval_Track_260m attempt 105/915] accepted=704/1000 elapsed=467.6s
+[Oval_Track_260m attempt 115/915] accepted=706/1000 elapsed=509.9s
+[Oval_Track_260m attempt 125/915] accepted=708/1000 elapsed=546.6s
+[Oval_Track_260m accepted 710/1000] attempts=133/915 elapsed=582.1s
+[Oval_Track_260m attempt 135/915] accepted=711/1000 elapsed=585.2s
+[Oval_Track_260m attempt 145/915] accepted=711/1000 elapsed=625.6s
+[Oval_Track_260m attempt 155/915] accepted=714/1000 elapsed=660.7s
+[Oval_Track_260m attempt 165/915] accepted=714/1000 elapsed=709.8s
+[Oval_Track_260m attempt 175/915] accepted=714/1000 elapsed=763.6s
+[Oval_Track_260m attempt 185/915] accepted=714/1000 elapsed=809.8s
+[Oval_Track_260m attempt 195/915] accepted=714/1000 elapsed=852.1s
+[Oval_Track_260m attempt 205/915] accepted=716/1000 elapsed=889.1s
+[Oval_Track_260m attempt 215/915] accepted=716/1000 elapsed=926.1s
+[Oval_Track_260m attempt 225/915] accepted=719/1000 elapsed=968.8s
+[Oval_Track_260m accepted 720/1000] attempts=228/915 elapsed=985.5s
+[Oval_Track_260m attempt 235/915] accepted=720/1000 elapsed=1010.1s
+[Oval_Track_260m attempt 245/915] accepted=720/1000 elapsed=1058.8s
+[Oval_Track_260m attempt 255/915] accepted=721/1000 elapsed=1101.6s
+[Oval_Track_260m attempt 265/915] accepted=724/1000 elapsed=1139.8s
+[Oval_Track_260m attempt 275/915] accepted=725/1000 elapsed=1181.0s
