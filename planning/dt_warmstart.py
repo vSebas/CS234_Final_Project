@@ -166,6 +166,14 @@ class DTWarmStarter:
         fx = np.clip(action[1], self.fx_min, self.fx_max)
         return np.array([delta, fx])
 
+    def _use_structural_warmup(self, k: int, x_full: np.ndarray) -> bool:
+        """
+        Use stable early-step propagation while the rollout is still in the
+        fragile low-speed regime where the full tire model often explodes.
+        """
+        ux = float(x_full[0])
+        return k <= 2 or (k <= 4 and ux < 6.5)
+
     def _get_track_features(self, s: float) -> np.ndarray:
         """Get track features at arc-length s."""
         s_mod = s % self.world.length_m
@@ -505,6 +513,7 @@ class DTWarmStarter:
         N: int,
         ds_m: float,
         x0: np.ndarray,
+        s0_m: float = 0.0,
         obstacles: Optional[List[Dict]] = None,
         target_lap_time: Optional[float] = None,
         obstacle_clearance_m: float = 0.0,
@@ -518,6 +527,7 @@ class DTWarmStarter:
             N: Number of spatial nodes
             ds_m: Spatial step size
             x0: Initial full state [ux, uy, r, dfz_long, dfz_lat, t, e, dpsi]
+            s0_m: Initial track progress [m]
             obstacles: List of obstacle dicts
             target_lap_time: Target lap time for RTG conditioning
             obstacle_clearance_m: Extra clearance beyond obstacle radius + margin
@@ -556,7 +566,7 @@ class DTWarmStarter:
 
         # Current state for rollout
         x_full = x0.copy()
-        s = 0.0
+        s = float(s0_m)
         rtg = rtg_0
 
         # Rollout
@@ -674,10 +684,24 @@ class DTWarmStarter:
             actions_buffer.append(action_pred)
 
             # Propagate dynamics
+            x_model_raw = None
+            dt_model = None
             x_pred_before_projection = None
             fallback_used = False
-            x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
-            if (not np.isfinite(x_next).all()) or (not np.isfinite(dt)) or (not self._state_is_reasonable(x_next, s + ds_m)):
+            warmup_used = self._use_structural_warmup(k, x_full)
+            if warmup_used:
+                x_next, dt = self._fallback_step(x_full, action_pred, s, ds_m)
+                model_step_valid = True
+            else:
+                x_next, dt = self._dynamics_step(x_full, action_pred, s, ds_m)
+                x_model_raw = x_next.copy() if np.shape(x_next) == np.shape(x_full) else None
+                dt_model = float(dt) if np.isfinite(dt) else None
+                model_step_valid = (
+                    np.isfinite(x_next).all()
+                    and np.isfinite(dt)
+                    and self._state_is_reasonable(x_next, s + ds_m)
+                )
+            if not model_step_valid:
                 fallback_count += 1
                 fallback_reason_counts["dynamics_unstable"] += 1
                 fallback_used = True
@@ -727,13 +751,21 @@ class DTWarmStarter:
                         "s_m": float(s),
                         "s_next_m": float(s + ds_m),
                         "dt_s": float(dt),
+                        "dt_model_s": float(dt_model) if dt_model is not None else None,
                         "rtg_before": float(rtg),
                         "fallback_used": bool(fallback_used),
+                        "warmup_used": bool(warmup_used),
+                        "model_step_valid": bool(model_step_valid),
                         "projection_mag": float(projection_mag),
                         "projection_reasons": {k: int(v) for k, v in proj_reasons.items()},
                         "clearance_proxy_m": float(clearance_proxy),
                         "action_pred": action_pred.astype(float).tolist(),
                         "x_before": x_full.astype(float).tolist(),
+                        "x_model_raw": (
+                            x_model_raw.astype(float).tolist()
+                            if x_model_raw is not None
+                            else None
+                        ),
                         "x_pred_before_projection": (
                             x_pred_before_projection.astype(float).tolist()
                             if x_pred_before_projection is not None

@@ -10,6 +10,7 @@ Outputs:
 import argparse
 import json
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Dict, List
@@ -25,6 +26,30 @@ from experiments.run_fatrop_native_trajopt import solve_fatrop_native
 from utils.world import World
 
 from data.schema import sha256_file, sha256_json
+
+
+class SolveTimeoutError(RuntimeError):
+    """Raised when a solver attempt exceeds configured timeout."""
+
+
+def _run_with_timeout(seconds: float, fn, *args, **kwargs):
+    """Run fn(*args, **kwargs) with wall-clock timeout on Unix."""
+    if seconds <= 0:
+        return fn(*args, **kwargs)
+    if os.name == "nt":
+        return fn(*args, **kwargs)
+
+    def _handler(signum, frame):  # noqa: ARG001
+        raise SolveTimeoutError(f"solve attempt exceeded timeout ({seconds:.1f}s)")
+
+    prev_handler = signal.getsignal(signal.SIGALRM)
+    signal.signal(signal.SIGALRM, _handler)
+    signal.setitimer(signal.ITIMER_REAL, float(seconds))
+    try:
+        return fn(*args, **kwargs)
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0.0)
+        signal.signal(signal.SIGALRM, prev_handler)
 
 
 def build_world(map_file: Path) -> World:
@@ -171,6 +196,12 @@ def main() -> None:
     parser.add_argument("--obs-init-sigma-m", type=float, default=8.0)
     parser.add_argument("--obs-init-margin-m", type=float, default=0.5)
     parser.add_argument("--accept-min-clearance-m", type=float, default=-0.005)
+    parser.add_argument(
+        "--solve-timeout-s",
+        type=float,
+        default=0.0,
+        help="Per-attempt solve timeout in seconds; 0 disables timeout.",
+    )
     parser.add_argument("--ipopt-tol", type=float, default=1e-6)
     parser.add_argument("--ipopt-acceptable-tol", type=float, default=1e-4)
     parser.add_argument("--ipopt-max-iter", type=int, default=1000)
@@ -227,7 +258,9 @@ def main() -> None:
             print(f"[{map_id}] solving base lap {base_id} ({idx + 1}/{args.base_laps})", flush=True)
             try:
                 if args.solver == "fatrop":
-                    result = solve_fatrop_native(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        solve_fatrop_native,
                         vehicle=vehicle,
                         world=world,
                         N=int(args.N),
@@ -244,7 +277,9 @@ def main() -> None:
                     )
                 else:
                     assert optimizer is not None
-                    result = optimizer.solve(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        optimizer.solve,
                         N=int(args.N),
                         ds_m=ds_m,
                         lambda_u=float(args.lambda_u),
@@ -311,7 +346,9 @@ def main() -> None:
             )
             try:
                 if args.solver == "fatrop":
-                    result = solve_fatrop_native(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        solve_fatrop_native,
                         vehicle=vehicle,
                         world=world,
                         N=int(args.N),
@@ -329,7 +366,9 @@ def main() -> None:
                     )
                 else:
                     assert optimizer is not None
-                    result = optimizer.solve(
+                    result = _run_with_timeout(
+                        float(args.solve_timeout_s),
+                        optimizer.solve,
                         N=int(args.N),
                         ds_m=ds_m,
                         lambda_u=float(args.lambda_u),

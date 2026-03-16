@@ -16,16 +16,16 @@ This file is the FATROP-only dataset configuration for the current Oval-first ph
 
 ## Dataset Size Goal
 
-Primary goal (full trajectories):
-- no-obstacle trajectories: ~`900`
-- obstacle trajectories: ~`2250`
-- total full trajectories: ~`3150`
+Current goal (expanded clean full trajectories):
+- no-obstacle trajectories: ~`3000`
+- obstacle trajectories: ~`28000`
+- total full trajectories: ~`30000`
 
-Concrete target used in this file:
+Concrete target used now:
 - `N=150` with `--all-shifts` gives `151` trajectories per accepted base lap.
-- no-obstacle base laps: `6`  -> `6 * 151 = 906`
-- obstacle base laps: `15`    -> `15 * 151 = 2265`
-- total full trajectories: `3171`
+- no-obstacle base laps: `20`  -> `20 * 151 = 3020`
+- obstacle base laps: `190`    -> `190 * 151 = 28690`
+- total full trajectories: `31710`
 
 Obstacle composition target:
 - 25% with 1 obstacle
@@ -37,13 +37,13 @@ Obstacle composition target:
 
 With `--all-shifts`, each base lap yields `N+1 = 151` full trajectories.
 
-- no-obstacle base laps: `6`  -> `906` trajectories
-- obstacle base laps: `15`    -> `2265` trajectories
-- total: `3171`
+- no-obstacle base laps: `20`  -> `3020` trajectories
+- obstacle base laps: `190`    -> `28690` trajectories
+- total: `31710`
 
 Rationale:
-- keep at least 6 distinct centerline anchor-start base solves in no-obstacle regime
-- allocate most coverage to obstacle regimes
+- keep many centerline-anchor no-obstacle starts for nominal policy quality
+- allocate most coverage to obstacle regimes for robustness
 
 ## Clean Shard Naming (no mixing with legacy data)
 
@@ -51,27 +51,34 @@ Rationale:
 - `data/datasets/Oval_Track_260m_shifts_fatrop_clean`
 - `data/datasets/Oval_Track_260m_repairs_fatrop_clean`
 - `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`
-- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean` (only after first clean training + eval traces)
+- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`
 
-## Current Generated Snapshot (as of 2026-03-07)
+## Current Generated Snapshot (as of 2026-03-10)
 
 - base laps (`data/base_laps_fatrop_clean/Oval_Track_260m`):
-  - total: `21`
-  - no-obstacle: `6`
-  - obstacle: `15`
-  - obstacle-count distribution in base laps: `{0: 6, 1: 1, 3: 10, 4: 4}`
+  - total: `210`
+  - no-obstacle: `20`
+  - obstacle: `190`
 - shift shard (`data/datasets/Oval_Track_260m_shifts_fatrop_clean`):
-  - total episodes: `3171`
-  - `N` distribution: `{150: 3171}`
-  - obstacle-count distribution: `{0: 906, 1: 151, 3: 1510, 4: 604}`
+  - total episodes: `31710`
+  - `N` distribution: `{150: 31710}`
+  - obstacle-count distribution: `{0: 906, 1: 4379, 2: 9060, 3: 10570, 4: 6795}`
 - hard-repair shard (`data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`):
   - total episodes: `400`
   - horizon distribution: `{20: 250, 40: 83, 60: 67}`
   - obstacle-count distribution: `{0: 117, 1: 13, 3: 199, 4: 71}`
   - sampling reason distribution: `obstacle=258`, `uniform=142`
   - solver iterations (min/median/p90/max): `5 / 39 / 153 / 768`
-- post-projection clean shard:
-  - currently intentionally removed for reset (`generate only after first clean model training`).
+- post-projection clean shard (`data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`):
+  - total episodes: `1000`
+  - obstacle-count distribution: `{1: 191, 2: 197, 3: 194, 4: 418}`
+  - horizon distribution: `{20: 933, 40: 67}`
+  - solver mix from manifest solver_config: `{fatrop: 992, ipopt: 8}`
+  - integrity check status: no missing/corrupt files; all rows `solver_success=True`
+
+Current usage note:
+- this post-proj shard is complete for the current Oval phase target (`1000`).
+- do not append new post-proj rows until after benchmark verdict on current improved checkpoints.
 
 ## Generation Commands
 
@@ -85,8 +92,8 @@ PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_base_l
   --solver fatrop \
   --N 150 \
   --ux-min 5.0 \
-  --base-laps 6 \
-  --obstacle-laps 15 \
+  --base-laps 20 \
+  --obstacle-laps 190 \
   --min-obstacles 1 \
   --max-obstacles 4 \
   --seed 0 \
@@ -142,7 +149,7 @@ PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/build_repair
 Use only clean FATROP shards in the training manifest mix (shifts + hard repairs first).
 After training, export warmstart rollout traces from that checkpoint.
 
-### 6) Post-projection repairs (only from new clean-model traces)
+### 6) Post-projection repairs (from clean-model traces)
 
 ```bash
 TRACE_JSONL="dt/checkpoints/<clean_run>/warmstarts/eval/<eval_tag>/warmstart_eval_*_rollout_trace.jsonl" \

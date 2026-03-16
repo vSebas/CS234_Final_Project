@@ -52,6 +52,8 @@ class DatasetStats:
     action_std: np.ndarray
     rtg_mean: float
     rtg_std: float
+    rtg_mean_by_source: Optional[Dict[str, float]] = None
+    rtg_std_by_source: Optional[Dict[str, float]] = None
 
     def save(self, path: Union[str, Path]) -> None:
         """Save statistics to file."""
@@ -63,12 +65,27 @@ class DatasetStats:
             action_std=self.action_std,
             rtg_mean=np.array([self.rtg_mean]),
             rtg_std=np.array([self.rtg_std]),
+            rtg_mean_by_source_json=np.array(
+                json.dumps(self.rtg_mean_by_source or {}), dtype=object
+            ),
+            rtg_std_by_source_json=np.array(
+                json.dumps(self.rtg_std_by_source or {}), dtype=object
+            ),
         )
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> "DatasetStats":
         """Load statistics from file."""
-        data = np.load(path)
+        data = np.load(path, allow_pickle=True)
+        rtg_mean_by_source = {}
+        rtg_std_by_source = {}
+        if "rtg_mean_by_source_json" in data and "rtg_std_by_source_json" in data:
+            try:
+                rtg_mean_by_source = json.loads(str(data["rtg_mean_by_source_json"].item()))
+                rtg_std_by_source = json.loads(str(data["rtg_std_by_source_json"].item()))
+            except Exception:
+                rtg_mean_by_source = {}
+                rtg_std_by_source = {}
         return cls(
             state_mean=data["state_mean"],
             state_std=data["state_std"],
@@ -76,6 +93,8 @@ class DatasetStats:
             action_std=data["action_std"],
             rtg_mean=float(data["rtg_mean"]),
             rtg_std=float(data["rtg_std"]),
+            rtg_mean_by_source={str(k): float(v) for k, v in rtg_mean_by_source.items()},
+            rtg_std_by_source={str(k): float(v) for k, v in rtg_std_by_source.items()},
         )
 
 
@@ -279,13 +298,13 @@ class TrajectoryDataset(Dataset):
     def _infer_source_kind(shard_dir: Path) -> str:
         """Infer coarse source category from shard directory name."""
         name = shard_dir.name.lower()
-        if name.endswith("_repairs_postproj"):
+        if "repairs_postproj" in name:
             return "repair_postproj"
-        if name.endswith("_repairs_hard"):
+        if "repairs_hard" in name:
             return "repair_hard"
-        if name.endswith("_repairs"):
+        if "repairs" in name:
             return "repair"
-        if name.endswith("_shifts"):
+        if "shifts" in name:
             return "shift"
         return "other"
 
@@ -460,6 +479,7 @@ class TrajectoryDataset(Dataset):
         all_states = []
         all_actions = []
         all_rtg = []
+        all_rtg_by_source: Dict[str, List[np.ndarray]] = {}
 
         # Sample subset for efficiency
         sample_size = min(100, len(episodes))
@@ -471,10 +491,19 @@ class TrajectoryDataset(Dataset):
             all_states.append(aug_state)
             all_actions.append(data["actions"])
             all_rtg.append(data["rtg"])
+            source_kind = str(episodes[ep_idx].get("source_kind", "other")).lower()
+            all_rtg_by_source.setdefault(source_kind, []).append(data["rtg"])
 
         all_states = np.concatenate(all_states, axis=0)
         all_actions = np.concatenate(all_actions, axis=0)
         all_rtg = np.concatenate(all_rtg, axis=0)
+
+        rtg_mean_by_source: Dict[str, float] = {}
+        rtg_std_by_source: Dict[str, float] = {}
+        for source_kind, chunks in all_rtg_by_source.items():
+            src_rtg = np.concatenate(chunks, axis=0)
+            rtg_mean_by_source[source_kind] = float(np.mean(src_rtg))
+            rtg_std_by_source[source_kind] = float(np.std(src_rtg)) + 1e-6
 
         stats = DatasetStats(
             state_mean=np.mean(all_states, axis=0),
@@ -483,6 +512,8 @@ class TrajectoryDataset(Dataset):
             action_std=np.std(all_actions, axis=0) + 1e-6,
             rtg_mean=float(np.mean(all_rtg)),
             rtg_std=float(np.std(all_rtg)) + 1e-6,
+            rtg_mean_by_source=rtg_mean_by_source,
+            rtg_std_by_source=rtg_std_by_source,
         )
 
         print(f"  state_mean shape: {stats.state_mean.shape}")
@@ -530,7 +561,14 @@ class TrajectoryDataset(Dataset):
         if self.normalize and self.stats is not None:
             states = (states - self.stats.state_mean) / self.stats.state_std
             actions = (actions - self.stats.action_mean) / self.stats.action_std
-            rtg = (rtg - self.stats.rtg_mean) / self.stats.rtg_std
+            source_kind = str(self.episodes[ep_idx].get("source_kind", "other")).lower()
+            rtg_mean = self.stats.rtg_mean
+            rtg_std = self.stats.rtg_std
+            if self.stats.rtg_mean_by_source and self.stats.rtg_std_by_source:
+                if source_kind in self.stats.rtg_mean_by_source and source_kind in self.stats.rtg_std_by_source:
+                    rtg_mean = float(self.stats.rtg_mean_by_source[source_kind])
+                    rtg_std = float(self.stats.rtg_std_by_source[source_kind])
+            rtg = (rtg - rtg_mean) / max(rtg_std, 1e-6)
 
         # Pad to context length if needed
         if actual_len < K:
@@ -626,12 +664,13 @@ def create_dataloaders(
     if normalize:
         stats = full_dataset.compute_statistics_from_episodes(train_episodes)
 
-    # Create separate datasets
+    # Create separate datasets; cache all episodes to avoid repeated disk reads.
     train_dataset = TrajectoryDataset(
         data_dir,
         context_length=context_length,
         normalize=normalize,
         stats=stats,
+        cache_episodes=len(train_episodes),
     )
     train_dataset.episodes = train_episodes
     train_dataset.indices = []
@@ -644,6 +683,7 @@ def create_dataloaders(
         context_length=context_length,
         normalize=normalize,
         stats=stats,
+        cache_episodes=len(val_episodes),
     )
     val_dataset.episodes = val_episodes
     val_dataset.indices = []

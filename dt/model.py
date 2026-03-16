@@ -207,7 +207,6 @@ class DecisionTransformer(nn.Module):
         # Prediction heads
         # Action head: predict action given state (from state position in sequence)
         self.predict_action = nn.Linear(config.d_model, config.act_dim)
-
         # State head: predict next state observation (from action position in sequence)
         self.predict_state = nn.Linear(config.d_model, config.state_dim)
 
@@ -294,10 +293,10 @@ class DecisionTransformer(nn.Module):
 
         # Extract predictions:
         # - Action: predicted from state token (index 1)
+        # - Action: predicted from state token (index 1)
         # - Next state: predicted from action token (index 2)
         action_preds = self.predict_action(x[:, :, 1, :])  # (B, K, act_dim)
         state_preds = self.predict_state(x[:, :, 2, :])    # (B, K, state_dim)
-
         return action_preds, state_preds
 
     def get_action(

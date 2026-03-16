@@ -91,7 +91,6 @@ def test_dt_model():
     assert state_preds.shape == (batch_size, seq_len, config.state_dim)
 
     print(f"  action_preds shape: {action_preds.shape}")
-    print(f"  state_preds shape: {state_preds.shape}")
     print("PASSED")
     return True
 
@@ -265,3 +264,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+    print(f"  state_preds shape: {state_preds.shape}")

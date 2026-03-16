@@ -420,6 +420,11 @@ def main() -> None:
             )
             solver_config_hash = sha256_json(solver_config_seg) if solver_config_seg else ""
 
+            # Persist state before entering the solver call.
+            # This makes outer process-level timeouts/restarts resume from the
+            # next RNG state/attempt instead of replaying the same hanging sample.
+            save_repair_state(state_path, attempts, rng)
+
             try:
                 if args.solver == "fatrop":
                     result = _run_with_timeout(

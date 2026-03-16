@@ -2,10 +2,7 @@
 """
 Evaluation script for Decision Transformer.
 
-Computes metrics on held-out data:
-- Action prediction MSE
-- State prediction MSE
-- Per-dimension errors
+Computes action-prediction metrics on held-out data.
 """
 
 import argparse
@@ -36,16 +33,13 @@ def evaluate_model(
     Evaluate DT model on a dataset.
 
     Returns:
-        Dict with metrics: action_mse, state_mse, per-dimension errors
+        Dict with action prediction metrics.
     """
     model.eval()
 
     all_action_errors = []
-    all_state_errors = []
     all_action_preds = []
     all_action_targets = []
-    all_state_preds = []
-    all_state_targets = []
 
     with torch.no_grad():
         for batch in dataloader:
@@ -56,7 +50,7 @@ def evaluate_model(
             attention_mask = batch["attention_mask"].to(device)
 
             # Forward pass
-            action_preds, state_preds = model(states, actions, rtg, timesteps, attention_mask)
+            action_preds, _ = model(states, actions, rtg, timesteps, attention_mask)
 
             # Mask for valid tokens
             mask = attention_mask.bool()
@@ -70,28 +64,10 @@ def evaluate_model(
                     all_action_preds.append(action_preds[b, valid_mask].cpu().numpy())
                     all_action_targets.append(actions[b, valid_mask].cpu().numpy())
 
-            # State prediction errors (predict next state)
-            state_dim = model.config.state_dim
-            next_states = torch.cat([
-                states[:, 1:, :state_dim],
-                states[:, -1:, :state_dim],
-            ], dim=1)
-            state_error = (state_preds - next_states) ** 2
-
-            for b in range(states.shape[0]):
-                valid_mask = mask[b]
-                if valid_mask.sum() > 0:
-                    all_state_errors.append(state_error[b, valid_mask].cpu().numpy())
-                    all_state_preds.append(state_preds[b, valid_mask].cpu().numpy())
-                    all_state_targets.append(next_states[b, valid_mask].cpu().numpy())
-
     # Concatenate all errors
     all_action_errors = np.concatenate(all_action_errors, axis=0)
-    all_state_errors = np.concatenate(all_state_errors, axis=0)
     all_action_preds = np.concatenate(all_action_preds, axis=0)
     all_action_targets = np.concatenate(all_action_targets, axis=0)
-    all_state_preds = np.concatenate(all_state_preds, axis=0)
-    all_state_targets = np.concatenate(all_state_targets, axis=0)
 
     # Denormalize for interpretable metrics
     if stats is not None:
@@ -105,7 +81,6 @@ def evaluate_model(
     metrics = {
         # Normalized MSE (what the model optimizes)
         "action_mse_normalized": float(np.mean(all_action_errors)),
-        "state_mse_normalized": float(np.mean(all_state_errors)),
 
         # Per-dimension action errors (normalized)
         "action_delta_mse": float(np.mean(all_action_errors[:, 0])),
@@ -114,13 +89,6 @@ def evaluate_model(
         # Denormalized action errors (interpretable units)
         "action_delta_rmse_rad": float(np.sqrt(np.mean(action_errors_denorm[:, 0]))),
         "action_fx_rmse_kn": float(np.sqrt(np.mean(action_errors_denorm[:, 1]))),
-
-        # Per-dimension state errors
-        "state_ux_mse": float(np.mean(all_state_errors[:, 0])),
-        "state_uy_mse": float(np.mean(all_state_errors[:, 1])),
-        "state_r_mse": float(np.mean(all_state_errors[:, 2])),
-        "state_e_mse": float(np.mean(all_state_errors[:, 3])),
-        "state_dpsi_mse": float(np.mean(all_state_errors[:, 4])),
 
         # Sample counts
         "n_samples": len(all_action_errors),
@@ -214,14 +182,6 @@ def main():
     print(f"  MSE (normalized):     {metrics['action_mse_normalized']:.6f}")
     print(f"  Delta RMSE:           {metrics['action_delta_rmse_rad']:.6f} rad ({np.degrees(metrics['action_delta_rmse_rad']):.3f} deg)")
     print(f"  Fx RMSE:              {metrics['action_fx_rmse_kn']:.6f} kN")
-
-    print(f"\nState Prediction:")
-    print(f"  MSE (normalized):     {metrics['state_mse_normalized']:.6f}")
-    print(f"  ux MSE:               {metrics['state_ux_mse']:.6f}")
-    print(f"  uy MSE:               {metrics['state_uy_mse']:.6f}")
-    print(f"  r MSE:                {metrics['state_r_mse']:.6f}")
-    print(f"  e MSE:                {metrics['state_e_mse']:.6f}")
-    print(f"  dpsi MSE:             {metrics['state_dpsi_mse']:.6f}")
 
     print(f"\nSamples evaluated: {metrics['n_samples']}")
 

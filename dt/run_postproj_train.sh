@@ -49,7 +49,8 @@ WALL_TIME="${wall_time}" \
 CLEAR_CACHE_EVERY="${clear_cache_every}" \
 SEED="${seed}" \
 OUTPUT_ROOT="${data_dir}" \
-./data/run_postprojection_repairs.sh
+TOTAL_TARGET="${postproj_repairs}" \
+./data/run_postprojection_repairs_loop.sh
 
 echo "[dt/run_postproj_train] step=verify_postproj_repairs"
 map_names=(Oval_Track_260m TRACK1_280m TRACK2 TRACK3_300m TRACK4_315m TRACK5_330m)

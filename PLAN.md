@@ -2,7 +2,7 @@
 
 This plan is written against the current repo state (SCP is archived) and the current narrowed execution policy.
 
-## Current Phase (March 7, 2026)
+## Current Phase (March 13, 2026)
 
 Current execution focus is narrowed to unblock DT progress quickly:
 - scope: **Oval-first** (single-map iteration loop)
@@ -43,7 +43,7 @@ Current execution focus is narrowed to unblock DT progress quickly:
      - `projection_max_magnitude > 2.0`,
    - target: DT path never worse on success rate.
 6. Dataset refresh after steps 1-5 are in place:
-   - complete/fill post-projection repairs under locked FATROP settings and start assumptions,
+   - complete/fill post-projection repairs under locked FATROP settings and start assumptions (done for current Oval shard),
    - keep hard-repair shard aligned with the same assumptions.
 7. Resume training:
    - continue to max `40` epochs (not a fresh run),
@@ -57,14 +57,35 @@ Current execution focus is narrowed to unblock DT progress quickly:
    - treat `projection-mode=soft` + gating as secondary safety/deployment benchmarking.
    - always record: `ws_projection_fraction`, `ws_projection_total_magnitude`, `ws_projection_max_magnitude`, and projection-reason counts (`ux_clip`, `uy_clip`, `r_clip`, `e_clip`, `dpsi_clip`, `obs_push`).
 
-Current dataset status (Oval-only):
-- `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes.
-- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` accepted episodes (to be expanded only after steps 1-5).
+Current dataset status (Oval-only, FATROP-clean shards):
+- `data/datasets/Oval_Track_260m_shifts_fatrop_clean`: `31710` episodes (`N=150`).
+- `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`: `400` accepted episodes.
+- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`: `1000` accepted episodes (completed).
+  - solver mix used during completion: mostly FATROP, with small IPOPT fallback for stuck attempts.
 
 Current training status:
-- latest run: `dt/checkpoints/oval_hard400_train20`
-- best validation action loss: `0.007035`
-- benchmark status: improved over older checkpoints, still slightly slower than baseline on current fixed Oval gates.
+- best offline-loss run: `dt/checkpoints/oval_fatrop_improved_ctx50_m6x192`
+  - best validation action loss: `0.002600` (epoch `6`, early-stopped at epoch `9`)
+- post-proj fine-tune result 1: `dt/checkpoints/oval_fatrop_improved_postproj_ft`
+  - no validation gain over resumed parent checkpoint
+- post-proj fine-tune result 2: `dt/checkpoints/oval_fatrop_improved_postproj_ft2_rerun`
+  - stronger mix (`shift=0.80`, `hard=0.05`, `postproj=0.15`, LR `5e-5`)
+  - still worse than parent offline
+- best practical solver-facing reference remains:
+  - `dt/checkpoints/oval_hard400_train20`
+- current downstream status:
+  - full IPOPT fixed-gate projection ablation is complete for:
+    - `oval_fatrop_improved_ctx50_m6x192`
+    - `oval_fatrop_improved_postproj_ft2_rerun`
+  - best DT operating point is:
+    - `oval_fatrop_improved_postproj_ft2_rerun + projection=soft`
+  - but no DT setup beats baseline overall once `warmstart_time + solve_time` is counted
+  - acceptance remains `0%`
+  - iteration reduction remains `0%`
+- next execution step:
+  - diagnose acceptance / gating behavior using `postproj_ft2_rerun + projection=soft`
+  - keep `projection=off` as the truth check for raw rollout quality
+  - defer further training until the acceptance bottleneck is understood
 
 ### Why post-projection data is in scope
 
@@ -74,9 +95,22 @@ The main failure mode is rollout distribution shift:
 - Post-projection repairs provide optimizer-labeled data exactly on those off-manifold states.
 
 So this phase emphasizes:
-- keeping hard-repair data (broad recovery coverage),
-- adding post-projection data (wrapper-triggered state coverage),
-- evaluating by downstream solve-time/iterations/success, not by validation loss alone.
+- training first on FATROP-clean shifts + small hard-repair mix,
+- testing post-projection fine-tuning as the main distribution-shift correction,
+- evaluating by downstream solve-time/iterations/success, not validation loss alone.
+
+Status summary:
+- what worked:
+  - narrowing to Oval-only and FATROP-clean data
+  - larger model/context (`K=50`, `6x192`)
+  - `lambda_x=0.1`
+  - training pipeline fixes
+  - post-proj rerun plus `soft` projection is the strongest current DT operating point
+- what has not worked yet:
+  - no DT variant beats baseline overall
+  - raw rollout is still not accepted often enough to materially reduce solver work
+- current bottleneck:
+  - acceptance / fallback / projection behavior, not basic offline imitation
 
 ## Phase 2 (After Current Phase Exit Criteria)
 
@@ -447,11 +481,11 @@ Completed:
 - `data/schema.py`-style stable episode schema is implemented and used by DT loader.
 - `data/build_base_laps.py` and `data/make_shift_episodes.py` are in use.
 - `data/build_repair_segments.py` supports hard-repair generation (`--hard-mode`) and solver choice.
-- `data/build_postprojection_repairs.py` and `data/run_postprojection_repairs.sh` are implemented.
+- `data/build_postprojection_repairs.py` and `data/run_postprojection_repairs_loop.sh` are implemented.
 - hard-repair timeout/resume controls and long-run wrappers are in place for practical dataset completion.
 
 In progress:
-- complete `Oval_Track_260m_repairs_postproj` to target `1000`.
+- retrain with completed post-proj shard (`1000`) and run fixed-gate benchmark selection.
 - keep checkpoint-local warmstart evaluation artifacts aligned with run folders.
 
 Pending:
@@ -704,12 +738,12 @@ Plot:
   - `data/make_shift_episodes.py`
   - `data/build_repair_segments.py`
   - `data/build_postprojection_repairs.py`
-  - `data/run_postprojection_repairs.sh`
+  - `data/run_postprojection_repairs_loop.sh`
 
 ### Remaining for this phase
-- complete Oval post-projection shard to target `1000`
-- retrain DT with updated recovery-data mix
-- re-run benchmark gates and checkpoint selection
+- determine why acceptance remains `0%` even for the best DT regime
+- decide whether the acceptance gate is too strict or the rollout is still not solver-usable
+- only then decide whether another DT fine-tune is justified
 
 ### Definition of done (phase gate)
 - On deterministic held-out obstacle scenarios:
@@ -728,28 +762,147 @@ This section is the active consolidated backlog for the repo. Treat `PLAN.md` as
 - Active data-generation policy:
   - hard repairs via FATROP
   - post-projection repairs via FATROP (narrowed phase policy)
-- Current Oval-only recovery shards:
-  - `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
-  - `data/datasets/Oval_Track_260m_repairs_postproj`: `602` episodes
+- Current Oval-only FATROP-clean shards:
+  - `data/datasets/Oval_Track_260m_shifts_fatrop_clean`: `31710` episodes
+  - `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`: `400` episodes
+  - `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`: `1000` episodes
 - Latest training run:
-  - `dt/checkpoints/oval_hard400_train20`
-  - best validation action loss: `0.007035`
-- Latest fixed-gate benchmark outcome:
-  - large improvement vs older checkpoints
-  - DT warm-start still slightly slower than baseline on current 3-scenario Oval gates
+  - `dt/checkpoints/oval_fatrop_improved_ctx50_m6x192`
+  - best validation action loss: `0.002600` (epoch `6`, early-stop at epoch `9`)
+- Latest post-proj rerun:
+  - `dt/checkpoints/oval_fatrop_improved_postproj_ft2_rerun`
+  - best validation action loss: `0.002868` (worse than parent and previous post-proj fine-tune)
+- Latest downstream outcome:
+  - full IPOPT projection ablation completed on `10` no-obstacle + `10` obstacle scenarios
+  - best DT operating point:
+    - `postproj_ft2_rerun + soft`
+  - obstacle gate (`10` scenarios):
+    - baseline solve `54.48s`
+    - DT solve `52.58s`
+    - DT total `55.21s`
+    - acceptance `0%`
+    - iterations unchanged
+  - no-obstacle gate (`10` scenarios):
+    - baseline solve `56.62s`
+    - DT solve `56.56s`
+    - DT total `59.05s`
+    - acceptance `0%`
+    - iterations unchanged
+  - conclusion:
+    - DT can reduce solve time slightly
+    - but no DT setup beats baseline overall because acceptance stays `0%`
+  - gate diagnosis from code + artifacts:
+    - default eval gate in `experiments/eval_warmstart.py` uses:
+      - `dt_reject_fallback_max = 0`
+      - `dt_reject_projection_step_max = 2.0`
+    - best current DT regime (`postproj_ft2_rerun + soft`) typically sits around:
+      - fallback `= 1`
+      - projection max-step `= 4.7-4.8`
+    - so current `0%` acceptance is at least partly explained by the gate itself, not only by raw rollout quality
+  - relaxed-gate follow-up on `postproj_ft2_rerun + soft`:
+    - diagnostic gate:
+      - `fallback_max = 1`
+      - `proj_fraction_max = 0.8`
+      - `proj_total_max = 120`
+      - `proj_step_max = 5`
+    - no-obstacle gate:
+      - acceptance stayed `0%`
+      - DT total `60.64s` vs baseline solve `58.61s`
+    - obstacle gate:
+      - acceptance improved to `20%`
+      - DT total `59.41s` vs baseline solve `56.45s`
+      - iterations worsened to `251.7` vs baseline `240.7`
+    - conclusion:
+      - default gating was a real confounder
+      - but rollout quality is still not sufficient to beat baseline
+  - benchmark confounder still present:
+    - eval currently uses a fixed `x0`
+    - warmstart rollout currently initializes with `s = 0.0`
+    - so the no-obstacle `10`-scenario gate is the same start repeated, not `10` distinct frozen anchors
+  - corrected eval rerun after fixing start-progress variation:
+    - no-obstacle gate:
+      - acceptance improved from `0%` to `20%`
+      - DT total `51.98s` vs baseline solve `49.06s`
+      - DT iterations `206.8` vs baseline `191.8`
+    - obstacle gate:
+      - acceptance remained `20%`
+      - DT total `60.79s` vs baseline solve `56.36s`
+      - DT iterations `256.0` vs baseline `230.7`
+    - conclusion:
+      - the repeated-start confounder materially affected the old no-obstacle result
+      - but DT still does not beat baseline after the fix
+  - rollout-mechanics diagnosis:
+    - early fallback is caused by the raw dynamic step blowing up `uy` and `r`
+    - this happens even when visible states still look benign
+    - so the next intervention should target early rollout stabilization, not more gate tuning
+    - strongest current interpretation:
+      - the learned rollout is weak specifically in the lateral-dynamics / tire-force-sensitive regime
+  - first stabilization attempt:
+    - added a conservative early-step rollout action envelope in `planning/dt_warmstart.py`
+    - smoke check (`3` scenarios each) outcome:
+      - no-obstacle:
+        - DT total `47.39s` vs baseline `47.40s`
+        - acceptance `0%`
+        - fallback mean `9.33`
+      - obstacle:
+        - DT total `63.19s` vs baseline `62.98s`
+        - acceptance `0%`
+        - fallback mean `4.00`
+    - read:
+      - stabilization may be reducing fallback pressure
+      - but acceptance is still not improved in the small smoke check
+    - deeper diagnosis:
+      - some clearly bad starts improved
+      - but the raw model step still explodes in `uy` / `r`
+      - and some previously better starts became worse
+    - implication:
+      - further progress likely needs a structural early-step propagation change, not just tighter action clamping
+  - structural warmup attempt:
+    - use stable warmup propagation intentionally for the first rollout steps
+    - smoke check (`3` scenarios each) outcome:
+      - no-obstacle:
+        - DT total `46.19s` vs baseline `46.07s`
+        - acceptance `0%`
+        - fallback mean `5.33`
+      - obstacle:
+        - DT total `62.04s` vs baseline `62.02s`
+        - acceptance `0%`
+        - fallback mean `4.33`
+    - read:
+      - this is better than simple action clamping
+      - but still does not produce accepted, solver-helpful warm-starts in smoke
+    - conclusion:
+      - wrapper-side work is likely near exhausted for now
+      - retraining is now justified
 
 ### 8.2 Immediate priorities
 
-1. Complete `Oval_Track_260m_repairs_postproj` to `1000` accepted episodes.
-2. Resume `dt/checkpoints/oval_hard400_train20` up to `40` epochs total.
-3. Run benchmark checks every `2-3` epochs and keep the best checkpoint by benchmark metrics.
-4. Apply early-stop if benchmark does not improve for `6-8` evaluation points.
-5. Run one controlled ablation:
-   - same training setup **with** post-proj shard
-   - same training setup **without** post-proj shard
+1. Treat `postproj_ft2_rerun + projection=soft` as the provisional best DT operating point.
+2. Freeze `projection=soft` as the default DT evaluation regime.
+3. Move from gate diagnosis to rollout-quality diagnosis:
+   - start-progress variation in eval is now fixed
+   - the relaxed-gate diagnostic is complete
+   - gate strictness was part of the problem
+   - but the DT rollout still does not beat baseline when accepted more permissively
+   - diagnosis is now sufficient
+   - wrapper-side interventions have been tested
+   - next move is one targeted retraining run for lateral-dynamics rollout stability
+4. Keep `projection=off` as the raw-rollout truth test.
+5. Do not launch another fine-tune until rollout diagnosis yields a concrete training hypothesis.
 6. Keep warmstart outputs checkpoint-local under:
    - `dt/checkpoints/<run>/warmstarts/eval/...`
    - `dt/checkpoints/<run>/warmstarts/viz/...`
+
+Execution order for the next cycle (locked):
+1. Use the completed full projection ablation as the current decision baseline.
+2. Keep the checkpoint decision split explicit:
+   - best offline/base checkpoint: `oval_fatrop_improved_ctx50_m6x192`
+   - best DT operating point: `oval_fatrop_improved_postproj_ft2_rerun + soft`
+3. Make the next intervention about rollout quality, not data mix or model size by default.
+Current progress on this order:
+- full IPOPT projection ablation is complete
+- relaxed-gate follow-up is complete
+- FATROP fixed-gate benchmark still remains open if a solver-consistent confirmation is needed
 
 ### 8.3 Dataset actions
 
@@ -759,10 +912,13 @@ Done:
 - post-projection labeling pipeline is implemented:
   - trace export: `experiments/eval_warmstart.py --export-rollout-trace`
   - label build: `data/build_postprojection_repairs.py`
-  - wrappers: `data/run_postprojection_repairs.sh`, `data/run_postprojection_repairs_loop.sh`
+  - wrapper: `data/run_postprojection_repairs_loop.sh`
+
+Done:
+- post-projection shard generated to `1000` accepted episodes (Oval FATROP-clean suffix).
 
 In progress:
-- grow post-projection shard from `602` to `1000`.
+- acceptance / gating diagnosis for the current best DT operating point.
 
 Pending cleanup:
 1. Persist explicit split artifacts (train/val/test) on disk.
@@ -775,14 +931,13 @@ Pending cleanup:
 1. Use benchmark-gated checkpoint selection:
    - primary: solve time / iterations / success rate
    - secondary: validation action loss
-2. Continue current run before starting a new one:
-   - resume from `oval_hard400_train20`
-   - cap total epochs at `40`
-   - evaluate benchmark every `2-3` epochs
+2. Next training run:
+   - only after acceptance/gating behavior is clarified
+   - if retraining is resumed, keep benchmark every `2-3` epochs
 3. Use benchmark-driven early stop:
    - stop if no benchmark gain across `6-8` eval points
-4. Keep current DT baseline architecture for near-term runs; defer architecture ablations until post-proj completion.
-5. Run a with/without post-proj data ablation after retrain and compare against `oval_hard400_train20`.
+4. Keep current improved DT architecture as baseline; defer larger architecture changes until acceptance/gating behavior is understood.
+5. If training resumes, compare against both `oval_hard400_train20` and `oval_fatrop_improved_ctx50_m6x192`.
 
 ### 8.5 Benchmarking
 

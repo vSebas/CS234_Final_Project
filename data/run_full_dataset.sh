@@ -28,9 +28,14 @@ if [[ "${mode}" == "oval_fatrop_clean" ]]; then
   solve_timeout_s="${SOLVE_TIMEOUT_S:-12}"
   postproj_output_suffix="${POSTPROJ_OUTPUT_SUFFIX:-repairs_postproj_fatrop_clean}"
   postproj_trace_jsonl="${POSTPROJ_TRACE_JSONL:-dt/checkpoints/*/warmstarts/eval/*/warmstart_eval_*_rollout_trace.jsonl}"
+  base_laps_count="${BASE_LAPS_COUNT:-6}"
+  obstacle_laps_count="${OBSTACLE_LAPS_COUNT:-15}"
+  dataset_seed="${DATASET_SEED:-0}"
+  discretization_N="${DISCRETIZATION_N:-150}"
 
   {
-    echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 1 base laps"
+    echo "[run_full_dataset] Oval FATROP clean dataset (N=${discretization_N}): stage 1 base laps"
+    echo "[run_full_dataset] base_laps=${base_laps_count} obstacle_laps=${obstacle_laps_count} seed=${dataset_seed}"
     env FATROP_PRESET=obstacle_fast \
       FATROP_STRUCTURE_DETECTION=auto \
       FATROP_EXPAND=0 \
@@ -46,26 +51,27 @@ if [[ "${mode}" == "oval_fatrop_clean" ]]; then
       --map-files maps/Oval_Track_260m.mat \
       --output-dir data/base_laps_fatrop_clean \
       --solver fatrop \
-      --N 150 \
+      --N "${discretization_N}" \
       --ux-min 5.0 \
-      --base-laps 6 \
-      --obstacle-laps 15 \
+      --base-laps "${base_laps_count}" \
+      --obstacle-laps "${obstacle_laps_count}" \
       --min-obstacles 1 \
       --max-obstacles 4 \
-      --seed 0 \
+      --solve-timeout-s "${solve_timeout_s}" \
+      --seed "${dataset_seed}" \
       --resume
 
-    echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 2 shifts"
+    echo "[run_full_dataset] Oval FATROP clean dataset (N=${discretization_N}): stage 2 shifts"
     PYTHONPATH=. /home/saveas/.conda/envs/DT_trajopt/bin/python -u data/make_shift_episodes.py \
       --map-file maps/Oval_Track_260m.mat \
       --base-laps-dir data/base_laps_fatrop_clean \
       --output-dir data/datasets/Oval_Track_260m_shifts_fatrop_clean \
       --all-shifts \
-      --seed 0 \
+      --seed "${dataset_seed}" \
       --resume
 
     if [[ "${run_hard_repairs}" == "1" ]]; then
-      echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 3 hard repairs"
+      echo "[run_full_dataset] Oval FATROP clean dataset (N=${discretization_N}): stage 3 hard repairs"
       env FATROP_PRESET=obstacle_fast \
         FATROP_STRUCTURE_DETECTION=auto \
         FATROP_EXPAND=0 \
@@ -82,7 +88,7 @@ if [[ "${mode}" == "oval_fatrop_clean" ]]; then
         --base-laps-dir data/base_laps_fatrop_clean \
         --output-dir data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean \
         --num-segments "${hard_target}" \
-        --seed 0 \
+        --seed "${dataset_seed}" \
         --H 20 \
         --hard-mode \
         --ux-min 5.0 \
@@ -95,7 +101,7 @@ if [[ "${mode}" == "oval_fatrop_clean" ]]; then
     fi
 
     if [[ "${run_postproj}" == "1" ]]; then
-      echo "[run_full_dataset] Oval FATROP clean dataset (N=150): stage 4 post-projection repairs"
+      echo "[run_full_dataset] Oval FATROP clean dataset (N=${discretization_N}): stage 4 post-projection repairs"
       echo "[run_full_dataset] using trace glob: ${postproj_trace_jsonl}"
       env POSTPROJ_SOLVER=fatrop \
         SOLVE_TIMEOUT_S="${solve_timeout_s}" \

@@ -74,6 +74,7 @@ class ScenarioResult:
     ws_warmstart_rejection_reason: Optional[str] = None
 
     # Obstacle info
+    start_progress_m: float = 0.0
     num_obstacles: int = 0
     min_clearance_m: float = float('inf')
 
@@ -263,6 +264,7 @@ def run_baseline_solve(
     optimizer: TrajectoryOptimizer,
     config: EvalConfig,
     obstacles: List[Dict],
+    start_progress_m: float = 0.0,
     verbose: bool = False,
 ) -> Tuple[bool, Dict, object]:
     """Run optimizer with baseline initialization."""
@@ -284,6 +286,7 @@ def run_baseline_solve(
             obstacle_clearance_m=config.obstacle_clearance,
             eps_s=config.eps_s,
             eps_kappa=config.eps_kappa,
+            s0_offset_m=float(start_progress_m),
             verbose=verbose,
         )
     else:
@@ -301,6 +304,7 @@ def run_baseline_solve(
             eps_s=config.eps_s,
             eps_kappa=config.eps_kappa,
             convergent_lap=True,
+            s0_offset_m=float(start_progress_m),
             verbose=verbose,
         )
     solve_time = time.time() - t_start
@@ -318,6 +322,7 @@ def run_dt_warmstart_solve(
     warmstarter: DTWarmStarter,
     config: EvalConfig,
     obstacles: List[Dict],
+    start_progress_m: float = 0.0,
     verbose: bool = False,
 ) -> Tuple[bool, bool, Dict, List[Dict], object, object]:
     """Run optimizer with DT warm-start."""
@@ -330,6 +335,7 @@ def run_dt_warmstart_solve(
         N=config.N,
         ds_m=ds_m,
         x0=x0,
+        s0_m=float(start_progress_m),
         target_lap_time=config.target_lap_time_s,
         obstacles=obstacles,
         obstacle_clearance_m=config.obstacle_clearance,
@@ -354,7 +360,13 @@ def run_dt_warmstart_solve(
 
     if not warmstart_accepted:
         # Fall back to baseline
-        success, metrics, fallback_result = run_baseline_solve(optimizer, config, obstacles, verbose)
+        success, metrics, fallback_result = run_baseline_solve(
+            optimizer,
+            config,
+            obstacles,
+            start_progress_m=start_progress_m,
+            verbose=verbose,
+        )
         metrics["warmstart_time_s"] = ws_result.inference_time_s
         metrics["warmstart_accepted"] = False
         metrics["ws_fallback_count"] = ws_result.fallback_count
@@ -390,6 +402,7 @@ def run_dt_warmstart_solve(
             obstacle_clearance_m=config.obstacle_clearance,
             eps_s=config.eps_s,
             eps_kappa=config.eps_kappa,
+            s0_offset_m=float(start_progress_m),
             X_init=ws_result.X_init,
             U_init=ws_result.U_init,
             verbose=verbose,
@@ -409,6 +422,7 @@ def run_dt_warmstart_solve(
             eps_s=config.eps_s,
             eps_kappa=config.eps_kappa,
             convergent_lap=True,
+            s0_offset_m=float(start_progress_m),
             X_init=ws_result.X_init,
             U_init=ws_result.U_init,
             verbose=verbose,
@@ -527,6 +541,7 @@ def evaluate_scenario(
     optimizer: TrajectoryOptimizer,
     warmstarter: Optional[DTWarmStarter],
     obstacles: List[Dict],
+    start_progress_m: float,
     config: EvalConfig,
     verbose: bool = False,
 ) -> Tuple[List[ScenarioResult], List[Dict]]:
@@ -535,13 +550,20 @@ def evaluate_scenario(
     collected_trace_rows: List[Dict] = []
 
     # 1. Baseline
-    success, metrics, baseline_raw = run_baseline_solve(optimizer, config, obstacles, verbose)
+    success, metrics, baseline_raw = run_baseline_solve(
+        optimizer,
+        config,
+        obstacles,
+        start_progress_m=start_progress_m,
+        verbose=verbose,
+    )
     results.append(ScenarioResult(
         scenario_id=scenario_id,
         method="baseline",
         success=success,
         accepted=success,
         rejection_reason=None if success else "solver_failed",
+        start_progress_m=float(start_progress_m),
         num_obstacles=len(obstacles),
         **metrics,
     ))
@@ -549,7 +571,13 @@ def evaluate_scenario(
     # 2. Baseline with retry (if failed)
     if not success and config.max_retries > 0:
         for retry in range(config.max_retries):
-            success_retry, metrics_retry, _ = run_baseline_solve(optimizer, config, obstacles, verbose)
+            success_retry, metrics_retry, _ = run_baseline_solve(
+                optimizer,
+                config,
+                obstacles,
+                start_progress_m=start_progress_m,
+                verbose=verbose,
+            )
             if success_retry:
                 results.append(ScenarioResult(
                     scenario_id=scenario_id,
@@ -557,6 +585,7 @@ def evaluate_scenario(
                     success=True,
                     accepted=True,
                     rejection_reason=None,
+                    start_progress_m=float(start_progress_m),
                     num_obstacles=len(obstacles),
                     **metrics_retry,
                 ))
@@ -569,6 +598,7 @@ def evaluate_scenario(
                 success=False,
                 accepted=False,
                 rejection_reason="all_retries_failed",
+                start_progress_m=float(start_progress_m),
                 num_obstacles=len(obstacles),
                 **metrics,
             ))
@@ -580,6 +610,7 @@ def evaluate_scenario(
             success=success,
             accepted=success,
             rejection_reason=None if success else "solver_failed",
+            start_progress_m=float(start_progress_m),
             num_obstacles=len(obstacles),
             **metrics,
         ))
@@ -587,7 +618,12 @@ def evaluate_scenario(
     # 3. DT warm-start (if available)
     if warmstarter is not None:
         success_dt, ws_accepted, metrics_dt, rollout_trace, dt_raw, ws_obj = run_dt_warmstart_solve(
-            optimizer, warmstarter, config, obstacles, verbose
+            optimizer,
+            warmstarter,
+            config,
+            obstacles,
+            start_progress_m=start_progress_m,
+            verbose=verbose,
         )
         metrics_dt = dict(metrics_dt)
         metrics_dt.pop("warmstart_accepted", None)
@@ -598,6 +634,7 @@ def evaluate_scenario(
             accepted=success_dt,
             rejection_reason=None if success_dt else "solver_failed",
             warmstart_accepted=ws_accepted,
+            start_progress_m=float(start_progress_m),
             num_obstacles=len(obstacles),
             **metrics_dt,
         ))
@@ -640,6 +677,7 @@ def evaluate_scenario(
                     "method": "dt_warmstart",
                     "map_file": str(config.map_file),
                     "checkpoint_path": str(config.checkpoint_path) if config.checkpoint_path else "",
+                    "start_progress_m": float(start_progress_m),
                     "num_obstacles": int(len(obstacles)),
                     "triggered": bool(trigger),
                     "random_keep": bool(random_keep),
@@ -922,12 +960,19 @@ def main():
         # Sample obstacles
         num_obs = rng.integers(config.min_obstacles, config.max_obstacles + 1)
         obstacles = sample_obstacles(rng, world, num_obs, config)
+        start_progress_m = float(rng.uniform(0.0, world.length_m))
 
         print(f"Scenario {scenario_id + 1}/{config.num_scenarios}: {len(obstacles)} obstacles...", end=" ", flush=True)
 
         # Evaluate
         results, trace_rows = evaluate_scenario(
-            scenario_id, optimizer, warmstarter, obstacles, config, config.verbose if hasattr(config, 'verbose') else False
+            scenario_id,
+            optimizer,
+            warmstarter,
+            obstacles,
+            start_progress_m,
+            config,
+            config.verbose if hasattr(config, 'verbose') else False,
         )
         all_results.extend(results)
         all_trace_rows.extend(trace_rows)

@@ -4,7 +4,7 @@
 
 This project investigates whether an offline sequence model (Decision Transformer) can amortize nonlinear constrained trajectory optimization for autonomous vehicles by producing high-quality **warm-start trajectories**.
 
-**Core Idea:** Use a robust direct-transcription NLP solved by IPOPT as the production optimizer (including future obstacle-avoidance constraints), and use a learned neural prior to improve warm-start quality and reduce solve time/iterations.
+**Core Idea (current phase):** Use a robust direct-transcription NLP solved by FATROP as the active optimizer for dataset generation and warm-start evaluation, and use a learned Decision Transformer prior to reduce solve time/iterations.
 
 ```
 ┌─────────────────────────┐
@@ -12,7 +12,7 @@ This project investigates whether an offline sequence model (Decision Transforme
 │  (learned from data)    │                        │
 └─────────────────────────┘                        ▼
                                     ┌──────────────────────────┐
-                                    │ IPOPT Trajectory NLP     │
+                                    │ FATROP Trajectory NLP    │
                                     │ (collocation + constraints) │
                                     └──────────────────────────┘
                                                    │
@@ -77,14 +77,14 @@ min  J = ∫₀^s_final (1/ṡ) ds = ∫₀^s_final dt
 
 ### Implemented Solvers
 
-#### 1. Production Solver: Direct Collocation + IPOPT
+#### 1. Active Solver (Current Phase): Direct Collocation + FATROP
 ```
-Continuous OCP  ──transcribe──▶  NLP  ──IPOPT──▶  Solution
+Continuous OCP  ──transcribe──▶  NLP  ──FATROP──▶  Solution
                 (trapezoidal)
 ```
 - **Discretization:** Trapezoidal collocation (N nodes)
-- **NLP Solver:** IPOPT (interior point method)
-- **Use case:** Main solver for data generation and refinement
+- **NLP Solver:** FATROP (active phase default)
+- **Use case:** Main solver for Oval-first data generation and warm-start refinement
 - **Obstacle handling:** Static circular obstacles with hard clearance constraints (optional slack for diagnosis)
 - **Coordinate rule (critical):** Frenet-to-ENU conversion must be consistent across optimizer and plotting:
   - `E = E_cl - e*sin(psi)`
@@ -175,17 +175,17 @@ pip install numpy scipy matplotlib casadi PyYAML
 
 ```bash
 cd CS234_Final_Project
-python experiments/ipopt_trajopt_cli.py single
+python experiments/run_fatrop_native_trajopt.py --map-file maps/Oval_Track_260m.mat --N 120
 ```
 
 This will:
-1. Solve trajectory optimization with IPOPT direct collocation
-2. Run current comparison pipeline and save plots/logs in `results/trajectory_optimization/nlp`
+1. Solve trajectory optimization with FATROP direct collocation
+2. Save plots/logs in `results/trajectory_optimization/fatrop`
 
 Notes:
-- Production solver path is IPOPT.
+- Active phase solver path is FATROP.
 - The default demo configuration is full-lap (`ds = track_length / N`, periodic closure).
-- SCP outputs are kept for reference/diagnostics.
+- IPOPT tooling is kept for diagnostics/reference comparisons.
 
 ### Acceptance Policy + Batch Evaluation
 
@@ -256,9 +256,12 @@ Current active phase (March 2026) is Oval-first:
   - hard repairs: FATROP
   - post-projection repairs: FATROP
 
-Current Oval recovery shard status:
-- `data/datasets/Oval_Track_260m_repairs_hard`: `416` episodes
-- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` episodes (target `1000`, in progress)
+Current FATROP-clean Oval shard status:
+- `data/datasets/Oval_Track_260m_shifts_fatrop_clean`: `31710` episodes
+- `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`: `400` episodes
+- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`: `1000` episodes
+  - generation mix used in practice: `992` FATROP + `8` IPOPT fallback accepts
+  - integrity check: `0` missing/corrupt rows, `0` solver-success failures in saved metadata
 
 Resumable commands used in current phase:
 - hard repairs (FATROP):
@@ -457,6 +460,6 @@ print(f"Collocation solve time: {dc_result.solve_time:.2f}s")
 - [x] Benchmark DT-vs-baseline warm-start (fixed evaluation gate)
 - [ ] Train/val/test split artifacts with split-by-`base_id` hygiene
 - [ ] Weighted sampling / balancing for shifts vs repairs
-- [ ] Scale post-projection data toward target (`1000`) for Oval phase
-- [ ] Re-run 20-epoch Oval training after post-proj expansion and compare benchmark deltas
+- [x] Scale post-projection data to target (`1000`) for Oval phase
+- [ ] Re-run 20-epoch Oval training with post-proj shard and compare benchmark deltas
 - [ ] Multi-track generalization refresh once Oval metrics stabilize

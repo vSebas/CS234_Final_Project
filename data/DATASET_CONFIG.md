@@ -2,7 +2,7 @@
 
 This file is the canonical status/config for dataset generation used by DT training.
 
-## Current Focus (March 7, 2026)
+## Current Focus (March 10, 2026)
 
 Current active phase is **Oval-only training iteration**:
 - maps in active training loop:
@@ -13,9 +13,11 @@ Current active phase is **Oval-only training iteration**:
   - hard-repair generation: `FATROP`
   - post-projection generation: `FATROP` (default)
 
-Current Oval recovery shards:
-- `data/datasets/Oval_Track_260m_repairs_hard`: `416` accepted episodes (target `400`, phase complete)
-- `data/datasets/Oval_Track_260m_repairs_postproj`: `602` accepted episodes (target `1000`, in progress)
+Current Oval FATROP-clean shards:
+- `data/datasets/Oval_Track_260m_shifts_fatrop_clean`: `31710` episodes
+- `data/datasets/Oval_Track_260m_repairs_hard_fatrop_clean`: `400` accepted episodes
+- `data/datasets/Oval_Track_260m_repairs_postproj_fatrop_clean`: `1000` accepted episodes
+  - accepted solver mix from manifest solver_config: `fatrop=992`, `ipopt=8`
 
 Resumable commands:
 - hard repairs (FATROP):
@@ -23,7 +25,7 @@ Resumable commands:
 - post-projection repairs (FATROP default):
   - `TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
   - clean FATROP-only shard (no mixing with older runs):
-    - `OUTPUT_SUFFIX=repairs_postproj_fatrop TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
+    - `OUTPUT_SUFFIX=repairs_postproj_fatrop_clean TOTAL_TARGET=1000 SINGLE_MAP_CAP=0 ./data/run_postprojection_repairs_loop.sh`
 
 Why `SINGLE_MAP_CAP=0`:
 - default cap can stop intentional single-map runs early
@@ -48,7 +50,7 @@ Multi-track data already exists in this repo and is not deleted:
 
 Current training focus is still Oval-only by choice (fast iteration), not because other-track data is missing.
 
-## Shard Inventory (Current)
+## Shard Inventory (Historical Multi-Track Snapshot)
 
 Episode counts below are read from each shard `manifest.jsonl`.
 
@@ -74,7 +76,7 @@ Episode counts below are read from each shard `manifest.jsonl`.
 | `TRACK5_330m_repairs` | 83 |
 | `TRACK5_330m_repairs_hard` | 200 |
 
-Current totals by family:
+Historical totals by family (legacy multi-track snapshot):
 - shifts: `10164`
 - repairs: `500`
 - hard repairs: `1416`
@@ -130,19 +132,19 @@ Why this size:
 - preserve all-track hard-repair coverage from earlier runs
 - add extra Oval hard-repair density because current training/eval loop is intentionally Oval-first
 
-### 4) Post-projection shard (`*_repairs_postproj`): `602` (Oval only)
+### 4) Post-projection shard (`*_repairs_postproj`): `602` (historical Oval-only snapshot)
 
 How generated:
 - from DT rollout trace rows (`experiments/eval_warmstart.py --export-rollout-trace`)
 - labeled by short optimizer repair solves (`data/build_postprojection_repairs.py`)
 - currently only Oval traces have been used in this phase
 
-Observed count:
+Observed count (historical snapshot):
 - `Oval_Track_260m_repairs_postproj = 602`
 
-Why this number:
-- this is an in-progress checkpoint toward the current target (`1000`)
-- current phase is prioritizing fast Oval iteration before expanding post-proj labeling to other maps
+Current status superseding the above:
+- `Oval_Track_260m_repairs_postproj_fatrop_clean = 1000` (completed)
+- this is the active shard for next post-proj fine-tune runs
 
 ## Dataset Scripts
 
@@ -155,8 +157,7 @@ Core scripts:
 
 Convenience wrappers:
 - hard repairs: `data/run_hard_repairs_fatrop.sh`
-- post-projection: `data/run_postprojection_repairs.sh`
-- post-projection loop-to-target: `data/run_postprojection_repairs_loop.sh`
+- post-projection generation (single entrypoint): `data/run_postprojection_repairs_loop.sh`
 
 ## Default Solver/Trajectory Settings
 
@@ -221,9 +222,12 @@ Use:
 
 ## Next Dataset Step (Current)
 
-1. Finish `Oval_Track_260m_repairs_postproj` from `602` to `1000`.
-2. Retrain DT on Oval-only shards with updated recovery mix.
-3. Re-evaluate downstream benchmark gates.
+1. Keep current clean Oval shards as frozen data baseline:
+   - `Oval_Track_260m_shifts_fatrop_clean` (`31710`)
+   - `Oval_Track_260m_repairs_hard_fatrop_clean` (`400`)
+   - `Oval_Track_260m_repairs_postproj_fatrop_clean` (`1000`)
+2. Re-evaluate deterministic downstream benchmark gates (FATROP fixed gate as decision metric).
+3. Run with/without-postproj ablation on the improved model config before generating any additional post-proj labels.
 
 ## Future / Phase 2 (After Oval Iteration)
 

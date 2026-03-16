@@ -7,7 +7,8 @@ profiles used in this repo.
 
 In the active Oval-first data loop:
 - hard repairs: FATROP (`data/run_hard_repairs_fatrop.sh`, `--solver fatrop`)
-- post-projection repairs: FATROP by default (`POSTPROJ_SOLVER=fatrop` in `data/run_postprojection_repairs.sh`)
+- post-projection repairs: FATROP by default (`POSTPROJ_SOLVER=fatrop` in `data/run_postprojection_repairs_loop.sh`)
+  - practical fallback: IPOPT can be used for stuck post-projection attempts while keeping FATROP as default
 
 ## Active runner
 
@@ -113,4 +114,5 @@ Observed output:
 - Historical context and solver-lineage summary are kept in `docs/TRAJOPT_HISTORY.md`.
 - Source-of-truth defaults for post-proj solver are in:
   - `data/build_postprojection_repairs.py` (`--solver` default `fatrop`)
-  - `data/run_postprojection_repairs.sh` (`POSTPROJ_SOLVER` default `fatrop`)
+  - `data/run_postprojection_repairs_loop.sh` (`POSTPROJ_SOLVER` default `fatrop`)
+- For post-projection loops, process-level timeout (`WALL_TIME`) is the reliable skip mechanism when solver calls hang.

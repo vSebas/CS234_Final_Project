@@ -102,7 +102,7 @@ class TrainConfig:
     max_ep_len: int = 300
 
     # Loss
-    lambda_x: float = 0.5  # Weight on state prediction loss
+    lambda_x: float = 0.0
 
     # Optimization
     batch_size: int = 64
@@ -118,6 +118,7 @@ class TrainConfig:
     save_every: int = 10
     save_steps: int = 5000
     log_every: int = 100
+    early_stop_patience: int = 0
 
     # Data loading
     num_workers: int = 4
@@ -130,7 +131,8 @@ class TrainConfig:
 
     # Misc
     seed: int = 42
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda"
+    use_amp: bool = True
 
     def save(self, path: Path) -> None:
         with open(path, "w") as f:
@@ -162,6 +164,7 @@ class DTTrainer:
 
         self.device = torch.device(config.device)
         self.model.to(self.device)
+        self.use_amp = bool(config.use_amp and self.device.type == "cuda")
 
         # Optimizer
         self.optimizer = torch.optim.AdamW(
@@ -173,6 +176,7 @@ class DTTrainer:
 
         # Learning rate scheduler with warmup
         self.scheduler = self._create_scheduler()
+        self.scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
 
         # Logging
         self.output_dir = Path(config.output_dir)
@@ -224,29 +228,27 @@ class DTTrainer:
         timesteps = batch["timesteps"].to(self.device)
         attention_mask = batch["attention_mask"].to(self.device)
 
-        # Forward pass
-        action_preds, state_preds = self.model(
-            states, actions, rtg, timesteps, attention_mask
-        )
+        # Forward/loss under autocast for faster CUDA training.
+        with torch.cuda.amp.autocast(enabled=self.use_amp):
+            action_preds, state_preds = self.model(
+                states, actions, rtg, timesteps, attention_mask
+            )
 
-        # Compute losses (only on valid, non-padding tokens)
-        mask = attention_mask.float()
+            # Compute losses (only on valid, non-padding tokens)
+            mask = attention_mask.float()
 
-        # Action loss (predict current action from current state)
-        action_loss = self._masked_mse(action_preds, actions, mask)
+            # Action loss (predict current action from current state)
+            action_loss = self._masked_mse(action_preds, actions, mask)
 
-        # State prediction loss (predict next state observation)
-        # Target: next state observation (shifted by 1)
-        # Only use first state_dim features (vehicle obs, not track/obstacle)
-        state_dim = self.model.config.state_dim
-        next_states = torch.cat([
-            states[:, 1:, :state_dim],
-            states[:, -1:, :state_dim],  # Pad last
-        ], dim=1)
-        state_loss = self._masked_mse(state_preds, next_states, mask)
-
-        # Total loss
-        loss = action_loss + self.config.lambda_x * state_loss
+            # State prediction loss (predict next state observation)
+            # Target: next state observation (shifted by 1)
+            state_dim = self.model.config.state_dim
+            next_states = torch.cat([
+                states[:, 1:, :state_dim],
+                states[:, -1:, :state_dim],  # Pad last
+            ], dim=1)
+            state_loss = self._masked_mse(state_preds, next_states, mask)
+            loss = action_loss + self.config.lambda_x * state_loss
 
         if not torch.isfinite(loss):
             raise RuntimeError(
@@ -256,16 +258,15 @@ class DTTrainer:
 
         # Backward pass
         self.optimizer.zero_grad()
-        loss.backward()
+        self.scaler.scale(loss).backward()
 
         # Gradient clipping
         if self.config.grad_clip > 0:
-            torch.nn.utils.clip_grad_norm_(
-                self.model.parameters(),
-                self.config.grad_clip
-            )
+            self.scaler.unscale_(self.optimizer)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.grad_clip)
 
-        self.optimizer.step()
+        self.scaler.step(self.optimizer)
+        self.scaler.update()
         self.scheduler.step()
 
         return {
@@ -291,15 +292,27 @@ class DTTrainer:
         denom = valid.sum() * pred.shape[-1]
         return sqerr.sum() / denom.clamp_min(1.0)
 
+    @staticmethod
+    def _masked_sse_and_denom(
+        pred: torch.Tensor,
+        target: torch.Tensor,
+        token_mask: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        """Return squared-error sum and valid-element denominator."""
+        valid = token_mask.unsqueeze(-1).to(dtype=pred.dtype)
+        sqerr = (pred - target).pow(2) * valid
+        denom = valid.sum() * pred.shape[-1]
+        return sqerr.sum(), denom.clamp_min(1.0)
+
     @torch.no_grad()
     def evaluate(self) -> Dict[str, float]:
         """Evaluate on validation set."""
         self.model.eval()
 
-        total_loss = 0.0
-        total_action_loss = 0.0
-        total_state_loss = 0.0
-        n_batches = 0
+        total_action_sse = 0.0
+        total_action_denom = 0.0
+        total_state_sse = 0.0
+        total_state_denom = 0.0
 
         for batch in self.val_loader:
             states = batch["states"].to(self.device)
@@ -308,21 +321,23 @@ class DTTrainer:
             timesteps = batch["timesteps"].to(self.device)
             attention_mask = batch["attention_mask"].to(self.device)
 
-            action_preds, state_preds = self.model(
-                states, actions, rtg, timesteps, attention_mask
-            )
+            with torch.cuda.amp.autocast(enabled=self.use_amp):
+                action_preds, state_preds = self.model(
+                    states, actions, rtg, timesteps, attention_mask
+                )
 
-            mask = attention_mask.float()
-            action_loss = self._masked_mse(action_preds, actions, mask)
+                mask = attention_mask.float()
+                action_sse, action_denom = self._masked_sse_and_denom(action_preds, actions, mask)
+                action_loss = action_sse / action_denom
 
-            state_dim = self.model.config.state_dim
-            next_states = torch.cat([
-                states[:, 1:, :state_dim],
-                states[:, -1:, :state_dim],
-            ], dim=1)
-            state_loss = self._masked_mse(state_preds, next_states, mask)
-
-            loss = action_loss + self.config.lambda_x * state_loss
+                state_dim = self.model.config.state_dim
+                next_states = torch.cat([
+                    states[:, 1:, :state_dim],
+                    states[:, -1:, :state_dim],
+                ], dim=1)
+                state_sse, state_denom = self._masked_sse_and_denom(state_preds, next_states, mask)
+                state_loss = state_sse / state_denom
+                loss = action_loss + self.config.lambda_x * state_loss
 
             if not torch.isfinite(loss):
                 raise RuntimeError(
@@ -330,15 +345,18 @@ class DTTrainer:
                     f"loss={loss.item()}, action_loss={action_loss.item()}, state_loss={state_loss.item()}"
                 )
 
-            total_loss += loss.item()
-            total_action_loss += action_loss.item()
-            total_state_loss += state_loss.item()
-            n_batches += 1
+            total_action_sse += float(action_sse.item())
+            total_action_denom += float(action_denom.item())
+            total_state_sse += float(state_sse.item())
+            total_state_denom += float(state_denom.item())
 
+        val_action_loss = total_action_sse / max(1.0, total_action_denom)
+        val_state_loss = total_state_sse / max(1.0, total_state_denom)
+        val_loss = val_action_loss + self.config.lambda_x * val_state_loss
         return {
-            "val_loss": total_loss / max(1, n_batches),
-            "val_action_loss": total_action_loss / max(1, n_batches),
-            "val_state_loss": total_state_loss / max(1, n_batches),
+            "val_loss": val_loss,
+            "val_action_loss": val_action_loss,
+            "val_state_loss": val_state_loss,
         }
 
     def save_checkpoint(self, epoch: int, is_best: bool = False) -> None:
@@ -388,6 +406,7 @@ class DTTrainer:
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),
             "scheduler_state_dict": self.scheduler.state_dict(),
+            "scaler_state_dict": self.scaler.state_dict() if self.use_amp else None,
             "best_val_loss": self.best_val_loss,
             "total_train_time_s": self.total_train_time_s,
             "config": asdict(self.config),
@@ -469,32 +488,52 @@ class DTTrainer:
             plt.savefig(self.val_loss_plot_path, dpi=180)
             plt.close()
 
-    def load_checkpoint(self, path: Path) -> int:
+    def load_checkpoint(self, path: Path, reset_epoch_progress: bool = False) -> int:
         """Load checkpoint and return starting epoch."""
         checkpoint = torch.load(path, map_location=self.device)
         self.model.load_state_dict(checkpoint["model_state_dict"])
         self.optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
         self.scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+        scaler_state = checkpoint.get("scaler_state_dict")
+        if self.use_amp and scaler_state is not None:
+            self.scaler.load_state_dict(scaler_state)
         self.global_step = checkpoint["global_step"]
         self.best_val_loss = checkpoint["best_val_loss"]
         self.total_train_time_s = float(checkpoint.get("total_train_time_s", 0.0))
         self.steps_completed_in_epoch = int(checkpoint.get("steps_completed_in_epoch", 0))
+        if reset_epoch_progress:
+            self.steps_completed_in_epoch = 0
+
+        checkpoint_cfg = checkpoint.get("config", {}) or {}
+        checkpoint_lr = float(checkpoint_cfg.get("learning_rate", self.config.learning_rate))
+        if abs(checkpoint_lr - float(self.config.learning_rate)) > 1e-12:
+            target_lr = float(self.config.learning_rate)
+            for group in self.optimizer.param_groups:
+                group["lr"] = target_lr
+                group["initial_lr"] = target_lr
+            if hasattr(self.scheduler, "base_lrs"):
+                self.scheduler.base_lrs = [target_lr for _ in self.optimizer.param_groups]
+            if hasattr(self.scheduler, "_last_lr"):
+                self.scheduler._last_lr = [target_lr for _ in self.optimizer.param_groups]
 
         if self.steps_completed_in_epoch >= len(self.train_loader):
             return checkpoint["epoch"] + 1
         return checkpoint["epoch"]
 
-    def train(self, resume_from: Optional[Path] = None) -> None:
+    def train(self, resume_from: Optional[Path] = None, reset_epoch_progress: bool = False) -> None:
         """Main training loop."""
         start_epoch = 0
         if resume_from and resume_from.exists():
-            start_epoch = self.load_checkpoint(resume_from)
+            start_epoch = self.load_checkpoint(resume_from, reset_epoch_progress=reset_epoch_progress)
             print(f"Resumed from checkpoint: {resume_from}")
             print(f"Starting from epoch {start_epoch}")
             print(f"Restored global_step: {self.global_step}")
             print(f"Restored best_val_loss: {self.best_val_loss:.6f}")
             print(f"Restored total_train_time_s: {self.total_train_time_s:.1f}")
             print(f"Restored steps_completed_in_epoch: {self.steps_completed_in_epoch}")
+            print(f"Effective optimizer lr after resume: {self.optimizer.param_groups[0]['lr']:.2e}")
+            if reset_epoch_progress:
+                print("Reset steps_completed_in_epoch for transfer resume.")
             self._append_metrics_log(
                 "resume",
                 {
@@ -504,6 +543,7 @@ class DTTrainer:
                     "best_val_loss": self.best_val_loss,
                     "total_train_time_s": self.total_train_time_s,
                     "steps_completed_in_epoch": self.steps_completed_in_epoch,
+                    "reset_epoch_progress": bool(reset_epoch_progress),
                 },
             )
 
@@ -520,17 +560,30 @@ class DTTrainer:
         print()
 
         current_epoch = start_epoch - 1
+        no_improve_epochs = 0
         try:
             for epoch in range(start_epoch, self.config.num_epochs):
                 current_epoch = epoch
                 t_epoch_start = time.time()
                 resume_batches_to_skip = self.steps_completed_in_epoch if epoch == start_epoch else 0
                 last_completed_batch_in_epoch = resume_batches_to_skip
+                if resume_batches_to_skip > 0:
+                    print(
+                        f"Resuming epoch {epoch + 1}: skipping {resume_batches_to_skip}/{len(self.train_loader)} "
+                        "already-completed batches..."
+                    )
+                next_resume_skip_log = 500
 
                 # Training
                 epoch_losses = []
                 for batch_idx, batch in enumerate(self.train_loader):
                     if batch_idx < resume_batches_to_skip:
+                        if resume_batches_to_skip > 0 and (batch_idx + 1) >= next_resume_skip_log:
+                            print(
+                                f"  skipped {batch_idx + 1}/{resume_batches_to_skip} resumed batches",
+                                flush=True,
+                            )
+                            next_resume_skip_log += 500
                         continue
                     metrics = self.train_step(batch)
                     epoch_losses.append(metrics["loss"])
@@ -595,6 +648,9 @@ class DTTrainer:
                     is_best = val_loss < self.best_val_loss
                     if is_best:
                         self.best_val_loss = val_loss
+                        no_improve_epochs = 0
+                    else:
+                        no_improve_epochs += 1
 
                     t_epoch = time.time() - t_epoch_start
                     print(
@@ -627,6 +683,26 @@ class DTTrainer:
                     # Save epoch checkpoint every epoch; best checkpoints are tracked separately.
                     self.save_checkpoint(epoch, is_best=is_best)
                     self.steps_completed_in_epoch = 0
+                    if (
+                        self.config.early_stop_patience > 0
+                        and no_improve_epochs >= int(self.config.early_stop_patience)
+                    ):
+                        print(
+                            "Early stopping triggered: "
+                            f"no validation improvement for {no_improve_epochs} epoch(s) "
+                            f"(patience={self.config.early_stop_patience})."
+                        )
+                        self._append_metrics_log(
+                            "early_stop",
+                            {
+                                "epoch": epoch,
+                                "global_step": self.global_step,
+                                "best_val_loss": self.best_val_loss,
+                                "no_improve_epochs": no_improve_epochs,
+                                "patience": int(self.config.early_stop_patience),
+                            },
+                        )
+                        break
                 else:
                     self.total_train_time_s += time.time() - t_epoch_start
                     self._save_last_checkpoint(self._build_checkpoint(epoch, steps_completed_in_epoch=len(self.train_loader)))
@@ -711,7 +787,7 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.1)
 
     # Loss
-    parser.add_argument("--lambda-x", type=float, default=0.5, help="State prediction loss weight")
+    parser.add_argument("--lambda-x", type=float, default=0.0, help="State prediction loss weight")
 
     # Training
     parser.add_argument("--batch-size", type=int, default=64)
@@ -720,7 +796,19 @@ def main():
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--num-epochs", type=int, default=100)
     parser.add_argument("--warmup-steps", type=int, default=2000)
+    parser.add_argument(
+        "--save-every",
+        type=int,
+        default=10,
+        help="Save an epoch checkpoint every N epochs.",
+    )
     parser.add_argument("--save-steps", type=int, default=5000)
+    parser.add_argument(
+        "--early-stop-patience",
+        type=int,
+        default=0,
+        help="Early stop if val_loss does not improve for this many consecutive evaluated epochs; 0 disables.",
+    )
 
     # Misc
     parser.add_argument("--seed", type=int, default=42)
@@ -735,7 +823,14 @@ def main():
             "that path, and `none` disables resume."
         ),
     )
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument(
+        "--amp",
+        type=int,
+        choices=(0, 1),
+        default=1,
+        help="Enable CUDA AMP mixed precision (1=yes, 0=no).",
+    )
     parser.add_argument(
         "--repair-weight",
         type=float,
@@ -772,7 +867,7 @@ def main():
     if args.device == "cuda" and not torch.cuda.is_available():
         raise RuntimeError(
             "Requested --device cuda, but torch.cuda.is_available() is False in this shell. "
-            "Verify your CUDA environment or use --device cpu."
+            "Verify your CUDA environment."
         )
 
     # Set seed
@@ -795,7 +890,9 @@ def main():
         grad_clip=args.grad_clip,
         num_epochs=args.num_epochs,
         warmup_steps=args.warmup_steps,
+        save_every=args.save_every,
         save_steps=args.save_steps,
+        early_stop_patience=args.early_stop_patience,
         seed=args.seed,
         num_workers=args.num_workers,
         repair_weight=args.repair_weight,
@@ -804,6 +901,7 @@ def main():
         hard_repair_fraction=args.hard_repair_fraction,
         postproj_repair_fraction=args.postproj_repair_fraction,
         device=args.device,
+        use_amp=bool(args.amp),
     )
 
     print("=" * 60)
@@ -864,11 +962,20 @@ def main():
     # Create trainer
     trainer = DTTrainer(model, train_loader, val_loader, config, stats)
 
-    # Train
+    # For transfer fine-tuning, explicit resume path from a different run should
+    # not carry mid-epoch progress into the new output_dir.
     resume_path = resolve_resume_path(Path(config.output_dir), args.resume)
     if is_explicit_resume_path(args.resume) and resume_path is None:
         raise FileNotFoundError(f"Resume checkpoint not found: {args.resume}")
-    trainer.train(resume_from=resume_path)
+    reset_epoch_progress = False
+    if resume_path is not None and is_explicit_resume_path(args.resume):
+        try:
+            resume_resolved = resume_path.resolve()
+            output_resolved = Path(config.output_dir).resolve()
+            reset_epoch_progress = output_resolved not in resume_resolved.parents
+        except OSError:
+            reset_epoch_progress = False
+    trainer.train(resume_from=resume_path, reset_epoch_progress=reset_epoch_progress)
 
 
 if __name__ == "__main__":
